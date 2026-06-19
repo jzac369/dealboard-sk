@@ -1119,6 +1119,12 @@
     const wrap = document.getElementById('img-preview-wrap');
     const img  = document.getElementById('img-preview');
     if (!file) { wrap.style.display = 'none'; return; }
+    if (!file.type.startsWith('image/')) {
+      alert('Vybraný súbor nie je obrázok. Vyber prosím fotku (JPG, PNG, atď.).');
+      e.target.value = '';
+      wrap.style.display = 'none';
+      return;
+    }
     if (file.size > 2*1024*1024) {
       alert('Obrázok je príliš veľký. Maximálna veľkosť je 2 MB.');
       e.target.value = '';
