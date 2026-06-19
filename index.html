@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DealBoard SK – Najlepšie zľavy zo SK/CZ e-shopov</title>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, increment, query, orderBy, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ─── NASTAV SVOJE FIREBASE ÚDAJE TU ───────────────────────────────────────
+  const firebaseConfig = {
+    apiKey:            "AIzaSyAZhsfBl5xLpILC2r2knGar2RgxqXK7yBQ",
+    authDomain:        "dealboard-e60bf.firebaseapp.com",
+    projectId:         "dealboard-e60bf",
+    storageBucket:     "dealboard-e60bf.firebasestorage.app",
+    messagingSenderId: "16233224810",
+    appId:             "1:16233224810:web:9d0fa4d5faa49ac4c10813"
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // ── Ukážkové dealy pre demo (vložia sa len raz pri prvom spustení) ──
+  const DEMO_DEALS = [
+    {
+      title: "Apple AirPods Pro 2 – bezdrôtové slúchadlá",
+      store: "Alza.sk",
+      category: "Elektronika",
+      originalPrice: 299,
+      dealPrice: 199,
+      currency: "€",
+      url: "https://alza.sk",
+      imageUrl: "https://images.unsplash.com/photo-1606741965429-02919b0ebf22?w=400&q=80",
+      description: "Bezdrôtové slúchadlá s aktívnym potláčaním hluku. Historické minimum na Alza.sk!",
+      votes: 47,
+      comments: 12,
+      timestamp: serverTimestamp()
+    },
+    {
+      title: "Samsung Galaxy S24 128GB – smartfón",
+      store: "Mall.cz",
+      category: "Elektronika",
+      originalPrice: 899,
+      dealPrice: 649,
+      currency: "€",
+      url: "https://mall.cz",
+      imageUrl: "https://images.unsplash.com/photo-1610945264803-c22b62d2a7b3?w=400&q=80",
+      description: "Vlajkový smartfón Samsungu za skvelú cenu. Zľava 28% oproti bežnej cene.",
+      votes: 83,
+      comments: 24,
+      timestamp: serverTimestamp()
+    },
+    {
+      title: "LEGO Creator 3-v-1 Divoké zvieratá",
+      store: "Heureka.sk",
+      category: "Hračky",
+      originalPrice: 79,
+      dealPrice: 49,
+      currency: "€",
+      url: "https://heureka.sk",
+      imageUrl: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80",
+      description: "Obľúbená LEGO sada pre deti. Skvelý darček za výbornú cenu.",
+      votes: 31,
+      comments: 7,
+      timestamp: serverTimestamp()
+    },
+    {
+      title: "Nike Air Max 90 – tenisky veľ. 40–46",
+      store: "Footshop.sk",
+      category: "Móda",
+      originalPrice: 149,
+      dealPrice: 89,
+      currency: "€",
+      url: "https://footshop.sk",
+      imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
+      description: "Klasické tenisky Nike s 40% zľavou. Výpredaj sezónnych modelov.",
+      votes: 56,
+      comments: 18,
+      timestamp: serverTimestamp()
+    },
+    {
+      title: "Philips Airfryer XXL – horúcovzdušná fritéza",
+      store: "Datart.sk",
+      category: "Dom & Záhrada",
+      originalPrice: 249,
+      dealPrice: 159,
+      currency: "€",
+      url: "https://datart.sk",
+      imageUrl: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+      description: "Fritéza bez oleja pre celú rodinu. 7,3 litra – ideál pre väčšie domácnosti.",
+      votes: 44,
+      comments: 9,
+      timestamp: serverTimestamp()
+    }
+  ];
+
+  let demoInserted = false;
+
+  async function insertDemoIfEmpty(deals) {
+    if (demoInserted || deals.length > 0) return;
+    demoInserted = true;
+    for (const d of DEMO_DEALS) {
+      await addDoc(collection(db, "deals"), d);
+    }
+  }
+
+  // ── Real-time listener ──────────────────────────────────────────────────
+  const q = query(collection(db, "deals"), orderBy("votes", "desc"));
+  onSnapshot(q, (snap) => {
+    const deals = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    insertDemoIfEmpty(deals);
+    renderDeals(deals);
+  }, (err) => {
+    console.error("Firebase error:", err);
+    document.getElementById("fb-banner").style.display = "block";
+    renderDeals(DEMO_DEALS.map((d,i) => ({ ...d, id: "demo-" + i, timestamp: { seconds: Date.now()/1000 } })));
+  });
+
+  // ── Voting ──────────────────────────────────────────────────────────────
+  window.vote = async (id, delta) => {
+    if (id.startsWith("demo-")) return;
+    try {
+      await updateDoc(doc(db, "deals", id), { votes: increment(delta) });
+    } catch(e) { console.error(e); }
+  };
+
+  // ── Add deal ────────────────────────────────────────────────────────────
+  window.submitDeal = async (data) => {
+    await addDoc(collection(db, "deals"), {
+      ...data,
+      votes: 0,
+      comments: 0,
+      timestamp: serverTimestamp()
+    });
+  };
+</script>
+
+<style>
+  /* ── Tokens ─────────────────────────────────────────────────────────── */
+  :root {
+    --terracotta:    #C8694A;
+    --terracotta-dk: #AD5639;
+    --sage:          #7A9A7E;
+    --sage-dk:       #5F8064;
+    --ink:    #2B2620;
+    --muted:  #8A8276;
+    --line:   #E8E0D4;
+    --bg:     #F4F1EA;
+    --card:   #FBF8F2;
+    --white:  #FFFFFF;
+    --gold:   #D9A24B;
+    --badge:  #F3E6D2;
+    --badge-t:#8A6200;
+    --r:      16px;
+    --shadow: 0 6px 20px rgba(43,38,32,.06), 0 1px 3px rgba(43,38,32,.05);
+    --shadow-lg: 0 14px 36px rgba(43,38,32,.10), 0 2px 6px rgba(43,38,32,.06);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); min-height: 100vh; }
+
+  /* ── Header ─────────────────────────────────────────────────────────── */
+  header {
+    background: var(--card);
+    color: var(--ink);
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: 64px;
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+  .logo { font-size: 1.4rem; font-weight: 800; letter-spacing: -.5px; white-space: nowrap; color: var(--ink); }
+  .logo span { color: var(--terracotta); }
+  .header-search {
+    flex: 1; max-width: 420px;
+    background: var(--bg); border: 1.5px solid var(--line);
+    border-radius: 10px; display: flex; align-items: center; overflow: hidden;
+  }
+  .header-search input {
+    background: none; border: none; outline: none; color: var(--ink);
+    padding: 9px 14px; width: 100%; font-size: .9rem;
+  }
+  .header-search input::placeholder { color: var(--muted); }
+  .btn-add {
+    background: linear-gradient(135deg, var(--terracotta), var(--sage));
+    color: #fff; font-weight: 700;
+    border: none; padding: 10px 18px; border-radius: 10px;
+    cursor: pointer; font-size: .85rem; white-space: nowrap;
+    transition: opacity .15s, transform .15s;
+    box-shadow: var(--shadow);
+  }
+  .btn-add:hover { opacity: .9; transform: translateY(-1px); }
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  .container { max-width: 1120px; margin: 0 auto; padding: 20px 16px; display: grid;
+    grid-template-columns: 200px 1fr; gap: 20px; }
+  @media (max-width: 720px) { .container { grid-template-columns: 1fr; } }
+
+  /* ── Sidebar ─────────────────────────────────────────────────────────── */
+  .sidebar h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin-bottom: 10px; font-weight: 700; }
+  .cat-list { list-style: none; }
+  .cat-list li button {
+    width: 100%; text-align: left; background: none; border: none;
+    padding: 8px 12px; border-radius: 10px; cursor: pointer;
+    font-size: .88rem; color: var(--ink); transition: background .15s, color .15s;
+  }
+  .cat-list li button:hover { background: var(--card); }
+  .cat-list li button.active { background: var(--terracotta); color: #fff; font-weight: 600;
+    box-shadow: var(--shadow); }
+
+  /* ── Sort bar ─────────────────────────────────────────────────────────── */
+  .sort-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .sort-btn { background: var(--card); border: 1.5px solid var(--line); border-radius: 20px;
+    padding: 6px 16px; font-size: .82rem; cursor: pointer; color: var(--muted);
+    transition: all .15s; }
+  .sort-btn.active { background: var(--sage); border-color: var(--sage); color: #fff; }
+  .sort-btn:hover:not(.active) { border-color: var(--terracotta); color: var(--terracotta); }
+
+  /* ── Deal card ──────────────────────────────────────────────────────── */
+  .deals-list { display: flex; flex-direction: column; gap: 14px; }
+  .deal-card {
+    background: var(--card); border-radius: var(--r); box-shadow: var(--shadow);
+    display: flex; gap: 0; overflow: hidden; transition: box-shadow .2s, transform .2s;
+    border: 1px solid var(--line);
+  }
+  .deal-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+
+  /* vote column */
+  .vote-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 18px 16px; gap: 6px; min-width: 68px;
+    border-right: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .vote-btn { background: var(--white); border: 1.5px solid var(--line); border-radius: 8px;
+    width: 36px; height: 32px; cursor: pointer; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s; }
+  .vote-btn.up:hover { background: #fbe9e2; border-color: var(--terracotta); color: var(--terracotta-dk); }
+  .vote-btn.dn:hover { background: #eef2ee; border-color: var(--sage); color: var(--sage-dk); }
+  .vote-count { font-size: 1.15rem; font-weight: 800; color: var(--ink); }
+
+  /* image */
+  .deal-img { width: 130px; min-width: 130px; overflow: hidden; position: relative; }
+  .deal-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  @media (max-width: 520px) { .deal-img { display: none; } }
+
+  /* body */
+  .deal-body { flex: 1; padding: 16px 18px; display: flex; flex-direction: column; gap: 7px; }
+  .deal-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tag-store { background: var(--ink); color: #fff; font-size: .72rem; font-weight: 700;
+    padding: 3px 9px; border-radius: 6px; }
+  .tag-cat { background: var(--badge); color: var(--badge-t); font-size: .72rem;
+    padding: 3px 9px; border-radius: 6px; font-weight: 600; }
+  .deal-age { font-size: .72rem; color: var(--muted); margin-left: auto; }
+  .deal-title { font-size: 1.02rem; font-weight: 700; color: var(--ink); text-decoration: none; }
+  .deal-title:hover { color: var(--terracotta-dk); }
+  .deal-desc { font-size: .83rem; color: var(--muted); line-height: 1.45;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .deal-price-row { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
+  .price-now { font-size: 1.4rem; font-weight: 800; color: var(--sage-dk); }
+  .price-was { font-size: .88rem; color: var(--muted); text-decoration: line-through; }
+  .price-pct { background: var(--terracotta); color: #fff; font-size: .75rem; font-weight: 800;
+    padding: 3px 8px; border-radius: 6px; }
+  .deal-footer { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+  .deal-footer a { font-size: .82rem; color: var(--muted); text-decoration: none; }
+  .deal-footer a:hover { color: var(--terracotta-dk); }
+  .btn-go { margin-left: auto; background: var(--terracotta); color: #fff; border: none;
+    padding: 8px 20px; border-radius: 10px; font-size: .85rem; font-weight: 700;
+    cursor: pointer; text-decoration: none; transition: background .15s, transform .15s; }
+  .btn-go:hover { background: var(--terracotta-dk); transform: translateY(-1px); }
+
+  /* ── Firebase banner ─────────────────────────────────────────────────── */
+  #fb-banner {
+    display: none; background: var(--badge); color: var(--badge-t);
+    border: 1px solid #e8cd99; border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 16px; font-size: .88rem; line-height: 1.5;
+  }
+  #fb-banner strong { display: block; margin-bottom: 4px; }
+
+  /* ── Modal ───────────────────────────────────────────────────────────── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(43,38,32,.45);
+    z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: var(--r); width: 100%; max-width: 520px;
+    max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+  .modal-header { background: linear-gradient(135deg, var(--terracotta), var(--sage));
+    color: #fff; padding: 18px 22px; border-radius: var(--r) var(--r) 0 0;
+    display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h2 { font-size: 1.05rem; }
+  .modal-close { background: none; border: none; color: #fff; font-size: 1.4rem;
+    cursor: pointer; line-height: 1; }
+  .modal-body { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  label { font-size: .85rem; font-weight: 600; display: block; margin-bottom: 4px; color: var(--ink); }
+  input[type=text], input[type=number], input[type=url], select, textarea {
+    width: 100%; padding: 10px 13px; border: 1.5px solid var(--line); border-radius: 10px;
+    font-size: .9rem; outline: none; transition: border .15s; background: var(--white);
+    color: var(--ink); font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--terracotta); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn-submit { background: var(--terracotta); color: #fff; border: none; padding: 12px;
+    border-radius: 10px; font-size: .95rem; font-weight: 700; cursor: pointer;
+    width: 100%; transition: background .15s; }
+  .btn-submit:hover { background: var(--terracotta-dk); }
+
+  /* ── Empty state ─────────────────────────────────────────────────────── */
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted);
+    background: var(--card); border-radius: var(--r); border: 1px solid var(--line); }
+  .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+
+  /* ── Loading ─────────────────────────────────────────────────────────── */
+  .loading { text-align: center; padding: 40px; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Deal<span>Board</span>.sk</div>
+  <div class="header-search">
+    <input type="text" id="search-input" placeholder="Hľadaj deal…" oninput="filterDeals()">
+  </div>
+  <button class="btn-add" onclick="openModal()">+ Pridaj deal</button>
+</header>
+
+<!-- Firebase config reminder -->
+<div id="fb-banner">
+  <strong>⚠️ Demo režim – Firebase nie je nakonfigurovaný</strong>
+  Zobrazujú sa ukážkové dáta. Nastav svoje Firebase údaje v &lt;script&gt; bloku na začiatku súboru,
+  aby sa dealy ukladali a synchronizovali v reálnom čase.
+</div>
+
+<div class="container">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <h3>Kategórie</h3>
+    <ul class="cat-list" id="cat-list">
+      <li><button class="active" onclick="setCategory('Všetky')">🏷 Všetky</button></li>
+      <li><button onclick="setCategory('Elektronika')">📱 Elektronika</button></li>
+      <li><button onclick="setCategory('Dom & Záhrada')">🏠 Dom & Záhrada</button></li>
+      <li><button onclick="setCategory('Móda')">👗 Móda</button></li>
+      <li><button onclick="setCategory('Hračky')">🧸 Hračky</button></li>
+      <li><button onclick="setCategory('Šport')">⚽ Šport</button></li>
+      <li><button onclick="setCategory('Jedlo & Nápoje')">🍕 Jedlo & Nápoje</button></li>
+      <li><button onclick="setCategory('Cestovanie')">✈️ Cestovanie</button></li>
+      <li><button onclick="setCategory('Iné')">📦 Iné</button></li>
+    </ul>
+  </aside>
+
+  <!-- Main -->
+  <main>
+    <div class="sort-bar">
+      <button class="sort-btn active" onclick="setSort('votes', this)">🔥 Najhorúcejšie</button>
+      <button class="sort-btn" onclick="setSort('new', this)">🆕 Najnovšie</button>
+      <button class="sort-btn" onclick="setSort('discount', this)">💸 Najväčšia zľava</button>
+    </div>
+    <div id="fb-banner-main"></div>
+    <div class="deals-list" id="deals-list">
+      <div class="loading">Načítavam dealy…</div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Deal Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Pridaj nový deal</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label>Názov produktu *</label>
+        <input type="text" id="f-title" placeholder="napr. Samsung Galaxy S24 128GB">
+      </div>
+      <div>
+        <label>E-shop *</label>
+        <input type="text" id="f-store" placeholder="napr. Alza.sk, Mall.cz, Heureka.sk…">
+      </div>
+      <div class="row2">
+        <div>
+          <label>Pôvodná cena (€)</label>
+          <input type="number" id="f-orig" placeholder="299">
+        </div>
+        <div>
+          <label>Zľavnená cena (€) *</label>
+          <input type="number" id="f-deal" placeholder="199">
+        </div>
+      </div>
+      <div>
+        <label>Kategória</label>
+        <select id="f-cat">
+          <option>Elektronika</option>
+          <option>Dom & Záhrada</option>
+          <option>Móda</option>
+          <option>Hračky</option>
+          <option>Šport</option>
+          <option>Jedlo & Nápoje</option>
+          <option>Cestovanie</option>
+          <option>Iné</option>
+        </select>
+      </div>
+      <div>
+        <label>Odkaz na deal *</label>
+        <input type="url" id="f-url" placeholder="https://alza.sk/produkt/...">
+      </div>
+      <div>
+        <label>URL obrázka</label>
+        <input type="url" id="f-img" placeholder="https://... (voliteľné)">
+      </div>
+      <div>
+        <label>Popis / poznámka</label>
+        <textarea id="f-desc" rows="3" placeholder="Prečo je tento deal super? Historické minimum? Cashback?"></textarea>
+      </div>
+      <button class="btn-submit" onclick="handleSubmit()">Zverejniť deal</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ────────────────────────────────────────────────────────────────
+  let allDeals   = [];
+  let activeSort = 'votes';
+  let activeCat  = 'Všetky';
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  window.renderDeals = function(deals) {
+    allDeals = deals;
+    applyFilters();
+  };
+
+  function applyFilters() {
+    const q = document.getElementById('search-input').value.toLowerCase();
+    let list = [...allDeals];
+
+    if (activeCat !== 'Všetky')
+      list = list.filter(d => d.category === activeCat);
+
+    if (q)
+      list = list.filter(d =>
+        (d.title||'').toLowerCase().includes(q) ||
+        (d.store||'').toLowerCase().includes(q) ||
+        (d.description||'').toLowerCase().includes(q)
+      );
+
+    if (activeSort === 'new')
+      list.sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
+    else if (activeSort === 'discount')
+      list.sort((a,b) => discount(b) - discount(a));
+    else
+      list.sort((a,b) => (b.votes||0) - (a.votes||0));
+
+    const el = document.getElementById('deals-list');
+    if (!list.length) {
+      el.innerHTML = `<div class="empty"><div class="icon">🔍</div>Žiadne dealy nenájdené.</div>`;
+      return;
+    }
+    el.innerHTML = list.map(dealCard).join('');
+  }
+
+  function discount(d) {
+    if (!d.originalPrice || !d.dealPrice) return 0;
+    return Math.round((1 - d.dealPrice / d.originalPrice) * 100);
+  }
+
+  function timeAgo(ts) {
+    if (!ts?.seconds) return '';
+    const diff = Math.floor((Date.now()/1000 - ts.seconds) / 60);
+    if (diff < 1)  return 'práve teraz';
+    if (diff < 60) return diff + ' min';
+    if (diff < 1440) return Math.floor(diff/60) + ' hod';
+    return Math.floor(diff/1440) + ' dní';
+  }
+
+  function dealCard(d) {
+    const pct   = discount(d);
+    const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
+    const orig  = d.originalPrice ? `<span class="price-was">${d.originalPrice} ${d.currency||'€'}</span>` : '';
+    const img   = d.imageUrl
+      ? `<div class="deal-img"><img src="${d.imageUrl}" alt="" loading="lazy"></div>`
+      : '';
+    return `
+    <div class="deal-card">
+      <div class="vote-col">
+        <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
+        <span class="vote-count">${d.votes||0}</span>
+        <button class="vote-btn dn" onclick="vote('${d.id}', -1)" title="Zlý deal">▼</button>
+      </div>
+      ${img}
+      <div class="deal-body">
+        <div class="deal-meta">
+          <span class="tag-store">${d.store||''}</span>
+          <span class="tag-cat">${d.category||''}</span>
+          <span class="deal-age">${timeAgo(d.timestamp)}</span>
+        </div>
+        <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener">${d.title||''}</a>
+        <div class="deal-desc">${d.description||''}</div>
+        <div class="deal-price-row">
+          <span class="price-now">${d.dealPrice} ${d.currency||'€'}</span>
+          ${orig}
+          ${badge}
+        </div>
+        <div class="deal-footer">
+          <a href="${d.url||'#'}" target="_blank" rel="noopener">💬 ${d.comments||0} komentárov</a>
+          <a href="${d.url||'#'}" target="_blank" rel="noopener">🔗 ${d.store||''}</a>
+          <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener">Zobraziť deal →</a>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── Controls ─────────────────────────────────────────────────────────────
+  window.filterDeals = applyFilters;
+
+  window.setCategory = function(cat) {
+    activeCat = cat;
+    document.querySelectorAll('.cat-list button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim().slice(2) === cat || (cat === 'Všetky' && b.textContent.includes('Všetky')))
+    );
+    applyFilters();
+  };
+
+  window.setSort = function(sort, btn) {
+    activeSort = sort;
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilters();
+  };
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  window.openModal  = () => document.getElementById('modal').classList.add('open');
+  window.closeModal = () => document.getElementById('modal').classList.remove('open');
+  document.getElementById('modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  window.handleSubmit = async function() {
+    const title = document.getElementById('f-title').value.trim();
+    const store = document.getElementById('f-store').value.trim();
+    const deal  = parseFloat(document.getElementById('f-deal').value);
+    const url   = document.getElementById('f-url').value.trim();
+    if (!title || !store || isNaN(deal) || !url) {
+      alert('Vyplň prosím povinné polia (*).');
+      return;
+    }
+    const data = {
+      title,
+      store,
+      dealPrice: deal,
+      originalPrice: parseFloat(document.getElementById('f-orig').value) || null,
+      category: document.getElementById('f-cat').value,
+      url,
+      imageUrl: document.getElementById('f-img').value.trim() || null,
+      description: document.getElementById('f-desc').value.trim(),
+      currency: '€'
+    };
+    try {
+      await window.submitDeal(data);
+      closeModal();
+      ['f-title','f-store','f-orig','f-deal','f-url','f-img','f-desc'].forEach(id =>
+        document.getElementById(id).value = '');
+    } catch(e) {
+      alert('Chyba pri ukladaní. Skontroluj Firebase konfiguráciu.');
+    }
+  };
+</script>
+</body>
+</html>
