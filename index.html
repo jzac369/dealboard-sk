@@ -146,25 +146,31 @@
   });
 
   // ── Voting – 1 hlas na anonymné UID na deal ─────────────────────────────────
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" v UTC
+  }
+
   window.vote = async (id, delta) => {
     if (id.startsWith("demo-")) return;
     if (!currentUid) { alert("Načítavam... skús o sekundu znova."); return; }
     const voteRef = doc(db, "deals", id, "voters", currentUid);
+    const today = todayStr();
     try {
       await runTransaction(db, async (tx) => {
         const voteSnap = await tx.get(voteRef);
-        if (voteSnap.exists()) {
-          // Užívateľ už hlasoval – ak hlasuje rovnako, zruší hlas; ak opačne, prepne ho
+        if (voteSnap.exists() && voteSnap.data().voteDate === today) {
+          // Hlas z dnešného dňa – ak hlasuje rovnako, zruší ho; ak opačne, prepne ho
           const prevDelta = voteSnap.data().delta;
           if (prevDelta === delta) {
             tx.delete(voteRef);
             tx.update(doc(db, "deals", id), { votes: increment(-delta) });
           } else {
-            tx.set(voteRef, { delta });
+            tx.set(voteRef, { delta, voteDate: today });
             tx.update(doc(db, "deals", id), { votes: increment(delta * 2) });
           }
         } else {
-          tx.set(voteRef, { delta });
+          // Žiadny hlas dnes (buď nikdy nehlasoval, alebo hlasoval v predošlý deň) – nový hlas
+          tx.set(voteRef, { delta, voteDate: today });
           tx.update(doc(db, "deals", id), { votes: increment(delta) });
         }
       });
@@ -330,20 +336,21 @@
   window.voteCoupon = async (id, delta) => {
     if (!currentUid) { alert("Načítavam... skús o sekundu znova."); return; }
     const voteRef = doc(db, "coupons", id, "voters", currentUid);
+    const today = todayStr();
     try {
       await runTransaction(db, async (tx) => {
         const voteSnap = await tx.get(voteRef);
-        if (voteSnap.exists()) {
+        if (voteSnap.exists() && voteSnap.data().voteDate === today) {
           const prevDelta = voteSnap.data().delta;
           if (prevDelta === delta) {
             tx.delete(voteRef);
             tx.update(doc(db, "coupons", id), { votes: increment(-delta) });
           } else {
-            tx.set(voteRef, { delta });
+            tx.set(voteRef, { delta, voteDate: today });
             tx.update(doc(db, "coupons", id), { votes: increment(delta * 2) });
           }
         } else {
-          tx.set(voteRef, { delta });
+          tx.set(voteRef, { delta, voteDate: today });
           tx.update(doc(db, "coupons", id), { votes: increment(delta) });
         }
       });
