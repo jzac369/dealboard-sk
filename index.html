@@ -12,6 +12,8 @@
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, signInAnonymously, onAuthStateChanged }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   // ─── NASTAV SVOJE FIREBASE ÚDAJE TU ───────────────────────────────────────
   const firebaseConfig = {
@@ -24,9 +26,10 @@
   };
   // ──────────────────────────────────────────────────────────────────────────
 
-  const app  = initializeApp(firebaseConfig);
-  const db   = getFirestore(app);
-  const auth = getAuth(app);
+  const app     = initializeApp(firebaseConfig);
+  const db      = getFirestore(app);
+  const auth    = getAuth(app);
+  const storage = getStorage(app);
 
   let currentUid = null;
 
@@ -180,6 +183,18 @@
   window.msUntilNextSubmit = () => {
     const last = parseInt(localStorage.getItem('db_lastSubmit') || '0', 10);
     return Math.max(0, RATE_LIMIT_MS - (Date.now() - last));
+  };
+
+  // ── Upload obrázka do Firebase Storage, max 2 MB ────────────────────────────
+  window.uploadDealImage = async function(file) {
+    const MAX_BYTES = 2 * 1024 * 1024;
+    if (!file) return null;
+    if (!file.type.startsWith('image/')) throw new Error('not-image');
+    if (file.size > MAX_BYTES) throw new Error('too-large');
+    const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const fileRef = ref(storage, 'deal-images/' + safeName);
+    await uploadBytes(fileRef, file);
+    return await getDownloadURL(fileRef);
   };
 
   // ── Add deal – ide do "pending", honeypot kontrola ──────────────────────────
@@ -380,6 +395,7 @@
     border-radius: 24px; font-size: .95rem; font-weight: 700; cursor: pointer;
     width: 100%; transition: background .15s; }
   .btn-submit:hover { background: var(--orange-dk); }
+  .btn-submit:disabled { background: var(--muted); cursor: not-allowed; }
 
   /* ── Empty state ─────────────────────────────────────────────────────── */
   .empty { text-align: center; padding: 60px 20px; color: var(--muted);
@@ -493,8 +509,12 @@
         <input type="url" id="f-url" placeholder="https://alza.sk/produkt/...">
       </div>
       <div>
-        <label>URL obrázka</label>
-        <input type="url" id="f-img" placeholder="https://... (voliteľné)">
+        <label>Obrázok produktu</label>
+        <input type="file" id="f-img-file" accept="image/*">
+        <div id="img-preview-wrap" style="display:none; margin-top:8px;">
+          <img id="img-preview" style="max-width:140px; max-height:140px; border-radius:8px; border:1px solid var(--line);">
+        </div>
+        <p style="font-size:.76rem; color:var(--muted); margin-top:4px;">Max. veľkosť 2 MB. Voliteľné.</p>
       </div>
       <div>
         <label>Popis / poznámka</label>
@@ -633,12 +653,30 @@
     if (e.target === e.currentTarget) closeModal();
   });
 
+  // ── Image preview ────────────────────────────────────────────────────────
+  document.getElementById('f-img-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    const wrap = document.getElementById('img-preview-wrap');
+    const img  = document.getElementById('img-preview');
+    if (!file) { wrap.style.display = 'none'; return; }
+    if (file.size > 2*1024*1024) {
+      alert('Obrázok je príliš veľký. Maximálna veľkosť je 2 MB.');
+      e.target.value = '';
+      wrap.style.display = 'none';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => { img.src = ev.target.result; wrap.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  });
+
   window.handleSubmit = async function() {
     const title = document.getElementById('f-title').value.trim();
     const store = document.getElementById('f-store').value.trim();
     const deal  = parseFloat(document.getElementById('f-deal').value);
     const url   = document.getElementById('f-url').value.trim();
     const honeypot = document.getElementById('f-honeypot').value.trim();
+    const imgFile  = document.getElementById('f-img-file').files[0];
     if (!title || !store || isNaN(deal) || !url) {
       alert('Vyplň prosím povinné polia (*).');
       return;
@@ -648,31 +686,47 @@
       alert(`Môžeš pridať len 1 deal za 15 minút. Skús to znova o ${mins} min.`);
       return;
     }
-    const data = {
-      title,
-      store,
-      dealPrice: deal,
-      originalPrice: parseFloat(document.getElementById('f-orig').value) || null,
-      category: document.getElementById('f-cat').value,
-      url,
-      imageUrl: document.getElementById('f-img').value.trim() || null,
-      description: document.getElementById('f-desc').value.trim(),
-      currency: '€'
-    };
+    const submitBtn = document.querySelector('.btn-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Odosielam…';
     try {
+      let imageUrl = null;
+      if (imgFile) {
+        imageUrl = await window.uploadDealImage(imgFile);
+      }
+      const data = {
+        title,
+        store,
+        dealPrice: deal,
+        originalPrice: parseFloat(document.getElementById('f-orig').value) || null,
+        category: document.getElementById('f-cat').value,
+        url,
+        imageUrl,
+        description: document.getElementById('f-desc').value.trim(),
+        currency: '€'
+      };
       await window.submitDeal(data, honeypot);
       closeModal();
-      ['f-title','f-store','f-orig','f-deal','f-url','f-img','f-desc','f-honeypot'].forEach(id =>
+      ['f-title','f-store','f-orig','f-deal','f-url','f-desc','f-honeypot'].forEach(id =>
         document.getElementById(id).value = '');
+      document.getElementById('f-img-file').value = '';
+      document.getElementById('img-preview-wrap').style.display = 'none';
       alert('Ďakujeme! Deal bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
     } catch(e) {
       if (e.message === 'rate-limit') {
         alert('Môžeš pridať len 1 deal za 15 minút. Skús to o chvíľu znova.');
       } else if (e.message === 'spam') {
         alert('Pri odosielaní nastala chyba. Skús to znova.');
+      } else if (e.message === 'too-large') {
+        alert('Obrázok je príliš veľký. Maximálna veľkosť je 2 MB.');
+      } else if (e.message === 'not-image') {
+        alert('Vybraný súbor nie je obrázok.');
       } else {
         alert('Chyba pri ukladaní. Skontroluj Firebase konfiguráciu.');
       }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Odoslať na schválenie';
     }
   };
 </script>
