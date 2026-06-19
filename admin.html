@@ -29,8 +29,10 @@
 
   let allDeals = [];
   let allComments = [];
+  let allCoupons = [];
   let unsub = null;
   let unsubComments = null;
+  let unsubCoupons = null;
 
   onAuthStateChanged(auth, (user) => {
     const loginView = document.getElementById('login-view');
@@ -41,13 +43,23 @@
       document.getElementById('admin-email').textContent = user.email;
       startListening();
       startListeningComments();
+      startListeningCoupons();
     } else {
       loginView.style.display = 'flex';
       adminView.style.display = 'none';
       if (unsub) { unsub(); unsub = null; }
       if (unsubComments) { unsubComments(); unsubComments = null; }
+      if (unsubCoupons) { unsubCoupons(); unsubCoupons = null; }
     }
   });
+
+  function startListeningCoupons() {
+    const q = query(collection(db, "coupons"), orderBy("timestamp", "desc"));
+    unsubCoupons = onSnapshot(q, (snap) => {
+      allCoupons = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderCoupons();
+    });
+  }
 
   function startListening() {
     const q = query(collection(db, "deals"), orderBy("timestamp", "desc"));
@@ -189,6 +201,124 @@
     </div>`;
   }
 
+  // ── Zľavové kódy ─────────────────────────────────────────────────────────
+  window.approveCoupon = async function(id) {
+    await updateDoc(doc(db, "coupons", id), { status: 'approved' });
+  };
+  window.rejectCoupon = async function(id) {
+    await updateDoc(doc(db, "coupons", id), { status: 'rejected' });
+  };
+  window.archiveCoupon = async function(id) {
+    await updateDoc(doc(db, "coupons", id), { status: 'archived' });
+  };
+  window.restoreCoupon = async function(id) {
+    await updateDoc(doc(db, "coupons", id), { status: 'pending' });
+  };
+  window.deleteCoupon = async function(id) {
+    if (!confirm('Naozaj natrvalo vymazať tento kód?')) return;
+    await deleteDoc(doc(db, "coupons", id));
+  };
+  window.saveCouponEdit = async function(id) {
+    const get = (f) => document.getElementById(`cp-${f}-${id}`).value.trim();
+    const updates = {
+      code: get('code').toUpperCase(),
+      store: get('store'),
+      discount: get('discount'),
+      url: get('url'),
+      expiryDate: get('expiry') || null,
+      description: get('desc')
+    };
+    await updateDoc(doc(db, "coupons", id), updates);
+    alert('Uložené.');
+  };
+
+  let activeCouponTab = 'pending';
+  window.setCouponTab = function(tab, btn) {
+    activeCouponTab = tab;
+    document.querySelectorAll('.coupon-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderCoupons();
+  };
+
+  function renderCoupons() {
+    const pending  = allCoupons.filter(c => c.status === 'pending');
+    const approved = allCoupons.filter(c => c.status === 'approved');
+    const rejected = allCoupons.filter(c => c.status === 'rejected');
+    const archived = allCoupons.filter(c => c.status === 'archived');
+
+    const elP = document.getElementById('coupcount-pending');
+    if (!elP) return; // sekcia ešte nie je v DOM
+    elP.textContent = pending.length;
+    document.getElementById('coupcount-approved').textContent = approved.length;
+    document.getElementById('coupcount-rejected').textContent = rejected.length;
+    document.getElementById('coupcount-archived').textContent = archived.length;
+
+    const map = { pending, approved, rejected, archived };
+    const list = map[activeCouponTab] || pending;
+
+    const el = document.getElementById('coupon-list');
+    if (!list.length) {
+      el.innerHTML = `<div class="empty">Žiadne kódy v tejto kategórii.</div>`;
+      return;
+    }
+    el.innerHTML = list.map(c => couponRowTemplate(c)).join('');
+  }
+
+  function couponRowTemplate(c) {
+    const statusBadge = {
+      pending:  '<span class="badge badge-pending">Na schválenie</span>',
+      approved: '<span class="badge badge-approved">Schválené</span>',
+      rejected: '<span class="badge badge-rejected">Zamietnuté</span>',
+      archived: '<span class="badge badge-archived">Archivované</span>'
+    }[c.status] || '';
+
+    return `
+    <div class="deal-row">
+      <div class="row-header">
+        <div class="row-thumb row-thumb-empty">🎟️</div>
+        <div class="row-info">
+          <div class="row-title"><strong>${escapeHtml(c.code||'')}</strong> ${statusBadge}</div>
+          <div class="row-sub">${escapeHtml(c.store||'')} · ${escapeHtml(c.discount||'')} · ${c.votes||0} hlasov</div>
+        </div>
+        <div class="row-actions">
+          ${c.status === 'pending' ? `
+            <button class="btn btn-approve" onclick="approveCoupon('${c.id}')">✓ Schváliť</button>
+            <button class="btn btn-reject" onclick="rejectCoupon('${c.id}')">✕ Zamietnuť</button>
+          ` : ''}
+          ${c.status === 'rejected' ? `
+            <button class="btn btn-approve" onclick="approveCoupon('${c.id}')">✓ Schváliť</button>
+            <button class="btn btn-archive" onclick="archiveCoupon('${c.id}')">📦 Archivovať</button>
+          ` : ''}
+          ${c.status === 'approved' ? `
+            <button class="btn btn-reject" onclick="rejectCoupon('${c.id}')">Skryť</button>
+            <button class="btn btn-archive" onclick="archiveCoupon('${c.id}')">📦 Archivovať</button>
+          ` : ''}
+          ${c.status === 'archived' ? `
+            <button class="btn btn-restore" onclick="restoreCoupon('${c.id}')">↩ Obnoviť</button>
+          ` : ''}
+          <button class="btn btn-delete" onclick="deleteCoupon('${c.id}')">🗑 Vymazať</button>
+          <button class="btn btn-edit" onclick="toggleCouponEdit('${c.id}')">✎ Upraviť</button>
+        </div>
+      </div>
+      <div class="edit-panel" id="coupedit-${c.id}">
+        <div class="edit-grid">
+          <div><label>Kód</label><input id="cp-code-${c.id}" value="${escapeAttr(c.code)}"></div>
+          <div><label>E-shop</label><input id="cp-store-${c.id}" value="${escapeAttr(c.store)}"></div>
+          <div><label>Zľava</label><input id="cp-discount-${c.id}" value="${escapeAttr(c.discount)}"></div>
+          <div><label>Platí do</label><input id="cp-expiry-${c.id}" value="${escapeAttr(c.expiryDate)}"></div>
+          <div class="full"><label>URL (affiliate link)</label><input id="cp-url-${c.id}" value="${escapeAttr(c.url)}"></div>
+          <div class="full"><label>Popis</label><textarea id="cp-desc-${c.id}" rows="2">${escapeHtml(c.description||'')}</textarea></div>
+        </div>
+        <button class="btn btn-save" onclick="saveCouponEdit('${c.id}')">💾 Uložiť zmeny</button>
+      </div>
+    </div>`;
+  }
+
+  window.toggleCouponEdit = function(id) {
+    const el = document.getElementById(`coupedit-${id}`);
+    el.style.display = el.style.display === 'block' ? 'none' : 'block';
+  };
+
   function resizeImageToBase64(file) {
     const MAX_DIM = 640;
     const MAX_OUTPUT_CHARS = 700 * 1024;
@@ -248,6 +378,7 @@
     btn.classList.add('active');
     document.getElementById('deals-section').style.display = section === 'deals' ? 'block' : 'none';
     document.getElementById('comments-section').style.display = section === 'comments' ? 'block' : 'none';
+    document.getElementById('coupons-section').style.display = section === 'coupons' ? 'block' : 'none';
   };
 
   let activeTab = 'pending';
@@ -470,6 +601,7 @@
     <div class="main-tabs">
       <button class="main-tab-btn active" onclick="setMainSection('deals', this)">📦 Dealy</button>
       <button class="main-tab-btn" onclick="setMainSection('comments', this)">💬 Komentáre</button>
+      <button class="main-tab-btn" onclick="setMainSection('coupons', this)">🎟️ Zľavové kódy</button>
     </div>
 
     <div id="deals-section">
@@ -489,6 +621,16 @@
         <button class="tab-btn comment-tab-btn" onclick="setCommentTab('rejected', this)">Zamietnuté (<span id="ccount-rejected">0</span>)</button>
       </div>
       <div id="comment-list"></div>
+    </div>
+
+    <div id="coupons-section" style="display:none;">
+      <div class="tabs">
+        <button class="tab-btn coupon-tab-btn active" onclick="setCouponTab('pending', this)">Na schválenie (<span id="coupcount-pending">0</span>)</button>
+        <button class="tab-btn coupon-tab-btn" onclick="setCouponTab('approved', this)">Schválené (<span id="coupcount-approved">0</span>)</button>
+        <button class="tab-btn coupon-tab-btn" onclick="setCouponTab('rejected', this)">Zamietnuté (<span id="coupcount-rejected">0</span>)</button>
+        <button class="tab-btn coupon-tab-btn" onclick="setCouponTab('archived', this)">Archív (<span id="coupcount-archived">0</span>)</button>
+      </div>
+      <div id="coupon-list"></div>
     </div>
   </div>
 </div>
