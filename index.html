@@ -8,8 +8,10 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, increment, query, orderBy, serverTimestamp }
+  import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc, updateDoc, increment, query, where, orderBy, serverTimestamp, runTransaction }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   // ─── NASTAV SVOJE FIREBASE ÚDAJE TU ───────────────────────────────────────
   const firebaseConfig = {
@@ -22,8 +24,20 @@
   };
   // ──────────────────────────────────────────────────────────────────────────
 
-  const app = initializeApp(firebaseConfig);
-  const db  = getFirestore(app);
+  const app  = initializeApp(firebaseConfig);
+  const db   = getFirestore(app);
+  const auth = getAuth(app);
+
+  let currentUid = null;
+
+  // ── Anonymous auth – each visitor gets a stable anonymous UID ──────────────
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      currentUid = user.uid;
+    } else {
+      signInAnonymously(auth).catch(e => console.error("Auth error:", e));
+    }
+  });
 
   // ── Ukážkové dealy pre demo (vložia sa len raz pri prvom spustení) ──
   const DEMO_DEALS = [
@@ -38,7 +52,8 @@
       imageUrl: "https://images.unsplash.com/photo-1606741965429-02919b0ebf22?w=400&q=80",
       description: "Bezdrôtové slúchadlá s aktívnym potláčaním hluku. Historické minimum na Alza.sk!",
       votes: 47,
-      comments: 12,
+      comments: 0,
+      status: "approved",
       timestamp: serverTimestamp()
     },
     {
@@ -52,7 +67,8 @@
       imageUrl: "https://images.unsplash.com/photo-1610945264803-c22b62d2a7b3?w=400&q=80",
       description: "Vlajkový smartfón Samsungu za skvelú cenu. Zľava 28% oproti bežnej cene.",
       votes: 83,
-      comments: 24,
+      comments: 0,
+      status: "approved",
       timestamp: serverTimestamp()
     },
     {
@@ -66,7 +82,8 @@
       imageUrl: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80",
       description: "Obľúbená LEGO sada pre deti. Skvelý darček za výbornú cenu.",
       votes: 31,
-      comments: 7,
+      comments: 0,
+      status: "approved",
       timestamp: serverTimestamp()
     },
     {
@@ -80,7 +97,8 @@
       imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
       description: "Klasické tenisky Nike s 40% zľavou. Výpredaj sezónnych modelov.",
       votes: 56,
-      comments: 18,
+      comments: 0,
+      status: "approved",
       timestamp: serverTimestamp()
     },
     {
@@ -94,12 +112,14 @@
       imageUrl: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
       description: "Fritéza bez oleja pre celú rodinu. 7,3 litra – ideál pre väčšie domácnosti.",
       votes: 44,
-      comments: 9,
+      comments: 0,
+      status: "approved",
       timestamp: serverTimestamp()
     }
   ];
 
   let demoInserted = false;
+  let firstSnapshot = true;
 
   async function insertDemoIfEmpty(deals) {
     if (demoInserted || deals.length > 0) return;
@@ -109,11 +129,15 @@
     }
   }
 
-  // ── Real-time listener ──────────────────────────────────────────────────
-  const q = query(collection(db, "deals"), orderBy("votes", "desc"));
+  // ── Real-time listener – verejnosť vidí LEN schválené dealy ────────────────
+  const q = query(collection(db, "deals"), where("status", "==", "approved"), orderBy("timestamp", "desc"));
   onSnapshot(q, (snap) => {
     const deals = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    insertDemoIfEmpty(deals);
+    if (firstSnapshot) {
+      firstSnapshot = false;
+      // ak je databáza úplne prázdna (žiadne dealy vôbec, ani pending), vlož demo
+      insertDemoIfEmpty(deals);
+    }
     renderDeals(deals);
   }, (err) => {
     console.error("Firebase error:", err);
@@ -121,24 +145,58 @@
     renderDeals(DEMO_DEALS.map((d,i) => ({ ...d, id: "demo-" + i, timestamp: { seconds: Date.now()/1000 } })));
   });
 
-  // ── Voting ──────────────────────────────────────────────────────────────
+  // ── Voting – 1 hlas na anonymné UID na deal ─────────────────────────────────
   window.vote = async (id, delta) => {
     if (id.startsWith("demo-")) return;
+    if (!currentUid) { alert("Načítavam... skús o sekundu znova."); return; }
+    const voteRef = doc(db, "deals", id, "voters", currentUid);
     try {
-      await updateDoc(doc(db, "deals", id), { votes: increment(delta) });
+      await runTransaction(db, async (tx) => {
+        const voteSnap = await tx.get(voteRef);
+        if (voteSnap.exists()) {
+          // Užívateľ už hlasoval – ak hlasuje rovnako, zruší hlas; ak opačne, prepne ho
+          const prevDelta = voteSnap.data().delta;
+          if (prevDelta === delta) {
+            tx.delete(voteRef);
+            tx.update(doc(db, "deals", id), { votes: increment(-delta) });
+          } else {
+            tx.set(voteRef, { delta });
+            tx.update(doc(db, "deals", id), { votes: increment(delta * 2) });
+          }
+        } else {
+          tx.set(voteRef, { delta });
+          tx.update(doc(db, "deals", id), { votes: increment(delta) });
+        }
+      });
     } catch(e) { console.error(e); }
   };
 
-  // ── Add deal ────────────────────────────────────────────────────────────
-  window.submitDeal = async (data) => {
+  // ── Rate limiting (localStorage) – max 1 príspevok / 15 min ────────────────
+  const RATE_LIMIT_MS = 15 * 60 * 1000;
+  window.canSubmit = () => {
+    const last = parseInt(localStorage.getItem('db_lastSubmit') || '0', 10);
+    return Date.now() - last >= RATE_LIMIT_MS;
+  };
+  window.msUntilNextSubmit = () => {
+    const last = parseInt(localStorage.getItem('db_lastSubmit') || '0', 10);
+    return Math.max(0, RATE_LIMIT_MS - (Date.now() - last));
+  };
+
+  // ── Add deal – ide do "pending", honeypot kontrola ──────────────────────────
+  window.submitDeal = async (data, honeypot) => {
+    if (honeypot) throw new Error("spam");
+    if (!window.canSubmit()) throw new Error("rate-limit");
     await addDoc(collection(db, "deals"), {
       ...data,
       votes: 0,
       comments: 0,
+      status: "pending",
       timestamp: serverTimestamp()
     });
+    localStorage.setItem('db_lastSubmit', String(Date.now()));
   };
 </script>
+
 
 <style>
   /* ── Tokens ─────────────────────────────────────────────────────────── */
@@ -359,8 +417,8 @@
   <main>
     <div class="tabs-bar">
       <div class="sort-bar">
-        <button class="sort-btn active" onclick="setSort('votes', this)">🔥 Najhorúcejšie</button>
-        <button class="sort-btn" onclick="setSort('new', this)">🆕 Najnovšie</button>
+        <button class="sort-btn active" onclick="setSort('new', this)">🆕 Najnovšie</button>
+        <button class="sort-btn" onclick="setSort('votes', this)">🔥 Najhorúcejšie</button>
         <button class="sort-btn" onclick="setSort('discount', this)">💸 Najväčšia zľava</button>
       </div>
       <div class="header-search" style="max-width:220px;">
@@ -442,7 +500,13 @@
         <label>Popis / poznámka</label>
         <textarea id="f-desc" rows="3" placeholder="Prečo je tento deal super? Historické minimum? Cashback?"></textarea>
       </div>
-      <button class="btn-submit" onclick="handleSubmit()">Zverejniť deal</button>
+      <!-- Honeypot: skryté pole, ľudia ho nevidia a nevyplnia, boty často áno -->
+      <div style="position:absolute; left:-9999px; opacity:0;" aria-hidden="true">
+        <label>Nevyplňujte toto pole</label>
+        <input type="text" id="f-honeypot" tabindex="-1" autocomplete="off">
+      </div>
+      <p style="font-size:.78rem; color:var(--muted);">Po odoslaní prejde deal kontrolou moderátora a zverejní sa po schválení.</p>
+      <button class="btn-submit" onclick="handleSubmit()">Odoslať na schválenie</button>
     </div>
   </div>
 </div>
@@ -450,7 +514,7 @@
 <script>
   // ── State ────────────────────────────────────────────────────────────────
   let allDeals   = [];
-  let activeSort = 'votes';
+  let activeSort = 'new';
   let activeCat  = 'Všetky';
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -574,8 +638,14 @@
     const store = document.getElementById('f-store').value.trim();
     const deal  = parseFloat(document.getElementById('f-deal').value);
     const url   = document.getElementById('f-url').value.trim();
+    const honeypot = document.getElementById('f-honeypot').value.trim();
     if (!title || !store || isNaN(deal) || !url) {
       alert('Vyplň prosím povinné polia (*).');
+      return;
+    }
+    if (!window.canSubmit()) {
+      const mins = Math.ceil(window.msUntilNextSubmit() / 60000);
+      alert(`Môžeš pridať len 1 deal za 15 minút. Skús to znova o ${mins} min.`);
       return;
     }
     const data = {
@@ -590,14 +660,29 @@
       currency: '€'
     };
     try {
-      await window.submitDeal(data);
+      await window.submitDeal(data, honeypot);
       closeModal();
-      ['f-title','f-store','f-orig','f-deal','f-url','f-img','f-desc'].forEach(id =>
+      ['f-title','f-store','f-orig','f-deal','f-url','f-img','f-desc','f-honeypot'].forEach(id =>
         document.getElementById(id).value = '');
+      alert('Ďakujeme! Deal bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
     } catch(e) {
-      alert('Chyba pri ukladaní. Skontroluj Firebase konfiguráciu.');
+      if (e.message === 'rate-limit') {
+        alert('Môžeš pridať len 1 deal za 15 minút. Skús to o chvíľu znova.');
+      } else if (e.message === 'spam') {
+        alert('Pri odosielaní nastala chyba. Skús to znova.');
+      } else {
+        alert('Chyba pri ukladaní. Skontroluj Firebase konfiguráciu.');
+      }
     }
   };
 </script>
+<footer style="background:var(--card); border-top:1px solid var(--line); margin-top:24px; padding:24px 16px;">
+  <div style="max-width:1120px; margin:0 auto; font-size:.8rem; color:var(--muted); line-height:1.6;">
+    <strong style="color:var(--ink);">Affiliate odkazy:</strong> DealBoard.sk môže obsahovať affiliate (partnerské) odkazy.
+    To znamená, že ak klikneš na odkaz a uskutočníš nákup, môžeme získať malú províziu od daného e-shopu –
+    bez akéhokoľvek dodatočného poplatku pre teba. Tým podporujeme prevádzku tejto stránky.
+    Všetky príspevky prechádzajú moderáciou pred zverejnením.
+  </div>
+</footer>
 </body>
 </html>
