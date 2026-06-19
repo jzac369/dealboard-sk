@@ -143,23 +143,22 @@
 <style>
   /* ── Tokens ─────────────────────────────────────────────────────────── */
   :root {
-    --terracotta:    #C8694A;
-    --terracotta-dk: #AD5639;
-    --sage:          #7A9A7E;
-    --sage-dk:       #5F8064;
-    --ink:    #2B2620;
-    --muted:  #8A8276;
-    --line:   #E8E0D4;
-    --bg:     #F4F1EA;
-    --card:   #FBF8F2;
+    --orange:    #E8590C;
+    --orange-dk: #C44C0A;
+    --green:     #2E8B3D;
+    --ink:    #1A1A1A;
+    --muted:  #707070;
+    --line:   #E2E2E2;
+    --bg:     #EDEDED;
+    --card:   #FFFFFF;
     --white:  #FFFFFF;
     --gold:   #D9A24B;
-    --badge:  #F3E6D2;
-    --badge-t:#8A6200;
-    --r:      16px;
-    --shadow: 0 6px 20px rgba(43,38,32,.06), 0 1px 3px rgba(43,38,32,.05);
-    --shadow-lg: 0 14px 36px rgba(43,38,32,.10), 0 2px 6px rgba(43,38,32,.06);
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    --badge:  #FFF1E6;
+    --badge-t:#A14B0A;
+    --r:      8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08);
+    --shadow-lg: 0 4px 14px rgba(0,0,0,.12);
+    font-family: -apple-system, 'Segoe UI', Roboto, system-ui, sans-serif;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--ink); min-height: 100vh; }
@@ -173,128 +172,138 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    height: 64px;
+    height: 60px;
     position: sticky; top: 0; z-index: 100;
     border-bottom: 1px solid var(--line);
-    box-shadow: var(--shadow);
   }
-  .logo { font-size: 1.4rem; font-weight: 800; letter-spacing: -.5px; white-space: nowrap; color: var(--ink); }
-  .logo span { color: var(--terracotta); }
+  .logo { font-size: 1.3rem; font-weight: 800; letter-spacing: -.3px; white-space: nowrap; color: var(--ink); }
+  .logo span { color: var(--orange); }
   .header-search {
-    flex: 1; max-width: 420px;
-    background: var(--bg); border: 1.5px solid var(--line);
-    border-radius: 10px; display: flex; align-items: center; overflow: hidden;
+    flex: 1; max-width: 480px;
+    background: var(--white); border: 1.5px solid var(--line);
+    border-radius: 24px; display: flex; align-items: center; overflow: hidden;
   }
   .header-search input {
     background: none; border: none; outline: none; color: var(--ink);
-    padding: 9px 14px; width: 100%; font-size: .9rem;
+    padding: 9px 16px; width: 100%; font-size: .9rem;
   }
   .header-search input::placeholder { color: var(--muted); }
   .btn-add {
-    background: linear-gradient(135deg, var(--terracotta), var(--sage));
+    background: var(--orange);
     color: #fff; font-weight: 700;
-    border: none; padding: 10px 18px; border-radius: 10px;
+    border: none; padding: 9px 20px; border-radius: 24px;
     cursor: pointer; font-size: .85rem; white-space: nowrap;
-    transition: opacity .15s, transform .15s;
-    box-shadow: var(--shadow);
+    transition: background .15s;
   }
-  .btn-add:hover { opacity: .9; transform: translateY(-1px); }
+  .btn-add:hover { background: var(--orange-dk); }
 
   /* ── Layout ──────────────────────────────────────────────────────────── */
-  .container { max-width: 1120px; margin: 0 auto; padding: 20px 16px; display: grid;
-    grid-template-columns: 200px 1fr; gap: 20px; }
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 16px 24px; display: grid;
+    grid-template-columns: 1fr 300px; gap: 20px; }
   @media (max-width: 720px) { .container { grid-template-columns: 1fr; } }
 
-  /* ── Sidebar ─────────────────────────────────────────────────────────── */
-  .sidebar h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
-    color: var(--muted); margin-bottom: 10px; font-weight: 700; }
-  .cat-list { list-style: none; }
-  .cat-list li button {
-    width: 100%; text-align: left; background: none; border: none;
-    padding: 8px 12px; border-radius: 10px; cursor: pointer;
-    font-size: .88rem; color: var(--ink); transition: background .15s, color .15s;
+  /* ── Top category nav ───────────────────────────────────────────────── */
+  .cat-nav-wrap { background: var(--card); border-bottom: 1px solid var(--line); }
+  .cat-nav { max-width: 1120px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px;
+    overflow-x: auto; }
+  .cat-nav button {
+    background: none; border: none; white-space: nowrap;
+    padding: 12px 14px; cursor: pointer;
+    font-size: .88rem; color: var(--ink); font-weight: 500;
+    border-bottom: 3px solid transparent; transition: all .15s;
   }
-  .cat-list li button:hover { background: var(--card); }
-  .cat-list li button.active { background: var(--terracotta); color: #fff; font-weight: 600;
-    box-shadow: var(--shadow); }
+  .cat-nav button:hover { color: var(--orange); }
+  .cat-nav button.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
 
-  /* ── Sort bar ─────────────────────────────────────────────────────────── */
-  .sort-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-  .sort-btn { background: var(--card); border: 1.5px solid var(--line); border-radius: 20px;
-    padding: 6px 16px; font-size: .82rem; cursor: pointer; color: var(--muted);
-    transition: all .15s; }
-  .sort-btn.active { background: var(--sage); border-color: var(--sage); color: #fff; }
-  .sort-btn:hover:not(.active) { border-color: var(--terracotta); color: var(--terracotta); }
+  /* ── Sidebar (now used for promo/info) ─────────────────────────────────── */
+  .sidebar h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin-bottom: 10px; font-weight: 700; }
+  .sidebar-box { background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 16px; margin-bottom: 16px; }
+  .sidebar-box p { font-size: .85rem; color: var(--muted); line-height: 1.5; }
+  .cat-list { display: none; }
+
+  /* ── Tabs bar (For you / Hottest / Trending / All) ─────────────────────── */
+  .tabs-bar { display: flex; align-items: center; justify-content: space-between;
+    margin: 16px 0 6px; flex-wrap: wrap; gap: 10px; }
+  .sort-bar { display: flex; gap: 22px; }
+  .sort-btn { background: none; border: none; border-bottom: 2px solid transparent;
+    padding: 8px 2px; font-size: .92rem; cursor: pointer; color: var(--muted);
+    transition: all .15s; font-weight: 500; }
+  .sort-btn.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
+  .sort-btn:hover:not(.active) { color: var(--ink); }
+  .section-sub { font-size: .82rem; color: var(--muted); margin-bottom: 14px; }
 
   /* ── Deal card ──────────────────────────────────────────────────────── */
-  .deals-list { display: flex; flex-direction: column; gap: 14px; }
+  .deals-list { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
   .deal-card {
     background: var(--card); border-radius: var(--r); box-shadow: var(--shadow);
-    display: flex; gap: 0; overflow: hidden; transition: box-shadow .2s, transform .2s;
+    display: flex; gap: 0; overflow: hidden; transition: box-shadow .15s;
     border: 1px solid var(--line);
   }
-  .deal-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
-
-  /* vote column */
-  .vote-col {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 18px 16px; gap: 6px; min-width: 68px;
-    border-right: 1px solid var(--line);
-    background: var(--bg);
-  }
-  .vote-btn { background: var(--white); border: 1.5px solid var(--line); border-radius: 8px;
-    width: 36px; height: 32px; cursor: pointer; font-size: 1rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all .15s; }
-  .vote-btn.up:hover { background: #fbe9e2; border-color: var(--terracotta); color: var(--terracotta-dk); }
-  .vote-btn.dn:hover { background: #eef2ee; border-color: var(--sage); color: var(--sage-dk); }
-  .vote-count { font-size: 1.15rem; font-weight: 800; color: var(--ink); }
+  .deal-card:hover { box-shadow: var(--shadow-lg); }
 
   /* image */
-  .deal-img { width: 130px; min-width: 130px; overflow: hidden; position: relative; }
+  .deal-img { width: 140px; min-width: 140px; overflow: hidden; position: relative;
+    background: #f5f5f5; }
   .deal-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  @media (max-width: 520px) { .deal-img { display: none; } }
+  @media (max-width: 560px) { .deal-img { width: 96px; min-width: 96px; } }
 
   /* body */
-  .deal-body { flex: 1; padding: 16px 18px; display: flex; flex-direction: column; gap: 7px; }
-  .deal-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .tag-store { background: var(--ink); color: #fff; font-size: .72rem; font-weight: 700;
-    padding: 3px 9px; border-radius: 6px; }
-  .tag-cat { background: var(--badge); color: var(--badge-t); font-size: .72rem;
-    padding: 3px 9px; border-radius: 6px; font-weight: 600; }
-  .deal-age { font-size: .72rem; color: var(--muted); margin-left: auto; }
-  .deal-title { font-size: 1.02rem; font-weight: 700; color: var(--ink); text-decoration: none; }
-  .deal-title:hover { color: var(--terracotta-dk); }
-  .deal-desc { font-size: .83rem; color: var(--muted); line-height: 1.45;
+  .deal-body { flex: 1; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .deal-top-row { display: flex; align-items: flex-start; gap: 14px; }
+  .deal-main { flex: 1; min-width: 0; }
+
+  /* vote pill (thermometer style, top of card) */
+  .vote-pill { display: flex; align-items: center; gap: 6px; }
+  .vote-btn { background: var(--white); border: 1.5px solid var(--line); border-radius: 50%;
+    width: 30px; height: 30px; cursor: pointer; font-size: .95rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s; color: var(--muted); }
+  .vote-btn.up:hover { background: #fdece2; border-color: var(--orange); color: var(--orange-dk); }
+  .vote-btn.dn:hover { background: #eef2ee; border-color: var(--green); color: var(--green); }
+  .vote-count { font-size: .95rem; font-weight: 800; color: var(--orange); min-width: 36px; text-align: center; }
+  .deal-age { font-size: .76rem; color: var(--muted); background: var(--bg);
+    padding: 4px 10px; border-radius: 14px; white-space: nowrap; }
+
+  .deal-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .tag-store { background: var(--badge); color: var(--badge-t); font-size: .74rem; font-weight: 700;
+    padding: 3px 9px; border-radius: 4px; }
+  .tag-cat { background: var(--line); color: var(--muted); font-size: .74rem;
+    padding: 3px 9px; border-radius: 4px; font-weight: 500; }
+  .deal-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); text-decoration: none;
+    line-height: 1.3; }
+  .deal-title:hover { color: var(--orange-dk); }
+  .deal-desc { font-size: .85rem; color: var(--muted); line-height: 1.5;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .deal-price-row { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
-  .price-now { font-size: 1.4rem; font-weight: 800; color: var(--sage-dk); }
-  .price-was { font-size: .88rem; color: var(--muted); text-decoration: line-through; }
-  .price-pct { background: var(--terracotta); color: #fff; font-size: .75rem; font-weight: 800;
-    padding: 3px 8px; border-radius: 6px; }
-  .deal-footer { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
-  .deal-footer a { font-size: .82rem; color: var(--muted); text-decoration: none; }
-  .deal-footer a:hover { color: var(--terracotta-dk); }
-  .btn-go { margin-left: auto; background: var(--terracotta); color: #fff; border: none;
-    padding: 8px 20px; border-radius: 10px; font-size: .85rem; font-weight: 700;
-    cursor: pointer; text-decoration: none; transition: background .15s, transform .15s; }
-  .btn-go:hover { background: var(--terracotta-dk); transform: translateY(-1px); }
+  .price-now { font-size: 1.3rem; font-weight: 800; color: var(--green); }
+  .price-was { font-size: .85rem; color: var(--muted); text-decoration: line-through; }
+  .price-pct { background: var(--orange); color: #fff; font-size: .72rem; font-weight: 800;
+    padding: 2px 7px; border-radius: 4px; }
+  .deal-footer { display: flex; align-items: center; gap: 16px; margin-top: 4px; flex-wrap: wrap; }
+  .deal-footer a { font-size: .82rem; color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: 4px; }
+  .deal-footer a:hover { color: var(--orange-dk); }
+  .btn-go { margin-left: auto; background: var(--orange); color: #fff; border: none;
+    padding: 9px 22px; border-radius: 22px; font-size: .85rem; font-weight: 700;
+    cursor: pointer; text-decoration: none; transition: background .15s; }
+  .btn-go:hover { background: var(--orange-dk); }
 
   /* ── Firebase banner ─────────────────────────────────────────────────── */
   #fb-banner {
     display: none; background: var(--badge); color: var(--badge-t);
-    border: 1px solid #e8cd99; border-radius: 12px;
-    padding: 14px 18px; margin-bottom: 16px; font-size: .88rem; line-height: 1.5;
+    border: 1px solid #f0c79a; border-radius: var(--r);
+    padding: 14px 18px; margin: 16px 0; font-size: .88rem; line-height: 1.5;
   }
   #fb-banner strong { display: block; margin-bottom: 4px; }
 
   /* ── Modal ───────────────────────────────────────────────────────────── */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(43,38,32,.45);
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
     z-index: 200; align-items: center; justify-content: center; padding: 16px; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--card); border-radius: var(--r); width: 100%; max-width: 520px;
-    max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
-  .modal-header { background: linear-gradient(135deg, var(--terracotta), var(--sage));
+    max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .modal-header { background: var(--orange);
     color: #fff; padding: 18px 22px; border-radius: var(--r) var(--r) 0 0;
     display: flex; align-items: center; justify-content: space-between; }
   .modal-header h2 { font-size: 1.05rem; }
@@ -303,16 +312,16 @@
   .modal-body { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
   label { font-size: .85rem; font-weight: 600; display: block; margin-bottom: 4px; color: var(--ink); }
   input[type=text], input[type=number], input[type=url], select, textarea {
-    width: 100%; padding: 10px 13px; border: 1.5px solid var(--line); border-radius: 10px;
+    width: 100%; padding: 10px 13px; border: 1.5px solid var(--line); border-radius: 6px;
     font-size: .9rem; outline: none; transition: border .15s; background: var(--white);
     color: var(--ink); font-family: inherit;
   }
-  input:focus, select:focus, textarea:focus { border-color: var(--terracotta); }
+  input:focus, select:focus, textarea:focus { border-color: var(--orange); }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .btn-submit { background: var(--terracotta); color: #fff; border: none; padding: 12px;
-    border-radius: 10px; font-size: .95rem; font-weight: 700; cursor: pointer;
+  .btn-submit { background: var(--orange); color: #fff; border: none; padding: 12px;
+    border-radius: 24px; font-size: .95rem; font-weight: 700; cursor: pointer;
     width: 100%; transition: background .15s; }
-  .btn-submit:hover { background: var(--terracotta-dk); }
+  .btn-submit:hover { background: var(--orange-dk); }
 
   /* ── Empty state ─────────────────────────────────────────────────────── */
   .empty { text-align: center; padding: 60px 20px; color: var(--muted);
@@ -327,48 +336,59 @@
 
 <header>
   <div class="logo">Deal<span>Board</span>.sk</div>
-  <div class="header-search">
-    <input type="text" id="search-input" placeholder="Hľadaj deal…" oninput="filterDeals()">
-  </div>
   <button class="btn-add" onclick="openModal()">+ Pridaj deal</button>
 </header>
 
-<!-- Firebase config reminder -->
-<div id="fb-banner">
-  <strong>⚠️ Demo režim – Firebase nie je nakonfigurovaný</strong>
-  Zobrazujú sa ukážkové dáta. Nastav svoje Firebase údaje v &lt;script&gt; bloku na začiatku súboru,
-  aby sa dealy ukladali a synchronizovali v reálnom čase.
+<!-- Top category nav -->
+<div class="cat-nav-wrap">
+  <div class="cat-nav" id="cat-list">
+    <button class="active" onclick="setCategory('Všetky')">🏷 Všetky</button>
+    <button onclick="setCategory('Elektronika')">📱 Elektronika</button>
+    <button onclick="setCategory('Dom & Záhrada')">🏠 Dom & Záhrada</button>
+    <button onclick="setCategory('Móda')">👗 Móda</button>
+    <button onclick="setCategory('Hračky')">🧸 Hračky</button>
+    <button onclick="setCategory('Šport')">⚽ Šport</button>
+    <button onclick="setCategory('Jedlo & Nápoje')">🍕 Jedlo & Nápoje</button>
+    <button onclick="setCategory('Cestovanie')">✈️ Cestovanie</button>
+    <button onclick="setCategory('Iné')">📦 Iné</button>
+  </div>
 </div>
 
 <div class="container">
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <h3>Kategórie</h3>
-    <ul class="cat-list" id="cat-list">
-      <li><button class="active" onclick="setCategory('Všetky')">🏷 Všetky</button></li>
-      <li><button onclick="setCategory('Elektronika')">📱 Elektronika</button></li>
-      <li><button onclick="setCategory('Dom & Záhrada')">🏠 Dom & Záhrada</button></li>
-      <li><button onclick="setCategory('Móda')">👗 Móda</button></li>
-      <li><button onclick="setCategory('Hračky')">🧸 Hračky</button></li>
-      <li><button onclick="setCategory('Šport')">⚽ Šport</button></li>
-      <li><button onclick="setCategory('Jedlo & Nápoje')">🍕 Jedlo & Nápoje</button></li>
-      <li><button onclick="setCategory('Cestovanie')">✈️ Cestovanie</button></li>
-      <li><button onclick="setCategory('Iné')">📦 Iné</button></li>
-    </ul>
-  </aside>
-
   <!-- Main -->
   <main>
-    <div class="sort-bar">
-      <button class="sort-btn active" onclick="setSort('votes', this)">🔥 Najhorúcejšie</button>
-      <button class="sort-btn" onclick="setSort('new', this)">🆕 Najnovšie</button>
-      <button class="sort-btn" onclick="setSort('discount', this)">💸 Najväčšia zľava</button>
+    <div class="tabs-bar">
+      <div class="sort-bar">
+        <button class="sort-btn active" onclick="setSort('votes', this)">🔥 Najhorúcejšie</button>
+        <button class="sort-btn" onclick="setSort('new', this)">🆕 Najnovšie</button>
+        <button class="sort-btn" onclick="setSort('discount', this)">💸 Najväčšia zľava</button>
+      </div>
+      <div class="header-search" style="max-width:220px;">
+        <input type="text" id="search-input" placeholder="Hľadaj deal…" oninput="filterDeals()">
+      </div>
     </div>
     <div id="fb-banner-main"></div>
+    <div id="fb-banner">
+      <strong>⚠️ Demo režim – Firebase nie je nakonfigurovaný</strong>
+      Zobrazujú sa ukážkové dáta. Nastav svoje Firebase údaje v &lt;script&gt; bloku na začiatku súboru,
+      aby sa dealy ukladali a synchronizovali v reálnom čase.
+    </div>
     <div class="deals-list" id="deals-list">
       <div class="loading">Načítavam dealy…</div>
     </div>
   </main>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-box">
+      <h3>O DealBoard.sk</h3>
+      <p>Komunitná stránka so zľavami z overených slovenských a českých e-shopov. Hlasuj za najlepšie dealy a pomôž ostatným ušetriť.</p>
+    </div>
+    <div class="sidebar-box">
+      <h3>Ako to funguje</h3>
+      <p>👍 Hlasuj za dealy, ktoré sa ti páčia<br>📝 Pridaj vlastný nájdený deal<br>🔥 Najhorúcejšie dealy idú nahor</p>
+    </div>
+  </aside>
 </div>
 
 <!-- Add Deal Modal -->
@@ -491,27 +511,31 @@
       : '';
     return `
     <div class="deal-card">
-      <div class="vote-col">
-        <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
-        <span class="vote-count">${d.votes||0}</span>
-        <button class="vote-btn dn" onclick="vote('${d.id}', -1)" title="Zlý deal">▼</button>
-      </div>
       ${img}
       <div class="deal-body">
-        <div class="deal-meta">
-          <span class="tag-store">${d.store||''}</span>
-          <span class="tag-cat">${d.category||''}</span>
+        <div class="deal-top-row">
+          <div class="vote-pill">
+            <button class="vote-btn dn" onclick="vote('${d.id}', -1)" title="Zlý deal">▼</button>
+            <span class="vote-count">${d.votes||0}°</span>
+            <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
+          </div>
+          <div class="deal-main">
+            <div class="deal-meta">
+              <span class="tag-store">${d.store||''}</span>
+              <span class="tag-cat">${d.category||''}</span>
+            </div>
+            <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener">${d.title||''}</a>
+          </div>
           <span class="deal-age">${timeAgo(d.timestamp)}</span>
         </div>
-        <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener">${d.title||''}</a>
-        <div class="deal-desc">${d.description||''}</div>
         <div class="deal-price-row">
           <span class="price-now">${d.dealPrice} ${d.currency||'€'}</span>
           ${orig}
           ${badge}
         </div>
+        <div class="deal-desc">${d.description||''}</div>
         <div class="deal-footer">
-          <a href="${d.url||'#'}" target="_blank" rel="noopener">💬 ${d.comments||0} komentárov</a>
+          <a href="${d.url||'#'}" target="_blank" rel="noopener">💬 ${d.comments||0}</a>
           <a href="${d.url||'#'}" target="_blank" rel="noopener">🔗 ${d.store||''}</a>
           <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener">Zobraziť deal →</a>
         </div>
@@ -524,9 +548,10 @@
 
   window.setCategory = function(cat) {
     activeCat = cat;
-    document.querySelectorAll('.cat-list button').forEach(b =>
-      b.classList.toggle('active', b.textContent.trim().slice(2) === cat || (cat === 'Všetky' && b.textContent.includes('Všetky')))
-    );
+    document.querySelectorAll('#cat-list button').forEach(b => {
+      const label = b.textContent.trim().replace(/^\S+\s/, '');
+      b.classList.toggle('active', label === cat);
+    });
     applyFilters();
   };
 
