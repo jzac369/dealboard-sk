@@ -312,6 +312,49 @@
     }
   };
 
+  // ── Zľavové kódy ─────────────────────────────────────────────────────────
+  const cq = query(collection(db, "coupons"), where("status", "==", "approved"), orderBy("timestamp", "desc"));
+  onSnapshot(cq, (snap) => {
+    const coupons = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCoupons(coupons);
+  }, (err) => {
+    console.error("Coupons error:", err);
+    document.getElementById('coupons-list').innerHTML =
+      '<div class="empty">Zľavové kódy sa nepodarilo načítať. (Možno chýba Firestore index – pozri konzolu prehliadača.)</div>';
+  });
+
+  window.voteCoupon = async (id, delta) => {
+    if (!currentUid) { alert("Načítavam... skús o sekundu znova."); return; }
+    const voteRef = doc(db, "coupons", id, "voters", currentUid);
+    try {
+      await runTransaction(db, async (tx) => {
+        const voteSnap = await tx.get(voteRef);
+        if (voteSnap.exists()) {
+          const prevDelta = voteSnap.data().delta;
+          if (prevDelta === delta) {
+            tx.delete(voteRef);
+            tx.update(doc(db, "coupons", id), { votes: increment(-delta) });
+          } else {
+            tx.set(voteRef, { delta });
+            tx.update(doc(db, "coupons", id), { votes: increment(delta * 2) });
+          }
+        } else {
+          tx.set(voteRef, { delta });
+          tx.update(doc(db, "coupons", id), { votes: increment(delta) });
+        }
+      });
+    } catch(e) { console.error(e); }
+  };
+
+  window.submitCoupon = async (data) => {
+    await addDoc(collection(db, "coupons"), {
+      ...data,
+      votes: 0,
+      status: "pending",
+      timestamp: serverTimestamp()
+    });
+  };
+
   // ── Add deal – ide do "pending", honeypot kontrola ──────────────────────────
   window.submitDeal = async (data, honeypot) => {
     if (honeypot) throw new Error("spam");
@@ -384,6 +427,11 @@
     transition: background .15s;
   }
   .btn-add:hover { background: var(--orange-dk); }
+  .main-section-nav { display: flex; gap: 4px; background: var(--bg); border-radius: 24px; padding: 3px; }
+  .main-section-btn { background: none; border: none; padding: 7px 16px; border-radius: 20px;
+    cursor: pointer; font-size: .85rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .main-section-btn.active { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+  @media (max-width: 720px) { .main-section-nav { display: none; } }
 
   /* ── Layout ──────────────────────────────────────────────────────────── */
   .container { max-width: 1120px; margin: 0 auto; padding: 0 16px 24px; display: grid;
@@ -477,7 +525,27 @@
     cursor: pointer; text-decoration: none; transition: background .15s; }
   .btn-go:hover { background: var(--orange-dk); }
 
-  /* ── Firebase banner ─────────────────────────────────────────────────── */
+  /* ── Coupon card ────────────────────────────────────────────────────── */
+  .coupons-list { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+  .coupon-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+    box-shadow: var(--shadow); display: flex; align-items: center; gap: 18px; padding: 16px 20px;
+    flex-wrap: wrap; transition: box-shadow .15s; }
+  .coupon-card:hover { box-shadow: var(--shadow-lg); }
+  .coupon-code-box { display: flex; align-items: center; gap: 8px; background: var(--bg);
+    border: 1.5px dashed var(--orange); border-radius: 8px; padding: 10px 16px; }
+  .coupon-code-box code { font-family: 'Courier New', monospace; font-size: 1.15rem; font-weight: 800;
+    color: var(--orange-dk); letter-spacing: .03em; }
+  .coupon-copy-btn { background: var(--orange); color: #fff; border: none; padding: 5px 12px;
+    border-radius: 16px; font-size: .76rem; font-weight: 700; cursor: pointer; }
+  .coupon-copy-btn:hover { background: var(--orange-dk); }
+  .coupon-info { flex: 1; min-width: 180px; }
+  .coupon-title { font-size: 1rem; font-weight: 700; color: var(--ink); }
+  .coupon-sub { font-size: .82rem; color: var(--muted); margin-top: 3px; }
+  .coupon-expiry { font-size: .76rem; color: var(--orange-dk); margin-top: 3px; font-weight: 600; }
+  .coupon-vote-pill { display: flex; align-items: center; gap: 6px; }
+  .coupon-go { background: var(--orange); color: #fff; border: none; padding: 9px 18px;
+    border-radius: 22px; font-size: .82rem; font-weight: 700; text-decoration: none; }
+  .coupon-go:hover { background: var(--orange-dk); }
   #fb-banner {
     display: none; background: var(--badge); color: var(--badge-t);
     border: 1px solid #f0c79a; border-radius: var(--r);
@@ -531,11 +599,16 @@
 
 <header>
   <div class="logo">Deal<span>Board</span>.sk</div>
-  <button class="btn-add" onclick="openModal()">+ Pridaj deal</button>
+  <div class="main-section-nav">
+    <button class="main-section-btn active" onclick="setMainSection('deals', this)">🔥 Dealy</button>
+    <button class="main-section-btn" onclick="setMainSection('coupons', this)">🎟️ Zľavové kódy</button>
+  </div>
+  <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
+  <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
 </header>
 
 <!-- Top category nav -->
-<div class="cat-nav-wrap">
+<div class="cat-nav-wrap" id="cat-nav-wrap">
   <div class="cat-nav" id="cat-list">
     <button class="active" onclick="setCategory('Všetky')">🏷 Všetky</button>
     <button onclick="setCategory('Elektronika')">📱 Elektronika</button>
@@ -550,8 +623,8 @@
 </div>
 
 <div class="container">
-  <!-- Main -->
-  <main>
+  <!-- Main: Deals -->
+  <main id="deals-main">
     <div class="tabs-bar">
       <div class="sort-bar">
         <button class="sort-btn active" onclick="setSort('new', this)">🆕 Najnovšie</button>
@@ -570,6 +643,22 @@
     </div>
     <div class="deals-list" id="deals-list">
       <div class="loading">Načítavam dealy…</div>
+    </div>
+  </main>
+
+  <!-- Main: Coupons -->
+  <main id="coupons-main" style="display:none;">
+    <div class="tabs-bar">
+      <div class="sort-bar">
+        <button class="sort-btn active" onclick="setCouponSort('new', this)">🆕 Najnovšie</button>
+        <button class="sort-btn" onclick="setCouponSort('votes', this)">🔥 Najpopulárnejšie</button>
+      </div>
+      <div class="header-search" style="max-width:220px;">
+        <input type="text" id="coupon-search-input" placeholder="Hľadaj kód…" oninput="filterCoupons()">
+      </div>
+    </div>
+    <div class="coupons-list" id="coupons-list">
+      <div class="loading">Načítavam zľavové kódy…</div>
     </div>
   </main>
 
@@ -680,6 +769,43 @@
   </div>
 </div>
 
+<!-- Add Coupon Modal -->
+<div class="modal-overlay" id="coupon-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Pridaj zľavový kód</h2>
+      <button class="modal-close" onclick="closeCouponModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label>Zľavový kód *</label>
+        <input type="text" id="cp-code" placeholder="napr. ZIMA20" style="text-transform:uppercase;">
+      </div>
+      <div>
+        <label>E-shop *</label>
+        <input type="text" id="cp-store" placeholder="napr. Alza.sk, Zalando.sk…">
+      </div>
+      <div>
+        <label>Zľava *</label>
+        <input type="text" id="cp-discount" placeholder="napr. 20% na všetko, 5€ nad 50€…">
+      </div>
+      <div>
+        <label>Odkaz na e-shop *</label>
+        <input type="url" id="cp-url" placeholder="https://...">
+      </div>
+      <div>
+        <label>Platí do (voliteľné)</label>
+        <input type="text" id="cp-expiry" placeholder="napr. 30.6.2026">
+      </div>
+      <div>
+        <label>Popis / podmienky</label>
+        <textarea id="cp-desc" rows="2" placeholder="Min. hodnota objednávky, vylúčené kategórie, atď."></textarea>
+      </div>
+      <button class="btn-submit" onclick="handleCouponSubmit()">Odoslať na schválenie</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ── State ────────────────────────────────────────────────────────────────
   let allDeals   = [];
@@ -724,6 +850,10 @@
   function discount(d) {
     if (!d.originalPrice || !d.dealPrice) return 0;
     return Math.round((1 - d.dealPrice / d.originalPrice) * 100);
+  }
+
+  function escapeHtml(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
   function timeAgo(ts) {
@@ -795,6 +925,123 @@
     applyFilters();
   };
 
+  // ── Sekcia: Dealy / Zľavové kódy ────────────────────────────────────────────
+  window.setMainSection = function(section, btn) {
+    document.querySelectorAll('.main-section-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const isDeals = section === 'deals';
+    document.getElementById('deals-main').style.display = isDeals ? 'block' : 'none';
+    document.getElementById('coupons-main').style.display = isDeals ? 'none' : 'block';
+    document.getElementById('cat-nav-wrap').style.display = isDeals ? 'block' : 'none';
+    document.getElementById('btn-add-deal').style.display = isDeals ? 'inline-block' : 'none';
+    document.getElementById('btn-add-coupon').style.display = isDeals ? 'none' : 'inline-block';
+  };
+
+  // ── Zľavové kódy: render, filter, sort ──────────────────────────────────────
+  let allCoupons = [];
+  let activeCouponSort = 'new';
+
+  window.renderCoupons = function(coupons) {
+    allCoupons = coupons;
+    applyCouponFilters();
+  };
+
+  function applyCouponFilters() {
+    const q = (document.getElementById('coupon-search-input')?.value || '').toLowerCase();
+    let list = [...allCoupons];
+    if (q) {
+      list = list.filter(c =>
+        (c.code||'').toLowerCase().includes(q) ||
+        (c.store||'').toLowerCase().includes(q) ||
+        (c.discount||'').toLowerCase().includes(q)
+      );
+    }
+    if (activeCouponSort === 'votes') list.sort((a,b) => (b.votes||0) - (a.votes||0));
+    else list.sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
+
+    const el = document.getElementById('coupons-list');
+    if (!list.length) {
+      el.innerHTML = `<div class="empty"><div class="icon">🎟️</div>Žiadne zľavové kódy nenájdené.</div>`;
+      return;
+    }
+    el.innerHTML = list.map(couponCard).join('');
+  }
+
+  window.filterCoupons = applyCouponFilters;
+  window.setCouponSort = function(sort, btn) {
+    activeCouponSort = sort;
+    btn.parentElement.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyCouponFilters();
+  };
+
+  function couponCard(c) {
+    const expiry = c.expiryDate ? `<div class="coupon-expiry">⏰ Platí do ${escapeHtml(c.expiryDate)}</div>` : '';
+    return `
+    <div class="coupon-card">
+      <div class="coupon-code-box">
+        <code>${escapeHtml(c.code||'')}</code>
+        <button class="coupon-copy-btn" onclick="copyCoupon('${c.id}', '${escapeAttr(c.code||'')}')" id="copy-btn-${c.id}">Kopírovať</button>
+      </div>
+      <div class="coupon-info">
+        <div class="coupon-title">${escapeHtml(c.discount||'')} – <span style="color:var(--muted); font-weight:500;">${escapeHtml(c.store||'')}</span></div>
+        <div class="coupon-sub">${escapeHtml(c.description||'')}</div>
+        ${expiry}
+      </div>
+      <div class="coupon-vote-pill">
+        <button class="vote-btn dn" onclick="voteCoupon('${c.id}', -1)" title="Nefunguje">👎</button>
+        <span class="vote-count">${c.votes||0}</span>
+        <button class="vote-btn up" onclick="voteCoupon('${c.id}', 1)" title="Funguje">👍</button>
+      </div>
+      <a class="coupon-go" href="${c.url||'#'}" target="_blank" rel="noopener">Do e-shopu →</a>
+    </div>`;
+  }
+
+  function escapeAttr(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  }
+
+  window.copyCoupon = function(id, code) {
+    navigator.clipboard.writeText(code).then(() => {
+      const btn = document.getElementById('copy-btn-' + id);
+      const original = btn.textContent;
+      btn.textContent = 'Skopírované ✓';
+      setTimeout(() => { btn.textContent = original; }, 1800);
+    });
+  };
+
+  // ── Modal: pridanie kódu ────────────────────────────────────────────────────
+  window.openCouponModal  = () => document.getElementById('coupon-modal').classList.add('open');
+  window.closeCouponModal = () => document.getElementById('coupon-modal').classList.remove('open');
+
+  window.handleCouponSubmit = async function() {
+    const code     = document.getElementById('cp-code').value.trim().toUpperCase();
+    const store    = document.getElementById('cp-store').value.trim();
+    const discount = document.getElementById('cp-discount').value.trim();
+    const url      = document.getElementById('cp-url').value.trim();
+    if (!code || !store || !discount || !url) {
+      alert('Vyplň prosím povinné polia (*).');
+      return;
+    }
+    const data = {
+      code,
+      store,
+      discount,
+      url,
+      description: document.getElementById('cp-desc').value.trim(),
+      expiryDate: document.getElementById('cp-expiry').value.trim() || null
+    };
+    try {
+      await window.submitCoupon(data);
+      closeCouponModal();
+      ['cp-code','cp-store','cp-discount','cp-url','cp-desc','cp-expiry'].forEach(id =>
+        document.getElementById(id).value = '');
+      alert('Ďakujeme! Kód bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
+    } catch(e) {
+      alert('Chyba pri ukladaní. Skontroluj Firebase konfiguráciu.');
+    }
+  };
+
   // ── Modal ─────────────────────────────────────────────────────────────────
   window.openModal  = () => document.getElementById('modal').classList.add('open');
   window.closeModal = () => document.getElementById('modal').classList.remove('open');
@@ -803,6 +1050,9 @@
   });
   document.getElementById('comments-modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeComments();
+  });
+  document.getElementById('coupon-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeCouponModal();
   });
 
   // ── Image preview ────────────────────────────────────────────────────────
