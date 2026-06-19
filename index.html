@@ -219,6 +219,99 @@
     });
   };
 
+  // ── Komentáre ────────────────────────────────────────────────────────────
+  const COMMENT_RATE_LIMIT_MS = 2 * 60 * 1000; // 1 komentár / 2 min
+  window.canSubmitComment = () => {
+    const last = parseInt(localStorage.getItem('db_lastComment') || '0', 10);
+    return Date.now() - last >= COMMENT_RATE_LIMIT_MS;
+  };
+  window.msUntilNextComment = () => {
+    const last = parseInt(localStorage.getItem('db_lastComment') || '0', 10);
+    return Math.max(0, COMMENT_RATE_LIMIT_MS - (Date.now() - last));
+  };
+
+  window.submitComment = async function(dealId, nickname, text, honeypot) {
+    if (honeypot) throw new Error("spam");
+    if (!window.canSubmitComment()) throw new Error("rate-limit");
+    await addDoc(collection(db, "deals", dealId, "comments"), {
+      nickname,
+      text,
+      status: "pending",
+      timestamp: serverTimestamp()
+    });
+    localStorage.setItem('db_lastComment', String(Date.now()));
+  };
+
+  let activeCommentDealId = null;
+  let unsubComments = null;
+
+  window.openComments = function(dealId) {
+    activeCommentDealId = dealId;
+    document.getElementById('comments-modal').classList.add('open');
+    document.getElementById('comments-list').innerHTML = '<div class="loading">Načítavam komentáre…</div>';
+    if (unsubComments) unsubComments();
+    const cq = query(collection(db, "deals", dealId, "comments"), where("status", "==", "approved"), orderBy("timestamp", "desc"));
+    unsubComments = onSnapshot(cq, (snap) => {
+      const comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderComments(comments);
+    }, () => {
+      document.getElementById('comments-list').innerHTML = '<div class="empty">Komentáre sa nepodarilo načítať.</div>';
+    });
+  };
+
+  window.closeComments = function() {
+    document.getElementById('comments-modal').classList.remove('open');
+    if (unsubComments) { unsubComments(); unsubComments = null; }
+    activeCommentDealId = null;
+  };
+
+  function renderComments(comments) {
+    const el = document.getElementById('comments-list');
+    if (!comments.length) {
+      el.innerHTML = '<div class="empty" style="padding:24px;">Zatiaľ žiadne komentáre. Buď prvý!</div>';
+      return;
+    }
+    el.innerHTML = comments.map(c => `
+      <div class="comment-item">
+        <div class="comment-head"><strong>${escapeHtml(c.nickname||'Anonym')}</strong> <span class="comment-time">${timeAgo(c.timestamp)}</span></div>
+        <div class="comment-text">${escapeHtml(c.text||'')}</div>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtml(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function timeAgo(ts) {
+    if (!ts?.seconds) return '';
+    const diff = Math.floor((Date.now()/1000 - ts.seconds) / 60);
+    if (diff < 1)  return 'práve teraz';
+    if (diff < 60) return diff + ' min';
+    if (diff < 1440) return Math.floor(diff/60) + ' hod';
+    return Math.floor(diff/1440) + ' dní';
+  }
+
+  window.handleCommentSubmit = async function() {
+    const nickname = document.getElementById('c-nickname').value.trim();
+    const text     = document.getElementById('c-text').value.trim();
+    const honeypot = document.getElementById('c-honeypot').value.trim();
+    if (!nickname || !text) { alert('Vyplň prosím prezývku aj text komentára.'); return; }
+    if (!activeCommentDealId) return;
+    try {
+      await window.submitComment(activeCommentDealId, nickname, text, honeypot);
+      document.getElementById('c-text').value = '';
+      alert('Komentár bol odoslaný na schválenie.');
+    } catch(e) {
+      if (e.message === 'rate-limit') {
+        const secs = Math.ceil(window.msUntilNextComment() / 1000);
+        alert(`Komentovať môžeš raz za 2 minúty. Skús to o ${secs}s.`);
+      } else {
+        alert('Chyba pri odosielaní komentára.');
+      }
+    }
+  };
+
   // ── Add deal – ide do "pending", honeypot kontrola ──────────────────────────
   window.submitDeal = async (data, honeypot) => {
     if (honeypot) throw new Error("spam");
@@ -424,6 +517,12 @@
     background: var(--card); border-radius: var(--r); border: 1px solid var(--line); }
   .empty .icon { font-size: 3rem; margin-bottom: 12px; }
 
+  /* ── Comments ─────────────────────────────────────────────────────────── */
+  .comment-item { background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+  .comment-head { display: flex; align-items: baseline; gap: 8px; font-size: .85rem; }
+  .comment-time { font-size: .74rem; color: var(--muted); }
+  .comment-text { font-size: .85rem; color: var(--ink); margin-top: 3px; line-height: 1.4; }
+
   /* ── Loading ─────────────────────────────────────────────────────────── */
   .loading { text-align: center; padding: 40px; color: var(--muted); font-size: .9rem; }
 </style>
@@ -553,6 +652,34 @@
   </div>
 </div>
 
+<!-- Comments Modal -->
+<div class="modal-overlay" id="comments-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>💬 Komentáre</h2>
+      <button class="modal-close" onclick="closeComments()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="comments-list" style="display:flex; flex-direction:column; gap:10px; max-height:300px; overflow-y:auto;"></div>
+      <div style="border-top:1px solid var(--line); padding-top:14px; margin-top:6px;">
+        <div>
+          <label>Prezývka *</label>
+          <input type="text" id="c-nickname" placeholder="napr. Jarko123" maxlength="40">
+        </div>
+        <div style="margin-top:10px;">
+          <label>Komentár *</label>
+          <textarea id="c-text" rows="3" placeholder="Napíš svoj komentár…" maxlength="500"></textarea>
+        </div>
+        <div style="position:absolute; left:-9999px; opacity:0;" aria-hidden="true">
+          <input type="text" id="c-honeypot" tabindex="-1" autocomplete="off">
+        </div>
+        <p style="font-size:.76rem; color:var(--muted); margin-top:6px;">Komentár sa zobrazí po schválení moderátorom.</p>
+        <button class="btn-submit" style="margin-top:10px;" onclick="handleCommentSubmit()">Odoslať komentár</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   // ── State ────────────────────────────────────────────────────────────────
   let allDeals   = [];
@@ -641,7 +768,7 @@
         </div>
         <div class="deal-desc">${d.description||''}</div>
         <div class="deal-footer">
-          <a href="${d.url||'#'}" target="_blank" rel="noopener">💬 ${d.comments||0}</a>
+          <a href="#" onclick="openComments('${d.id}'); return false;">💬 ${d.comments||0}</a>
           <a href="${d.url||'#'}" target="_blank" rel="noopener">🔗 ${d.store||''}</a>
           <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener">Zobraziť deal →</a>
         </div>
@@ -673,6 +800,9 @@
   window.closeModal = () => document.getElementById('modal').classList.remove('open');
   document.getElementById('modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
+  });
+  document.getElementById('comments-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeComments();
   });
 
   // ── Image preview ────────────────────────────────────────────────────────
