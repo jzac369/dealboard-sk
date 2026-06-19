@@ -7,7 +7,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy }
+  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, orderBy }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -28,7 +28,9 @@
   const auth = getAuth(app);
 
   let allDeals = [];
+  let allComments = [];
   let unsub = null;
+  let unsubComments = null;
 
   onAuthStateChanged(auth, (user) => {
     const loginView = document.getElementById('login-view');
@@ -38,10 +40,12 @@
       adminView.style.display = 'block';
       document.getElementById('admin-email').textContent = user.email;
       startListening();
+      startListeningComments();
     } else {
       loginView.style.display = 'flex';
       adminView.style.display = 'none';
       if (unsub) { unsub(); unsub = null; }
+      if (unsubComments) { unsubComments(); unsubComments = null; }
     }
   });
 
@@ -50,6 +54,18 @@
     unsub = onSnapshot(q, (snap) => {
       allDeals = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       render();
+    });
+  }
+
+  function startListeningComments() {
+    const cq = query(collectionGroup(db, "comments"), orderBy("timestamp", "desc"));
+    unsubComments = onSnapshot(cq, (snap) => {
+      allComments = snap.docs.map(d => ({
+        id: d.id,
+        dealId: d.ref.parent.parent.id,
+        ...d.data()
+      }));
+      renderComments();
     });
   }
 
@@ -88,6 +104,90 @@
     if (!confirm('Naozaj natrvalo vymazať tento deal? Toto sa nedá vrátiť späť (skús Archivovať, ak chceš zachovať možnosť obnovy).')) return;
     await deleteDoc(doc(db, "deals", id));
   };
+
+  // ── Komentáre ────────────────────────────────────────────────────────────
+  window.approveComment = async function(dealId, commentId) {
+    await updateDoc(doc(db, "deals", dealId, "comments", commentId), { status: 'approved' });
+    await updateDoc(doc(db, "deals", dealId), { comments: increment(1) });
+  };
+
+  window.rejectComment = async function(dealId, commentId, wasApproved) {
+    await updateDoc(doc(db, "deals", dealId, "comments", commentId), { status: 'rejected' });
+    if (wasApproved) {
+      await updateDoc(doc(db, "deals", dealId), { comments: increment(-1) });
+    }
+  };
+
+  window.deleteComment = async function(dealId, commentId, wasApproved) {
+    if (!confirm('Naozaj natrvalo vymazať tento komentár?')) return;
+    await deleteDoc(doc(db, "deals", dealId, "comments", commentId));
+    if (wasApproved) {
+      await updateDoc(doc(db, "deals", dealId), { comments: increment(-1) });
+    }
+  };
+
+  let activeCommentTab = 'pending';
+  window.setCommentTab = function(tab, btn) {
+    activeCommentTab = tab;
+    document.querySelectorAll('.comment-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderComments();
+  };
+
+  function renderComments() {
+    const pending  = allComments.filter(c => c.status === 'pending');
+    const approved = allComments.filter(c => c.status === 'approved');
+    const rejected = allComments.filter(c => c.status === 'rejected');
+
+    document.getElementById('ccount-pending').textContent = pending.length;
+    document.getElementById('ccount-approved').textContent = approved.length;
+    document.getElementById('ccount-rejected').textContent = rejected.length;
+
+    const map = { pending, approved, rejected };
+    const list = map[activeCommentTab] || pending;
+
+    const el = document.getElementById('comment-list');
+    if (!el) return;
+    if (!list.length) {
+      el.innerHTML = `<div class="empty">Žiadne komentáre v tejto kategórii.</div>`;
+      return;
+    }
+    el.innerHTML = list.map(c => commentRowTemplate(c)).join('');
+  }
+
+  function commentRowTemplate(c) {
+    const deal = allDeals.find(d => d.id === c.dealId);
+    const dealTitle = deal ? deal.title : '(neznámy deal)';
+    const wasApproved = c.status === 'approved';
+    const statusBadge = {
+      pending:  '<span class="badge badge-pending">Na schválenie</span>',
+      approved: '<span class="badge badge-approved">Schválené</span>',
+      rejected: '<span class="badge badge-rejected">Zamietnuté</span>'
+    }[c.status] || '';
+    return `
+    <div class="deal-row">
+      <div class="row-header">
+        <div class="row-info">
+          <div class="row-title"><strong>${escapeHtml(c.nickname||'Anonym')}</strong> ${statusBadge}</div>
+          <div class="row-sub">k deal-u: <em>${escapeHtml(dealTitle)}</em></div>
+          <div class="comment-body-text">${escapeHtml(c.text||'')}</div>
+        </div>
+        <div class="row-actions">
+          ${c.status === 'pending' ? `
+            <button class="btn btn-approve" onclick="approveComment('${c.dealId}','${c.id}')">✓ Schváliť</button>
+            <button class="btn btn-reject" onclick="rejectComment('${c.dealId}','${c.id}', false)">✕ Zamietnuť</button>
+          ` : ''}
+          ${c.status === 'rejected' ? `
+            <button class="btn btn-approve" onclick="approveComment('${c.dealId}','${c.id}')">✓ Schváliť</button>
+          ` : ''}
+          ${c.status === 'approved' ? `
+            <button class="btn btn-reject" onclick="rejectComment('${c.dealId}','${c.id}', true)">Skryť</button>
+          ` : ''}
+          <button class="btn btn-delete" onclick="deleteComment('${c.dealId}','${c.id}', ${wasApproved})">🗑 Vymazať</button>
+        </div>
+      </div>
+    </div>`;
+  }
 
   function resizeImageToBase64(file) {
     const MAX_DIM = 640;
@@ -141,6 +241,13 @@
     };
     await updateDoc(doc(db, "deals", id), updates);
     alert('Uložené.');
+  };
+
+  window.setMainSection = function(section, btn) {
+    document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('deals-section').style.display = section === 'deals' ? 'block' : 'none';
+    document.getElementById('comments-section').style.display = section === 'comments' ? 'block' : 'none';
   };
 
   let activeTab = 'pending';
@@ -282,6 +389,12 @@
     cursor: pointer; font-size: .82rem; }
 
   .container { max-width: 980px; margin: 0 auto; padding: 20px 16px; }
+  .main-tabs { display: flex; gap: 10px; margin-bottom: 18px; }
+  .main-tab-btn { background: var(--card); border: 1.5px solid var(--line); padding: 10px 20px; border-radius: 8px;
+    cursor: pointer; font-size: .92rem; font-weight: 700; color: var(--ink); }
+  .main-tab-btn.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .comment-body-text { font-size: .85rem; color: var(--ink); margin-top: 6px; background: var(--bg);
+    padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tab-btn { background: var(--card); border: 1.5px solid var(--line); padding: 9px 16px; border-radius: 8px;
     cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--muted); }
@@ -354,13 +467,29 @@
   </header>
 
   <div class="container">
-    <div class="tabs">
-      <button class="tab-btn active" onclick="setTab('pending', this)">Na schválenie (<span id="count-pending">0</span>)</button>
-      <button class="tab-btn" onclick="setTab('approved', this)">Schválené (<span id="count-approved">0</span>)</button>
-      <button class="tab-btn" onclick="setTab('rejected', this)">Zamietnuté (<span id="count-rejected">0</span>)</button>
-      <button class="tab-btn" onclick="setTab('archived', this)">Archív (<span id="count-archived">0</span>)</button>
+    <div class="main-tabs">
+      <button class="main-tab-btn active" onclick="setMainSection('deals', this)">📦 Dealy</button>
+      <button class="main-tab-btn" onclick="setMainSection('comments', this)">💬 Komentáre</button>
     </div>
-    <div id="deal-list"></div>
+
+    <div id="deals-section">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="setTab('pending', this)">Na schválenie (<span id="count-pending">0</span>)</button>
+        <button class="tab-btn" onclick="setTab('approved', this)">Schválené (<span id="count-approved">0</span>)</button>
+        <button class="tab-btn" onclick="setTab('rejected', this)">Zamietnuté (<span id="count-rejected">0</span>)</button>
+        <button class="tab-btn" onclick="setTab('archived', this)">Archív (<span id="count-archived">0</span>)</button>
+      </div>
+      <div id="deal-list"></div>
+    </div>
+
+    <div id="comments-section" style="display:none;">
+      <div class="tabs">
+        <button class="tab-btn comment-tab-btn active" onclick="setCommentTab('pending', this)">Na schválenie (<span id="ccount-pending">0</span>)</button>
+        <button class="tab-btn comment-tab-btn" onclick="setCommentTab('approved', this)">Schválené (<span id="ccount-approved">0</span>)</button>
+        <button class="tab-btn comment-tab-btn" onclick="setCommentTab('rejected', this)">Zamietnuté (<span id="ccount-rejected">0</span>)</button>
+      </div>
+      <div id="comment-list"></div>
+    </div>
   </div>
 </div>
 
