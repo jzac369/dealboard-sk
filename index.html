@@ -257,18 +257,20 @@
 
   let activeCommentDealId = null;
   let unsubComments = null;
+  let commentsListTargetId = 'comments-list';
 
-  window.openComments = function(dealId) {
+  window.openComments = function(dealId, targetId) {
     activeCommentDealId = dealId;
-    document.getElementById('comments-modal').classList.add('open');
-    document.getElementById('comments-list').innerHTML = '<div class="loading">Načítavam komentáre…</div>';
+    commentsListTargetId = targetId || 'comments-list';
+    if (!targetId) document.getElementById('comments-modal').classList.add('open');
+    document.getElementById(commentsListTargetId).innerHTML = '<div class="loading">Načítavam komentáre…</div>';
     if (unsubComments) unsubComments();
     const cq = query(collection(db, "deals", dealId, "comments"), where("status", "==", "approved"), orderBy("timestamp", "desc"));
     unsubComments = onSnapshot(cq, (snap) => {
       const comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderComments(comments);
     }, () => {
-      document.getElementById('comments-list').innerHTML = '<div class="empty">Komentáre sa nepodarilo načítať.</div>';
+      document.getElementById(commentsListTargetId).innerHTML = '<div class="empty">Komentáre sa nepodarilo načítať.</div>';
     });
   };
 
@@ -279,7 +281,8 @@
   };
 
   function renderComments(comments) {
-    const el = document.getElementById('comments-list');
+    const el = document.getElementById(commentsListTargetId);
+    if (!el) return;
     if (!comments.length) {
       el.innerHTML = '<div class="empty" style="padding:24px;">Zatiaľ žiadne komentáre. Buď prvý!</div>';
       return;
@@ -783,6 +786,19 @@
   </div>
 </div>
 
+<!-- Deal Detail Modal -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <h2>Detail dealu</h2>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="modal-body" id="detail-body" style="max-height:80vh; overflow-y:auto;">
+      <div class="loading">Načítavam…</div>
+    </div>
+  </div>
+</div>
+
 <!-- Comments Modal -->
 <div class="modal-overlay" id="comments-modal">
   <div class="modal">
@@ -915,11 +931,11 @@
       ? `<div class="deal-img"><img src="${d.imageUrl}" alt="" loading="lazy"></div>`
       : '';
     return `
-    <div class="deal-card" id="deal-${d.id}">
+    <div class="deal-card" id="deal-${d.id}" onclick="openDealDetail('${d.id}')" style="cursor:pointer;">
       ${img}
       <div class="deal-body">
         <div class="deal-top-row">
-          <div class="vote-pill">
+          <div class="vote-pill" onclick="event.stopPropagation()">
             <button class="vote-btn dn" onclick="vote('${d.id}', -1)" title="Zlý deal">▼</button>
             <span class="vote-count">${d.votes||0}°</span>
             <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
@@ -929,7 +945,7 @@
               <span class="tag-store">${d.store||''}</span>
               <span class="tag-cat">${d.category||''}</span>
             </div>
-            <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener">${d.title||''}</a>
+            <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${d.title||''}</a>
           </div>
           <span class="deal-age">${timeAgo(d.timestamp)}</span>
         </div>
@@ -939,7 +955,7 @@
           ${badge}
         </div>
         <div class="deal-desc">${d.description||''}</div>
-        <div class="deal-footer">
+        <div class="deal-footer" onclick="event.stopPropagation()">
           <a href="#" onclick="openComments('${d.id}'); return false;">💬 ${d.comments||0}</a>
           <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">📤 <span class="footer-label">Zdieľať</span></a>
           <a href="${d.url||'#'}" target="_blank" rel="noopener">🔗 <span class="footer-label">${d.store||''}</span></a>
@@ -1091,12 +1107,8 @@
     const dealId = params.get('deal');
     if (!dealId) return;
     setTimeout(() => {
-      const el = document.getElementById('deal-' + dealId);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.style.outline = '3px solid var(--orange)';
-        el.style.outlineOffset = '2px';
-        setTimeout(() => { el.style.outline = 'none'; }, 3000);
+      if (allDeals.find(d => d.id === dealId)) {
+        openDealDetail(dealId);
       }
     }, 600);
   }
@@ -1141,6 +1153,68 @@
   window.closeModal = () => document.getElementById('modal').classList.remove('open');
   document.getElementById('modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
+  });
+  // ── Detail dealu (modal) ─────────────────────────────────────────────────
+  window.openDealDetail = function(dealId) {
+    const deal = allDeals.find(d => d.id === dealId);
+    if (!deal) return;
+    document.getElementById('detail-modal').classList.add('open');
+    renderDealDetail(deal);
+    // živé komentáre v rámci detailu (read-only zoznam)
+    window.openComments(dealId, 'detail-comments-list');
+  };
+
+  window.closeDetail = function() {
+    document.getElementById('detail-modal').classList.remove('open');
+    if (unsubComments) { unsubComments(); unsubComments = null; }
+  };
+
+  function renderDealDetail(d) {
+    const pct   = discount(d);
+    const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
+    const orig  = d.originalPrice ? `<span class="price-was">${d.originalPrice} ${d.currency||'€'}</span>` : '';
+    const img   = d.imageUrl
+      ? `<img src="${d.imageUrl}" alt="" style="width:100%; max-height:320px; object-fit:cover; border-radius:var(--r); display:block; margin-bottom:14px;">`
+      : '';
+    document.getElementById('detail-body').innerHTML = `
+      ${img}
+      <div class="deal-meta" style="margin-top:0;">
+        <span class="tag-store">${d.store||''}</span>
+        <span class="tag-cat">${d.category||''}</span>
+        <span class="deal-age">${timeAgo(d.timestamp)}</span>
+      </div>
+      <h2 style="font-size:1.25rem; margin-top:10px; color:var(--ink);">${escapeHtml(d.title||'')}</h2>
+      <div class="deal-price-row" style="margin-top:8px;">
+        <span class="price-now">${d.dealPrice} ${d.currency||'€'}</span>
+        ${orig}
+        ${badge}
+      </div>
+      <p style="font-size:.92rem; color:var(--muted); line-height:1.6; margin-top:10px; white-space:pre-wrap;">${escapeHtml(d.description||'')}</p>
+      <div class="vote-pill" style="margin-top:14px;">
+        <button class="vote-btn dn" onclick="vote('${d.id}', -1)" title="Zlý deal">▼</button>
+        <span class="vote-count">${d.votes||0}°</span>
+        <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+        <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener">Zobraziť deal →</a>
+        <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;"
+           style="display:flex; align-items:center; gap:5px; color:var(--muted); text-decoration:none; font-size:.85rem; padding:9px 4px;">📤 Zdieľať</a>
+      </div>
+      <div style="border-top:1px solid var(--line); margin-top:18px; padding-top:14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <strong style="font-size:.95rem;">💬 Komentáre</strong>
+          <button class="sort-btn" style="border:1.5px solid var(--line); border-radius:16px; padding:5px 14px;"
+                  onclick="openComments('${d.id}')">+ Napísať komentár</button>
+        </div>
+        <div id="detail-comments-list" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="loading">Načítavam komentáre…</div>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('detail-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeDetail();
   });
   document.getElementById('comments-modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeComments();
