@@ -879,7 +879,7 @@
       ? `<div class="deal-img"><img src="${d.imageUrl}" alt="" loading="lazy"></div>`
       : '';
     return `
-    <div class="deal-card">
+    <div class="deal-card" id="deal-${d.id}">
       ${img}
       <div class="deal-body">
         <div class="deal-top-row">
@@ -905,6 +905,7 @@
         <div class="deal-desc">${d.description||''}</div>
         <div class="deal-footer">
           <a href="#" onclick="openComments('${d.id}'); return false;">💬 ${d.comments||0}</a>
+          <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">📤 Zdieľať</a>
           <a href="${d.url||'#'}" target="_blank" rel="noopener">🔗 ${d.store||''}</a>
           <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener">Zobraziť deal →</a>
         </div>
@@ -1015,6 +1016,57 @@
       setTimeout(() => { btn.textContent = original; }, 1800);
     });
   };
+
+  // ── Zdieľanie dealu ──────────────────────────────────────────────────────
+  window.shareDeal = async function(id, title, price, currency) {
+    const url = `${window.location.origin}${window.location.pathname}?deal=${id}`;
+    const text = `${title} – len ${price} ${currency}! 🔥`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: text, url });
+      } catch(e) { /* užívateľ zrušil zdieľanie, nič nerobiť */ }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        showShareToast('Link skopírovaný ✓');
+      } catch(e) {
+        showShareToast('Nepodarilo sa skopírovať link.');
+      }
+    }
+  };
+
+  function showShareToast(msg) {
+    let toast = document.getElementById('share-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'share-toast';
+      toast.style.cssText = 'position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 20px; border-radius:24px; font-size:.85rem; z-index:500; box-shadow:var(--shadow-lg);';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => { toast.style.display = 'none'; }, 2200);
+  }
+
+  // ── Zvýraznenie dealu z URL parametra (?deal=ID) po zdieľaní ────────────────
+  function highlightSharedDeal() {
+    const params = new URLSearchParams(window.location.search);
+    const dealId = params.get('deal');
+    if (!dealId) return;
+    setTimeout(() => {
+      const el = document.getElementById('deal-' + dealId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.outline = '3px solid var(--orange)';
+        el.style.outlineOffset = '2px';
+        setTimeout(() => { el.style.outline = 'none'; }, 3000);
+      }
+    }, 600);
+  }
+  window.addEventListener('DOMContentLoaded', highlightSharedDeal);
+  // Ak sa dealy ešte renderujú po DOMContentLoaded, skús to znova po krátkom čase
+  setTimeout(highlightSharedDeal, 1200);
 
   // ── Modal: pridanie kódu ────────────────────────────────────────────────────
   window.openCouponModal  = () => document.getElementById('coupon-modal').classList.add('open');
