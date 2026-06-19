@@ -174,7 +174,10 @@
           tx.update(doc(db, "deals", id), { votes: increment(delta) });
         }
       });
-    } catch(e) { console.error(e); }
+    } catch(e) {
+      console.error('Vote error:', e);
+      alert('Hlasovanie zlyhalo: ' + e.message);
+    }
   };
 
   // ── Rate limiting (localStorage) – max 1 príspevok / 15 min ────────────────
