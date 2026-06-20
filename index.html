@@ -301,7 +301,8 @@
     unsubComments = onSnapshot(cq, (snap) => {
       const comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderComments(comments);
-    }, () => {
+    }, (err) => {
+      console.error('Comments query error for deal', dealId, ':', err.code, err.message, err);
       document.getElementById(commentsListTargetId).innerHTML = '<div class="empty">Komentáre sa nepodarilo načítať.</div>';
     });
   };
