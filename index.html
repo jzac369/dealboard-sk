@@ -590,17 +590,18 @@
 
   /* ── Mobile compactness ──────────────────────────────────────────────── */
   @media (max-width: 560px) {
-    .deal-main-row { padding: 10px 12px; flex-wrap: wrap; }
-    .deal-img { width: 64px; min-width: 64px; height: 64px; margin-right: 10px; }
-    .vote-pill { padding: 0 8px; margin-right: 10px; gap: 2px; }
-    .vote-btn { padding: 2px; font-size: .75rem; }
-    .vote-count { font-size: .8rem; min-width: 20px; }
-    .deal-title { font-size: .85rem; }
-    .deal-meta { font-size: .7rem; }
-    .price-now { font-size: 1.02rem; }
-    .price-was { font-size: .72rem; }
-    .price-pct { font-size: .7rem; }
-    .btn-go { width: 100%; margin-left: 0; margin-top: 8px; text-align: center; order: 10; }
+    .deal-main-row { padding: 10px 12px; flex-wrap: nowrap; align-items: center; }
+    .deal-img { width: 52px; min-width: 52px; height: 52px; margin-right: 8px; border-radius: 6px; }
+    .vote-pill { padding: 0 6px; margin-right: 8px; gap: 1px; }
+    .vote-btn { padding: 1px; font-size: .68rem; }
+    .vote-count { font-size: .72rem; min-width: 16px; }
+    .deal-main { overflow: hidden; min-width: 0; }
+    .deal-title { font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .deal-meta { font-size: .65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .price-now { font-size: .98rem; }
+    .price-was { font-size: .68rem; }
+    .price-pct { font-size: .66rem; }
+    .btn-go { padding: 6px 12px; font-size: .72rem; margin-left: 6px; flex-shrink: 0; align-self: center; white-space: nowrap; }
     .deal-footer { padding: 8px 12px; gap: 10px; }
     .deal-desc-truncated { display: none; }
     .deal-footer a span.footer-label { display: none; }
