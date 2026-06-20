@@ -534,82 +534,74 @@
   .sort-btn:hover:not(.active) { color: var(--ink); }
   .section-sub { font-size: .82rem; color: var(--muted); margin-bottom: 14px; }
 
-  /* ── Deal card ──────────────────────────────────────────────────────── */
+  /* ── Deal card (layout C3: hlavný riadok + footer s teaser popisom) ──── */
   .deals-list { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
   .deal-card {
     background: var(--card); border-radius: var(--r); box-shadow: var(--shadow);
-    display: flex; gap: 0; overflow: hidden; transition: box-shadow .15s;
+    display: flex; flex-direction: column; overflow: hidden; transition: box-shadow .15s;
     border: 1px solid var(--line);
   }
   .deal-card:hover { box-shadow: var(--shadow-lg); }
 
+  .deal-main-row { display: flex; align-items: stretch; gap: 0; padding: 14px 16px; }
+
   /* image */
-  .deal-img { width: 140px; min-width: 140px; height: 140px; overflow: hidden; position: relative;
-    background: #f5f5f5; align-self: flex-start; }
+  .deal-img { width: 100px; min-width: 100px; height: 100px; overflow: hidden; position: relative;
+    background: #f5f5f5; border-radius: 8px; margin-right: 14px; }
   .deal-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  @media (max-width: 560px) { .deal-img { width: 84px; min-width: 84px; height: 84px; } }
 
-  /* body */
-  .deal-body { flex: 1; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  .deal-top-row { display: flex; align-items: flex-start; gap: 14px; }
-  .deal-main { flex: 1; min-width: 0; }
+  /* vote pill: úzky pruh hneď za fotkou, oddelený čiarou */
+  .vote-pill { display: flex; align-items: center; gap: 5px; padding: 0 14px;
+    border-right: 1px solid var(--line); margin-right: 14px; flex-shrink: 0; }
+  .vote-btn { background: none; border: none; cursor: pointer; font-size: .85rem;
+    display: flex; align-items: center; justify-content: center; color: var(--muted);
+    padding: 4px; transition: color .15s; }
+  .vote-btn.up:hover { color: var(--orange-dk); }
+  .vote-btn.dn:hover { color: var(--green); }
+  .vote-count { font-size: .92rem; font-weight: 800; color: var(--orange-dk); min-width: 26px; text-align: center; }
 
-  /* vote pill (thermometer style, top of card) */
-  .vote-pill { display: flex; align-items: center; gap: 6px; }
-  .vote-btn { background: var(--white); border: 1.5px solid var(--line); border-radius: 50%;
-    width: 30px; height: 30px; cursor: pointer; font-size: .95rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: all .15s; color: var(--muted); }
-  .vote-btn.up:hover { background: #fdece2; border-color: var(--orange); color: var(--orange-dk); }
-  .vote-btn.dn:hover { background: #eef2ee; border-color: var(--green); color: var(--green); }
-  .vote-count { font-size: .95rem; font-weight: 800; color: var(--orange); min-width: 36px; text-align: center; }
-  .deal-age { font-size: .76rem; color: var(--muted); background: var(--bg);
-    padding: 4px 10px; border-radius: 14px; white-space: nowrap; }
-
-  .deal-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-  .tag-store { background: var(--badge); color: var(--badge-t); font-size: .74rem; font-weight: 700;
-    padding: 3px 9px; border-radius: 4px; }
-  .tag-cat { background: var(--line); color: var(--muted); font-size: .74rem;
-    padding: 3px 9px; border-radius: 4px; font-weight: 500; }
-  .deal-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); text-decoration: none;
-    line-height: 1.3; }
+  .deal-main { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+  .deal-meta { font-size: .76rem; color: var(--muted); }
+  .deal-meta .tag-store { color: var(--badge-t); font-weight: 700; }
+  .deal-title { font-size: .98rem; font-weight: 700; color: var(--ink); text-decoration: none; line-height: 1.3; }
   .deal-title:hover { color: var(--orange-dk); }
-  .deal-desc { font-size: .85rem; color: var(--muted); line-height: 1.5;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .deal-price-row { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; }
-  .price-now { font-size: 1.3rem; font-weight: 800; color: var(--green); }
-  .price-was { font-size: .85rem; color: var(--muted); text-decoration: line-through; }
-  .price-pct { background: var(--orange); color: #fff; font-size: .72rem; font-weight: 800;
-    padding: 2px 7px; border-radius: 4px; }
-  .deal-footer { display: flex; align-items: center; gap: 16px; margin-top: 4px; flex-wrap: wrap; }
-  .deal-footer a { font-size: .82rem; color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: 4px; }
+  .deal-price-row { display: flex; align-items: baseline; gap: 9px; margin-top: 2px; }
+  .price-now { font-size: 1.2rem; font-weight: 800; color: var(--green); }
+  .price-was { font-size: .8rem; color: var(--muted); text-decoration: line-through; }
+  .price-pct { color: var(--orange-dk); font-size: .78rem; font-weight: 800; }
+
+  /* footer: skrátený popis + komentáre + zdieľať + čas, oddelené čiarou */
+  .deal-footer { display: flex; align-items: center; gap: 14px; padding: 9px 16px;
+    border-top: 1px solid var(--line); background: var(--bg); flex-wrap: nowrap; }
+  .deal-desc-truncated { flex: 1; min-width: 0; font-size: .8rem; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .deal-footer a { font-size: .8rem; color: var(--muted); text-decoration: none; display: flex;
+    align-items: center; gap: 4px; flex-shrink: 0; }
   .deal-footer a:hover { color: var(--orange-dk); }
-  .deal-footer a.btn-go { color: #fff; }
-  .btn-go { margin-left: auto; background: var(--orange-dk); color: #fff; border: none;
-    padding: 9px 22px; border-radius: 22px; font-size: .85rem; font-weight: 700;
-    cursor: pointer; text-decoration: none; transition: background .15s; }
+  .deal-age { font-size: .76rem; color: var(--muted); flex-shrink: 0; margin-left: auto; }
+
+  .btn-go { flex-shrink: 0; margin-left: 14px; background: var(--orange-dk); color: #fff; border: none;
+    padding: 9px 20px; border-radius: 22px; font-size: .85rem; font-weight: 700;
+    cursor: pointer; text-decoration: none; transition: background .15s; align-self: center; }
   .btn-go:hover { background: #993C1D; }
 
   /* ── Mobile compactness ──────────────────────────────────────────────── */
   @media (max-width: 560px) {
-    .deal-body { padding: 10px 12px; gap: 5px; }
-    .deal-top-row { gap: 8px; flex-wrap: wrap; }
-    .vote-pill { gap: 3px; }
-    .vote-btn { width: 24px; height: 24px; font-size: .8rem; }
-    .vote-count { font-size: .82rem; min-width: 22px; }
-    .deal-meta { gap: 5px; margin-top: 3px; }
-    .tag-store, .tag-cat { font-size: .68rem; padding: 2px 6px; }
-    .deal-age { font-size: .68rem; padding: 3px 7px; }
-    .deal-title { font-size: .9rem; }
-    .deal-desc { font-size: .78rem; -webkit-line-clamp: 1; }
-    .price-now { font-size: 1.1rem; }
-    .price-was { font-size: .76rem; }
-    .price-pct { font-size: .66rem; padding: 2px 6px; }
-    .deal-price-row { gap: 7px; margin-top: 0; }
-    .deal-footer { gap: 8px; margin-top: 2px; }
-    .deal-footer a { font-size: .76rem; }
+    .deal-main-row { padding: 10px 12px; flex-wrap: wrap; }
+    .deal-img { width: 64px; min-width: 64px; height: 64px; margin-right: 10px; }
+    .vote-pill { padding: 0 8px; margin-right: 10px; gap: 2px; }
+    .vote-btn { padding: 2px; font-size: .75rem; }
+    .vote-count { font-size: .8rem; min-width: 20px; }
+    .deal-title { font-size: .85rem; }
+    .deal-meta { font-size: .7rem; }
+    .price-now { font-size: 1.02rem; }
+    .price-was { font-size: .72rem; }
+    .price-pct { font-size: .7rem; }
+    .btn-go { width: 100%; margin-left: 0; margin-top: 8px; text-align: center; order: 10; }
+    .deal-footer { padding: 8px 12px; gap: 10px; }
+    .deal-desc-truncated { display: none; }
     .deal-footer a span.footer-label { display: none; }
-    .btn-go { margin-left: auto; padding: 7px 14px; font-size: .76rem; }
+    .deal-age { font-size: .68rem; }
   }
 
   /* ── Letáky ─────────────────────────────────────────────────────────── */
@@ -1002,35 +994,29 @@
       : '';
     return `
     <div class="deal-card" id="deal-${d.id}" onclick="openDealDetail('${d.id}')" style="cursor:pointer;">
-      ${img}
-      <div class="deal-body">
-        <div class="deal-top-row">
-          <div class="vote-pill" onclick="event.stopPropagation()">
-            <button class="vote-btn dn" onclick="vote('${d.id}', -1)" title="Zlý deal">▼</button>
-            <span class="vote-count">${d.votes||0}°</span>
-            <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
+      <div class="deal-main-row">
+        ${img}
+        <div class="vote-pill" onclick="event.stopPropagation()">
+          <button class="vote-btn dn" onclick="vote('${d.id}', -1)" title="Zlý deal">▼</button>
+          <span class="vote-count">${d.votes||0}°</span>
+          <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
+        </div>
+        <div class="deal-main">
+          <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}</div>
+          <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${d.title||''}</a>
+          <div class="deal-price-row">
+            <span class="price-now">${d.dealPrice} ${d.currency||'€'}</span>
+            ${orig}
+            ${badge}
           </div>
-          <div class="deal-main">
-            <div class="deal-meta">
-              <span class="tag-store">${d.store||''}</span>
-              <span class="tag-cat">${d.category||''}</span>
-            </div>
-            <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${d.title||''}</a>
-          </div>
-          <span class="deal-age">${timeAgo(d.timestamp)}</span>
         </div>
-        <div class="deal-price-row">
-          <span class="price-now">${d.dealPrice} ${d.currency||'€'}</span>
-          ${orig}
-          ${badge}
-        </div>
-        <div class="deal-desc">${d.description||''}</div>
-        <div class="deal-footer" onclick="event.stopPropagation()">
-          <a href="#" onclick="openComments('${d.id}'); return false;">💬 ${d.comments||0}</a>
-          <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">📤 <span class="footer-label">Zdieľať</span></a>
-          <a href="${d.url||'#'}" target="_blank" rel="noopener">🔗 <span class="footer-label">${d.store||''}</span></a>
-          <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener">Zobraziť deal →</a>
-        </div>
+        <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
+      </div>
+      <div class="deal-footer" onclick="event.stopPropagation()">
+        <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
+        <a href="#" onclick="openComments('${d.id}'); return false;">💬 ${d.comments||0}</a>
+        <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">📤 <span class="footer-label">Zdieľať</span></a>
+        <span class="deal-age">${timeAgo(d.timestamp)}</span>
       </div>
     </div>`;
   }
