@@ -285,6 +285,7 @@
       status,
       timestamp: serverTimestamp()
     });
+    return status;
   };
 
   let activeCommentDealId = null;
@@ -352,9 +353,13 @@
     if (!nickname || !text) { alert('Vyplň prosím prezývku aj text komentára.'); return; }
     if (!activeCommentDealId) return;
     try {
-      await window.submitComment(activeCommentDealId, nickname, text, honeypot);
+      const status = await window.submitComment(activeCommentDealId, nickname, text, honeypot);
       document.getElementById('c-text').value = '';
-      alert('Komentár bol odoslaný na schválenie.');
+      if (status === 'approved') {
+        alert('Komentár bol zverejnený.');
+      } else {
+        alert('Komentár bol odoslaný na schválenie.');
+      }
     } catch(e) {
       alert('Chyba pri odosielaní komentára.');
     }
@@ -403,6 +408,7 @@
       status,
       timestamp: serverTimestamp()
     });
+    return status;
   };
 
   // ── Add deal – status podľa nastavenia moderácie, honeypot kontrola ─────────
@@ -418,6 +424,7 @@
       timestamp: serverTimestamp()
     });
     localStorage.setItem('db_lastSubmit', String(Date.now()));
+    return status;
   };
 </script>
 
@@ -1172,11 +1179,15 @@
       expiryDate: document.getElementById('cp-expiry').value.trim() || null
     };
     try {
-      await window.submitCoupon(data);
+      const status = await window.submitCoupon(data);
       closeCouponModal();
       ['cp-code','cp-store','cp-discount','cp-url','cp-desc','cp-expiry'].forEach(id =>
         document.getElementById(id).value = '');
-      alert('Ďakujeme! Kód bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
+      if (status === 'approved') {
+        alert('Ďakujeme! Kód bol zverejnený.');
+      } else {
+        alert('Ďakujeme! Kód bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
+      }
     } catch(e) {
       alert('Chyba pri ukladaní. Skontroluj Firebase konfiguráciu.');
     }
@@ -1315,13 +1326,17 @@
         description: document.getElementById('f-desc').value.trim(),
         currency: '€'
       };
-      await window.submitDeal(data, honeypot);
+      const status = await window.submitDeal(data, honeypot);
       closeModal();
       ['f-title','f-store','f-orig','f-deal','f-url','f-desc','f-honeypot'].forEach(id =>
         document.getElementById(id).value = '');
       document.getElementById('f-img-file').value = '';
       document.getElementById('img-preview-wrap').style.display = 'none';
-      alert('Ďakujeme! Deal bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
+      if (status === 'approved') {
+        alert('Ďakujeme! Deal bol zverejnený.');
+      } else {
+        alert('Ďakujeme! Deal bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
+      }
     } catch(e) {
       if (e.message === 'rate-limit') {
         alert('Môžeš pridať len 1 deal za 15 minút. Skús to o chvíľu znova.');
