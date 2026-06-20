@@ -39,6 +39,21 @@
     }
   });
 
+  // ── Nastavenia moderácie (čítané pri každom novom príspevku) ────────────────
+  async function getInitialStatus(type) {
+    // type: 'deals' | 'comments' | 'coupons'
+    try {
+      const snap = await getDoc(doc(db, "settings", "moderation"));
+      const data = snap.exists() ? snap.data() : {};
+      const field = type + 'Required';
+      const required = data[field] !== false; // default: true (moderácia zapnutá)
+      return required ? 'pending' : 'approved';
+    } catch(e) {
+      console.error('Nepodarilo sa načítať nastavenia moderácie, používam predvolené (pending):', e);
+      return 'pending';
+    }
+  }
+
   // ── Ukážkové dealy pre demo (vložia sa len raz pri prvom spustení) ──
   const DEMO_DEALS = [
     {
@@ -206,8 +221,26 @@
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('not-image'));
       reader.onload = (readerEvent) => {
+        const originalDataUrl = readerEvent.target.result;
         const img = new Image();
+
+        // Poistka: ak sa obrázok nestihne/nepodarí načítať do 8 sekúnd alebo zlyhá
+        // kvôli akémukoľvek dôvodu, použijeme pôvodný (neresizovaný) dataURL namiesto zlyhania.
+        let settled = false;
+        const fallbackTimer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          if (originalDataUrl.length <= MAX_OUTPUT_CHARS * 3) {
+            resolve(originalDataUrl);
+          } else {
+            reject(new Error('too-large'));
+          }
+        }, 8000);
+
         img.onload = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(fallbackTimer);
           let { width, height } = img;
           if (width > height && width > MAX_DIM) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM; }
           else if (height > MAX_DIM) { width = Math.round(width * MAX_DIM / height); height = MAX_DIM; }
@@ -225,8 +258,18 @@
           if (dataUrl.length > MAX_OUTPUT_CHARS) { reject(new Error('too-large')); return; }
           resolve(dataUrl);
         };
-        img.onerror = () => reject(new Error('not-image'));
-        img.src = readerEvent.target.result;
+        img.onerror = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(fallbackTimer);
+          // Fallback: skús poslať pôvodný (neresizovaný) obrázok, ak nie je príliš veľký
+          if (originalDataUrl.length <= MAX_OUTPUT_CHARS * 3) {
+            resolve(originalDataUrl);
+          } else {
+            reject(new Error('too-large'));
+          }
+        };
+        img.src = originalDataUrl;
       };
       reader.readAsDataURL(file);
     });
@@ -235,10 +278,11 @@
   // ── Komentáre ────────────────────────────────────────────────────────────
   window.submitComment = async function(dealId, nickname, text, honeypot) {
     if (honeypot) throw new Error("spam");
+    const status = await getInitialStatus('comments');
     await addDoc(collection(db, "deals", dealId, "comments"), {
       nickname,
       text,
-      status: "pending",
+      status,
       timestamp: serverTimestamp()
     });
   };
@@ -351,23 +395,25 @@
   };
 
   window.submitCoupon = async (data) => {
+    const status = await getInitialStatus('coupons');
     await addDoc(collection(db, "coupons"), {
       ...data,
       votes: 0,
-      status: "pending",
+      status,
       timestamp: serverTimestamp()
     });
   };
 
-  // ── Add deal – ide do "pending", honeypot kontrola ──────────────────────────
+  // ── Add deal – status podľa nastavenia moderácie, honeypot kontrola ─────────
   window.submitDeal = async (data, honeypot) => {
     if (honeypot) throw new Error("spam");
     if (!window.canSubmit()) throw new Error("rate-limit");
+    const status = await getInitialStatus('deals');
     await addDoc(collection(db, "deals"), {
       ...data,
       votes: 0,
       comments: 0,
-      status: "pending",
+      status,
       timestamp: serverTimestamp()
     });
     localStorage.setItem('db_lastSubmit', String(Date.now()));
