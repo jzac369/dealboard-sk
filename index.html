@@ -468,7 +468,8 @@
     position: sticky; top: 0; z-index: 100;
     border-bottom: 1px solid var(--line);
   }
-  .logo { font-size: 1.3rem; font-weight: 800; letter-spacing: -.3px; white-space: nowrap; color: var(--ink); }
+  .logo { font-size: 1.3rem; font-weight: 800; letter-spacing: -.3px; white-space: nowrap;
+    color: #fff; background: #1A1A1A; padding: 8px 16px; display: inline-block; }
   .logo span { color: var(--orange); }
   .header-search {
     flex: 1; max-width: 480px;
@@ -495,7 +496,7 @@
 
   @media (max-width: 720px) {
     header { flex-wrap: wrap; height: auto; padding: 10px 16px; gap: 10px; }
-    .logo { flex: 1; }
+    .logo { flex: 0 0 auto; }
     .main-section-nav { order: 3; width: 100%; justify-content: center; }
     .btn-add { order: 2; }
   }
