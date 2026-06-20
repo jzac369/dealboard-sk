@@ -81,6 +81,8 @@
         ...d.data()
       }));
       renderComments();
+    }, (err) => {
+      console.error('Comments collectionGroup error. Code:', err.code, 'Message:', err.message, 'Full error:', err);
     });
   }
 
