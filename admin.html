@@ -34,10 +34,12 @@
   let unsubComments = null;
   let unsubCoupons = null;
 
-  onAuthStateChanged(auth, (user) => {
+  onAuthStateChanged(auth, async (user) => {
     const loginView = document.getElementById('login-view');
     const adminView = document.getElementById('admin-view');
     if (user && !user.isAnonymous) {
+      const idTokenResult = await user.getIdTokenResult();
+      console.log('Auth debug: uid =', user.uid, 'isAnonymous =', user.isAnonymous, 'sign_in_provider =', idTokenResult.claims.firebase?.sign_in_provider, 'email =', user.email);
       loginView.style.display = 'none';
       adminView.style.display = 'block';
       document.getElementById('admin-email').textContent = user.email;
@@ -45,6 +47,7 @@
       startListeningComments();
       startListeningCoupons();
     } else {
+      console.log('Auth debug: no admin user. user =', user, 'isAnonymous =', user && user.isAnonymous);
       loginView.style.display = 'flex';
       adminView.style.display = 'none';
       if (unsub) { unsub(); unsub = null; }
