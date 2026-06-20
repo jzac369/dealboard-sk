@@ -7,7 +7,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, orderBy }
+  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, orderBy, setDoc, getDoc }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -46,6 +46,7 @@
       startListening();
       startListeningComments();
       startListeningCoupons();
+      startListeningSettings();
     } else {
       console.log('Auth debug: no admin user. user =', user, 'isAnonymous =', user && user.isAnonymous);
       loginView.style.display = 'flex';
@@ -63,6 +64,30 @@
       renderCoupons();
     });
   }
+
+  // ── Nastavenia moderácie ─────────────────────────────────────────────────
+  const settingsRef = doc(db, "settings", "moderation");
+
+  function startListeningSettings() {
+    onSnapshot(settingsRef, (snap) => {
+      const data = snap.exists() ? snap.data() : {};
+      const deals = data.dealsRequired !== false;       // default: true (moderácia zapnutá)
+      const comments = data.commentsRequired !== false; // default: true
+      const coupons = data.couponsRequired !== false;   // default: true
+      document.getElementById('toggle-deals').checked = deals;
+      document.getElementById('toggle-comments').checked = comments;
+      document.getElementById('toggle-coupons').checked = coupons;
+    });
+  }
+
+  window.toggleModeration = async function(type, checked) {
+    const field = type + 'Required';
+    try {
+      await setDoc(settingsRef, { [field]: checked }, { merge: true });
+    } catch(e) {
+      alert('Nepodarilo sa uložiť nastavenie: ' + e.message);
+    }
+  };
 
   function startListening() {
     const q = query(collection(db, "deals"), orderBy("timestamp", "desc"));
@@ -530,6 +555,23 @@
     cursor: pointer; font-size: .82rem; }
 
   .container { max-width: 980px; margin: 0 auto; padding: 20px 16px; }
+
+  /* ── Settings panel ──────────────────────────────────────────────────── */
+  .settings-panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 20px; margin-bottom: 18px; }
+  .settings-panel h3 { font-size: .95rem; margin-bottom: 4px; }
+  .settings-hint { font-size: .8rem; color: var(--muted); margin-bottom: 14px; }
+  .settings-row { display: flex; gap: 28px; flex-wrap: wrap; }
+  .switch-label { display: flex; align-items: center; gap: 10px; font-size: .88rem; font-weight: 600;
+    cursor: default; }
+  .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc; transition: .2s; border-radius: 24px; }
+  .slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background-color: white; transition: .2s; border-radius: 50%; }
+  .switch input:checked + .slider { background-color: var(--orange); }
+  .switch input:checked + .slider::before { transform: translateX(20px); }
   .main-tabs { display: flex; gap: 10px; margin-bottom: 18px; }
   .main-tab-btn { background: var(--card); border: 1.5px solid var(--line); padding: 10px 20px; border-radius: 8px;
     cursor: pointer; font-size: .92rem; font-weight: 700; color: var(--ink); }
@@ -608,6 +650,34 @@
   </header>
 
   <div class="container">
+    <div class="settings-panel">
+      <h3>⚙️ Povinná moderácia</h3>
+      <p class="settings-hint">Keď je vypnutá, nové príspevky sa zverejnia okamžite bez čakania na schválenie.</p>
+      <div class="settings-row">
+        <label class="switch-label">
+          <span>📦 Dealy</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-deals" checked onchange="toggleModeration('deals', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <label class="switch-label">
+          <span>💬 Komentáre</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-comments" checked onchange="toggleModeration('comments', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <label class="switch-label">
+          <span>🎟️ Zľavové kódy</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-coupons" checked onchange="toggleModeration('coupons', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </label>
+      </div>
+    </div>
+
     <div class="main-tabs">
       <button class="main-tab-btn active" onclick="setMainSection('deals', this)">📦 Dealy</button>
       <button class="main-tab-btn" onclick="setMainSection('comments', this)">💬 Komentáre</button>
