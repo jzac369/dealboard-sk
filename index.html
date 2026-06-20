@@ -285,6 +285,9 @@
       status,
       timestamp: serverTimestamp()
     });
+    if (status === 'approved') {
+      await updateDoc(doc(db, "deals", dealId), { comments: increment(1) });
+    }
     return status;
   };
 
