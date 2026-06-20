@@ -706,6 +706,7 @@
   </div>
   <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
   <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
+  <button class="btn-add" id="btn-add-placeholder" style="display:none; visibility:hidden;" aria-hidden="true">+ Pridaj deal</button>
 </header>
 
 <!-- Top category nav -->
@@ -1053,6 +1054,7 @@
     document.getElementById('cat-nav-wrap').style.display = section === 'deals' ? 'block' : 'none';
     document.getElementById('btn-add-deal').style.display = section === 'deals' ? 'inline-block' : 'none';
     document.getElementById('btn-add-coupon').style.display = section === 'coupons' ? 'inline-block' : 'none';
+    document.getElementById('btn-add-placeholder').style.display = section === 'leaflets' ? 'inline-block' : 'none';
   };
 
   // ── Letáky ────────────────────────────────────────────────────────────────
