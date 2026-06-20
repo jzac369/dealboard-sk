@@ -75,11 +75,13 @@
   function startListeningComments() {
     const cq = query(collectionGroup(db, "comments"), orderBy("timestamp", "desc"));
     unsubComments = onSnapshot(cq, (snap) => {
+      console.log('Comments snapshot received. Doc count:', snap.docs.length);
       allComments = snap.docs.map(d => ({
         id: d.id,
         dealId: d.ref.parent.parent.id,
         ...d.data()
       }));
+      console.log('allComments:', JSON.stringify(allComments));
       renderComments();
     }, (err) => {
       console.error('Comments collectionGroup error. Code:', err.code, 'Message:', err.message, 'Full error:', err);
