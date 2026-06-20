@@ -264,8 +264,12 @@
 
   window.closeComments = function() {
     document.getElementById('comments-modal').classList.remove('open');
-    if (unsubComments) { unsubComments(); unsubComments = null; }
+    window.stopCommentsListener();
     activeCommentDealId = null;
+  };
+
+  window.stopCommentsListener = function() {
+    if (unsubComments) { unsubComments(); unsubComments = null; }
   };
 
   function renderComments(comments) {
@@ -1149,7 +1153,7 @@
 
   window.closeDetail = function() {
     document.getElementById('detail-modal').classList.remove('open');
-    if (unsubComments) { unsubComments(); unsubComments = null; }
+    window.stopCommentsListener();
   };
 
   function renderDealDetail(d) {
