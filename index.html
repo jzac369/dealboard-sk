@@ -612,6 +612,28 @@
     .btn-go { margin-left: auto; padding: 7px 14px; font-size: .76rem; }
   }
 
+  /* ── Letáky ─────────────────────────────────────────────────────────── */
+  .store-tabs { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .store-tab-btn { background: var(--card); border: 1.5px solid var(--line); border-radius: 22px;
+    padding: 9px 18px; font-size: .88rem; font-weight: 600; color: var(--ink); cursor: pointer;
+    display: flex; align-items: center; gap: 8px; transition: all .15s; }
+  .store-tab-btn.active { border-color: var(--orange); background: var(--badge); }
+  .store-tab-btn:hover:not(.active) { border-color: var(--muted); }
+  .store-tab-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .store-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .leaflet-fallback-bar { display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; font-size: .85rem; color: var(--muted); flex-wrap: wrap; gap: 8px; }
+  .leaflet-fallback-bar a { color: var(--orange-dk); font-weight: 600; text-decoration: none; }
+  .leaflet-fallback-bar a:hover { text-decoration: underline; }
+  .leaflet-hint { text-align: center; padding: 40px 20px; color: var(--muted); background: var(--card);
+    border: 1px solid var(--line); border-radius: var(--r); }
+  .leaflet-soon { text-align: center; padding: 60px 20px; color: var(--muted); background: var(--card);
+    border: 1px solid var(--line); border-radius: var(--r); }
+  @media (max-width: 560px) {
+    .store-tab-btn { padding: 7px 14px; font-size: .8rem; }
+    #leaflet-iframe { height: 65vh; }
+  }
+
   /* ── Coupon card ────────────────────────────────────────────────────── */
   .coupons-list { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
   .coupon-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
@@ -689,6 +711,7 @@
   <div class="main-section-nav">
     <button class="main-section-btn active" onclick="setMainSection('deals', this)">🔥 Dealy</button>
     <button class="main-section-btn" onclick="setMainSection('coupons', this)">🎟️ Zľavové kódy</button>
+    <button class="main-section-btn" onclick="setMainSection('leaflets', this)">📰 Letáky</button>
   </div>
   <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
   <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
@@ -746,6 +769,36 @@
     </div>
     <div class="coupons-list" id="coupons-list">
       <div class="loading">Načítavam zľavové kódy…</div>
+    </div>
+  </main>
+
+  <!-- Main: Leaflets -->
+  <main id="leaflets-main" style="display:none;">
+    <div class="store-tabs">
+      <button class="store-tab-btn active" onclick="setStoreLeaflet('kaufland', this)">
+        <span class="store-dot" style="background:#E10915;"></span>Kaufland
+      </button>
+      <button class="store-tab-btn" onclick="setStoreLeaflet('tesco', this)">
+        <span class="store-dot" style="background:#00539F;"></span>Tesco
+      </button>
+      <button class="store-tab-btn" onclick="setStoreLeaflet('lidl', this)">
+        <span class="store-dot" style="background:#0050AA;"></span>Lidl
+      </button>
+      <button class="store-tab-btn" onclick="setStoreLeaflet('billa', this)">
+        <span class="store-dot" style="background:#E2001A;"></span>Billa
+      </button>
+    </div>
+    <div id="leaflet-viewer-wrap">
+      <div class="leaflet-fallback-bar">
+        <span id="leaflet-store-label">Kaufland – aktuálny leták</span>
+        <a id="leaflet-open-new" href="https://predajne.kaufland.sk/aktualna-ponuka/letak.html" target="_blank" rel="noopener">Otvoriť v novom okne ↗</a>
+      </div>
+      <iframe id="leaflet-iframe" src="https://predajne.kaufland.sk/aktualna-ponuka/letak.html"
+              style="width:100%; height:75vh; border:1px solid var(--line); border-radius:var(--r); background:#fff;"
+              loading="lazy"></iframe>
+      <p class="leaflet-hint" id="leaflet-hint" style="display:none;">
+        Tento obchod nedovoľuje zobrazenie letáku priamo tu. Klikni na "Otvoriť v novom okne" vyššie.
+      </p>
     </div>
   </main>
 
@@ -1030,12 +1083,50 @@
   window.setMainSection = function(section, btn) {
     document.querySelectorAll('.main-section-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const isDeals = section === 'deals';
-    document.getElementById('deals-main').style.display = isDeals ? 'block' : 'none';
-    document.getElementById('coupons-main').style.display = isDeals ? 'none' : 'block';
-    document.getElementById('cat-nav-wrap').style.display = isDeals ? 'block' : 'none';
-    document.getElementById('btn-add-deal').style.display = isDeals ? 'inline-block' : 'none';
-    document.getElementById('btn-add-coupon').style.display = isDeals ? 'none' : 'inline-block';
+    document.getElementById('deals-main').style.display = section === 'deals' ? 'block' : 'none';
+    document.getElementById('coupons-main').style.display = section === 'coupons' ? 'block' : 'none';
+    document.getElementById('leaflets-main').style.display = section === 'leaflets' ? 'block' : 'none';
+    document.getElementById('cat-nav-wrap').style.display = section === 'deals' ? 'block' : 'none';
+    document.getElementById('btn-add-deal').style.display = section === 'deals' ? 'inline-block' : 'none';
+    document.getElementById('btn-add-coupon').style.display = section === 'coupons' ? 'inline-block' : 'none';
+  };
+
+  // ── Letáky ────────────────────────────────────────────────────────────────
+  const LEAFLET_STORES = {
+    kaufland: {
+      label: 'Kaufland',
+      url: 'https://predajne.kaufland.sk/aktualna-ponuka/letak.html',
+      active: true
+    },
+    tesco: { label: 'Tesco', url: null, active: false },
+    lidl:  { label: 'Lidl', url: null, active: false },
+    billa: { label: 'Billa', url: null, active: false }
+  };
+
+  window.setStoreLeaflet = function(storeKey, btn) {
+    document.querySelectorAll('.store-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const store = LEAFLET_STORES[storeKey];
+    const iframe = document.getElementById('leaflet-iframe');
+    const hint = document.getElementById('leaflet-hint');
+    const label = document.getElementById('leaflet-store-label');
+    const openNew = document.getElementById('leaflet-open-new');
+
+    if (!store.active || !store.url) {
+      iframe.style.display = 'none';
+      hint.style.display = 'block';
+      hint.textContent = `Leták pre ${store.label} pripravujeme. Skús to znova o niekoľko dní.`;
+      label.textContent = `${store.label} – pripravujeme`;
+      openNew.style.display = 'none';
+      return;
+    }
+
+    iframe.style.display = 'block';
+    hint.style.display = 'none';
+    label.textContent = `${store.label} – aktuálny leták`;
+    openNew.style.display = 'inline';
+    openNew.href = store.url;
+    iframe.src = store.url;
   };
 
   // ── Zľavové kódy: render, filter, sort ──────────────────────────────────────
