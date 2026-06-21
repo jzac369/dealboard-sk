@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<title>Hromadný import kupónov – HenKukaj.sk</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+  button { background: #C44C0A; color: #fff; border: none; padding: 14px 28px; border-radius: 8px;
+    font-size: 1rem; font-weight: 700; cursor: pointer; margin: 16px 0; }
+  button:disabled { background: #ccc; cursor: not-allowed; }
+  #log { background: #f5f5f5; border-radius: 8px; padding: 16px; font-family: monospace;
+    font-size: .85rem; white-space: pre-wrap; max-height: 500px; overflow-y: auto; }
+  .ok { color: #2E8B3D; }
+  .err { color: #C0392B; }
+</style>
+</head>
+<body>
+<h1>Hromadný import zľavových kódov</h1>
+<p>Tento nástroj jednorazovo nahrá 30 zľavových kódov do databázy s autorom <strong>Tom69</strong>.</p>
+<button id="import-btn" onclick="runImport()">Spustiť import</button>
+<div id="log"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyAZhsfBl5xLpILC2r2knGar2RgxqXK7yBQ",
+    authDomain:        "dealboard-e60bf.firebaseapp.com",
+    projectId:         "dealboard-e60bf",
+    storageBucket:     "dealboard-e60bf.firebasestorage.app",
+    messagingSenderId: "16233224810",
+    appId:             "1:16233224810:web:9d0fa4d5faa49ac4c10813"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const db   = getFirestore(app);
+  const auth = getAuth(app);
+
+  onAuthStateChanged(auth, (user) => {
+    if (!user) signInAnonymously(auth).catch(e => console.error(e));
+  });
+
+  const COUPONS = [
+  {
+    "author": "Tom69",
+    "code": "JUN5",
+    "store": "GSklub.sk",
+    "discount": "5% zľava na celý nákup",
+    "url": "https://gsklub.sk",
+    "description": "",
+    "expiryDate": "30.6.2026"
+  },
+  {
+    "author": "Tom69",
+    "code": "EX10",
+    "store": "Sportby.sk",
+    "discount": "Extra zľava -10% aj na zľavnený tovar",
+    "url": "https://sportby.sk",
+    "description": "Platí na lyže, lyžiarky, lyžiarske oblečenie, snowboard, bežky, a iné",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "PERLY20",
+    "store": "Feelpearls.sk",
+    "discount": "Zľava 20%",
+    "url": "https://feelpearls.sk",
+    "description": "",
+    "expiryDate": "31.12.2026"
+  },
+  {
+    "author": "Tom69",
+    "code": "CROPP30",
+    "store": "Cropp.com",
+    "discount": "30% sleva",
+    "url": "https://cropp.com",
+    "description": "Nová kampaň",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "SKP-DISCOUNT13",
+    "store": "Lumories.sk",
+    "discount": "13% zľava pre prihlásených firemných zákazníkov pri objednávke od 149 €",
+    "url": "https://lumories.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "ZLAVA5",
+    "store": "Stoporex.sk",
+    "discount": "Zľava 5%",
+    "url": "https://stoporex.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DIZAJNOVE5",
+    "store": "Dizajnove-doplnky.sk",
+    "discount": "Zľavový kód 5%",
+    "url": "https://dizajnove-doplnky.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "69SHOP",
+    "store": "69shop.sk",
+    "discount": "5% zľava",
+    "url": "https://69shop.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DLXH7L96",
+    "store": "69shop.sk",
+    "discount": "6% zľava",
+    "url": "https://69shop.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "SPARKLDOG10",
+    "store": "Sparkl.sk",
+    "discount": "10% zľava na všetko",
+    "url": "https://sparkl.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DOGNET",
+    "store": "Autovybava.sk",
+    "discount": "Zľava 2€ pri nákupe nad 20€",
+    "url": "https://autovybava.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DOGNET15",
+    "store": "Avita.sk",
+    "discount": "15% zľava platná na celú objednávku okrem zľavnených produktov",
+    "url": "https://avita.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "BOELX589",
+    "store": "Boel.sk",
+    "discount": "Zľavový kód 3%",
+    "url": "https://boel.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DOGNET2",
+    "store": "Pobalsa.sk",
+    "discount": "Zľava 2€ pri objednávke nad 30€",
+    "url": "https://pobalsa.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DOGNET3",
+    "store": "Pobalsa.sk",
+    "discount": "zľava 3€ pri objednávke nad 50€",
+    "url": "https://pobalsa.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DOGNET5",
+    "store": "Pobalsa.sk",
+    "discount": "Zľava 5€ pri objednávke nad 100€",
+    "url": "https://pobalsa.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DOGNET10",
+    "store": "Pobalsa.sk",
+    "discount": "Zľava 10€ pri objednávke nad 200€",
+    "url": "https://pobalsa.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "NABBI3PAF1",
+    "store": "nabbi.sk",
+    "discount": "Zľavový kód 3%",
+    "url": "https://nabbi.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DGMODAL5",
+    "store": "Milinko-oblecenie.sk",
+    "discount": "15% zľava na všetok sortiment",
+    "url": "https://milinko-oblecenie.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "ZAVESY10",
+    "store": "Dekoria.sk",
+    "discount": "Zľava 10% na zavesy na mieru.",
+    "url": "https://dekoria.sk",
+    "description": "",
+    "expiryDate": "31.12.2026"
+  },
+  {
+    "author": "Tom69",
+    "code": "RIMSKEROLETY10",
+    "store": "Dekoria.sk",
+    "discount": "Zľava 10% na rímske rolety na mieru.",
+    "url": "https://dekoria.sk",
+    "description": "",
+    "expiryDate": "31.12.2026"
+  },
+  {
+    "author": "Tom69",
+    "code": "ZACLONY10",
+    "store": "Dekoria.sk",
+    "discount": "Zľava 10% na záclony na mieru.",
+    "url": "https://dekoria.sk",
+    "description": "",
+    "expiryDate": "31.12.2026"
+  },
+  {
+    "author": "Tom69",
+    "code": "PREHOZY10",
+    "store": "Dekoria.sk",
+    "discount": "Zľava 10% na prehozy na mieru.",
+    "url": "https://dekoria.sk",
+    "description": "",
+    "expiryDate": "31.12.2026"
+  },
+  {
+    "author": "Tom69",
+    "code": "OBRUSY10",
+    "store": "Dekoria.sk",
+    "discount": "Zľava 10% na obrusy na mieru.",
+    "url": "https://dekoria.sk",
+    "description": "",
+    "expiryDate": "31.12.2026"
+  },
+  {
+    "author": "Tom69",
+    "code": "DEKORACIE8",
+    "store": "Dekoria.sk",
+    "discount": "Zľava 8% na dekoracie",
+    "url": "https://dekoria.sk",
+    "description": "",
+    "expiryDate": "31.12.2026"
+  },
+  {
+    "author": "Tom69",
+    "code": "HAPPY5",
+    "store": "Neurinu.sk",
+    "discount": "Zľava 5% z ceny objednávky. Uživateľ môže kupón využiť len 1x.",
+    "url": "https://neurinu.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "IZBA05",
+    "store": "Inpostele.sk",
+    "discount": "5% zľava na kategóriu OBÝVACIA IZBA",
+    "url": "https://inpostele.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "DGM189",
+    "store": "Milinko-oblecenie.sk",
+    "discount": "Zľavový kód 10%",
+    "url": "https://milinko-oblecenie.sk",
+    "description": "Platí na celú objednávku okrem zľavnených produktov",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "COFFEEDG",
+    "store": "Coffeein.sk",
+    "discount": "Zľavový kód 5%",
+    "url": "https://coffeein.sk",
+    "description": "",
+    "expiryDate": null
+  },
+  {
+    "author": "Tom69",
+    "code": "IRON20",
+    "store": "IronAesthetics.sk",
+    "discount": "Zľava 20 € na nákup nad 200 €.",
+    "url": "https://ironaesthetics.sk",
+    "description": "",
+    "expiryDate": null
+  }
+];
+
+  function log(msg, cls) {
+    const el = document.getElementById('log');
+    el.innerHTML += `<div class="${cls||''}">${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function getInitialStatus() {
+    try {
+      const snap = await getDoc(doc(db, "settings", "moderation"));
+      const data = snap.exists() ? snap.data() : {};
+      const required = data.couponsRequired !== false;
+      return required ? 'pending' : 'approved';
+    } catch(e) {
+      return 'pending';
+    }
+  }
+
+  window.runImport = async function() {
+    const btn = document.getElementById('import-btn');
+    btn.disabled = true;
+    btn.textContent = 'Importujem…';
+    log(`Začínam import ${COUPONS.length} kódov...`);
+
+    const status = await getInitialStatus();
+    log(`Stav moderácie kupónov: ${status === 'approved' ? 'vypnutá (zverejní sa hneď)' : 'zapnutá (pôjde na schválenie)'}`);
+
+    let success = 0, failed = 0;
+    for (const c of COUPONS) {
+      try {
+        await addDoc(collection(db, "coupons"), {
+          author: c.author,
+          code: c.code,
+          store: c.store,
+          discount: c.discount,
+          url: c.url,
+          description: c.description || '',
+          expiryDate: c.expiryDate || null,
+          votes: 0,
+          status,
+          timestamp: serverTimestamp()
+        });
+        success++;
+        log(`✓ ${c.code} (${c.store})`, 'ok');
+      } catch(e) {
+        failed++;
+        log(`✗ ${c.code}: ${e.message}`, 'err');
+      }
+    }
+    log(`\nHOTOVO: ${success} úspešne, ${failed} zlyhalo.`, success === COUPONS.length ? 'ok' : '');
+    btn.textContent = 'Import dokončený';
+  };
+</script>
+</body>
+</html>
