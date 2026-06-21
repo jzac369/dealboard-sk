@@ -208,7 +208,7 @@
 
   // ── Zmenší a skomprimuje obrázok, vráti base64 dátový text (žiadny Storage potrebný) ──
   window.uploadDealImage = function(file) {
-    const MAX_BYTES = 2 * 1024 * 1024;     // limit pre vstupný súbor od užívateľa
+    const MAX_BYTES = 5 * 1024 * 1024;     // limit pre vstupný súbor od užívateľa
     const MAX_DIM   = 640;                 // max šírka/výška po zmenšení
     const MAX_OUTPUT_CHARS = 700 * 1024;   // bezpečná rezerva pod 1 MB limit Firestore dokumentu
 
@@ -847,7 +847,7 @@
         <div id="img-preview-wrap" style="display:none; margin-top:8px;">
           <img id="img-preview" style="max-width:140px; max-height:140px; border-radius:8px; border:1px solid var(--line);">
         </div>
-        <p style="font-size:.76rem; color:var(--muted); margin-top:4px;">Max. veľkosť 2 MB. Voliteľné.</p>
+        <p style="font-size:.76rem; color:var(--muted); margin-top:4px;">Max. veľkosť 5 MB. Voliteľné.</p>
       </div>
       <div>
         <label>Popis / poznámka</label>
@@ -913,6 +913,10 @@
       <button class="modal-close" onclick="closeCouponModal()">✕</button>
     </div>
     <div class="modal-body">
+      <div>
+        <label>Vaše meno / prezývka *</label>
+        <input type="text" id="cp-author" placeholder="napr. Jarko123" maxlength="40">
+      </div>
       <div>
         <label>Zľavový kód *</label>
         <input type="text" id="cp-code" placeholder="napr. ZIMA20" style="text-transform:uppercase;">
@@ -1154,6 +1158,7 @@
       <div class="coupon-info">
         <div class="coupon-title">${escapeHtml(c.discount||'')} – <span style="color:var(--muted); font-weight:500;">${escapeHtml(c.store||'')}</span></div>
         <div class="coupon-sub">${escapeHtml(c.description||'')}</div>
+        ${c.author ? `<div class="coupon-sub" style="margin-top:2px;">👤 ${escapeHtml(c.author)}</div>` : ''}
         ${expiry}
       </div>
       <div class="coupon-vote-pill">
@@ -1230,15 +1235,17 @@
   window.closeCouponModal = () => document.getElementById('coupon-modal').classList.remove('open');
 
   window.handleCouponSubmit = async function() {
+    const author   = document.getElementById('cp-author').value.trim();
     const code     = document.getElementById('cp-code').value.trim().toUpperCase();
     const store    = document.getElementById('cp-store').value.trim();
     const discount = document.getElementById('cp-discount').value.trim();
     const url      = document.getElementById('cp-url').value.trim();
-    if (!code || !store || !discount || !url) {
+    if (!author || !code || !store || !discount || !url) {
       alert('Vyplň prosím povinné polia (*).');
       return;
     }
     const data = {
+      author,
       code,
       store,
       discount,
@@ -1249,7 +1256,7 @@
     try {
       const status = await window.submitCoupon(data);
       closeCouponModal();
-      ['cp-code','cp-store','cp-discount','cp-url','cp-desc','cp-expiry'].forEach(id =>
+      ['cp-author','cp-code','cp-store','cp-discount','cp-url','cp-desc','cp-expiry'].forEach(id =>
         document.getElementById(id).value = '');
       if (status === 'approved') {
         alert('Ďakujeme! Kód bol zverejnený.');
@@ -1349,8 +1356,8 @@
       wrap.style.display = 'none';
       return;
     }
-    if (file.size > 2*1024*1024) {
-      alert('Obrázok je príliš veľký. Maximálna veľkosť je 2 MB.');
+    if (file.size > 5*1024*1024) {
+      alert('Obrázok je príliš veľký. Maximálna veľkosť je 5 MB.');
       e.target.value = '';
       wrap.style.display = 'none';
       return;
@@ -1414,7 +1421,7 @@
       } else if (e.message === 'spam') {
         alert('Pri odosielaní nastala chyba. Skús to znova.');
       } else if (e.message === 'too-large') {
-        alert('Obrázok je príliš veľký. Maximálna veľkosť je 2 MB.');
+        alert('Obrázok je príliš veľký. Maximálna veľkosť je 5 MB.');
       } else if (e.message === 'not-image') {
         alert('Vybraný súbor nie je obrázok.');
       } else {
