@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DealBoard – Admin</title>
+<title>HenKukaj – Admin</title>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -529,6 +529,7 @@
     font-family: -apple-system, 'Segoe UI', Roboto, system-ui, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow-x: hidden; max-width: 100%; }
   body { background: var(--bg); color: var(--ink); min-height: 100vh; }
 
   /* Login */
@@ -572,13 +573,13 @@
     background-color: white; transition: .2s; border-radius: 50%; }
   .switch input:checked + .slider { background-color: var(--orange); }
   .switch input:checked + .slider::before { transform: translateX(20px); }
-  .main-tabs { display: flex; gap: 10px; margin-bottom: 18px; }
+  .main-tabs { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
   .main-tab-btn { background: var(--card); border: 1.5px solid var(--line); padding: 10px 20px; border-radius: 8px;
     cursor: pointer; font-size: .92rem; font-weight: 700; color: var(--ink); }
   .main-tab-btn.active { background: var(--ink); border-color: var(--ink); color: #fff; }
   .comment-body-text { font-size: .85rem; color: var(--ink); margin-top: 6px; background: var(--bg);
     padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .tab-btn { background: var(--card); border: 1.5px solid var(--line); padding: 9px 16px; border-radius: 8px;
     cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--muted); }
   .tab-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
@@ -629,7 +630,7 @@
 
 <div id="login-view">
   <div class="login-box">
-    <h1>DealBoard <span>Admin</span></h1>
+    <h1>HenKukaj <span>Admin</span></h1>
     <p>Prihlás sa pre správu dealov</p>
     <label>Email</label>
     <input type="email" id="login-email" placeholder="tvoj@email.sk">
@@ -642,7 +643,7 @@
 
 <div id="admin-view">
   <header>
-    <h1>DealBoard <span>Admin</span></h1>
+    <h1>HenKukaj <span>Admin</span></h1>
     <div class="top-right">
       <span id="admin-email"></span>
       <button onclick="doLogout()">Odhlásiť sa</button>
