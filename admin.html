@@ -89,6 +89,100 @@
     }
   };
 
+  // ── Link Converter (TESTOVACIA PREVÁDZKA) ───────────────────────────────
+  // Toto je demo/placeholder verzia – mapovania žijú len v localStorage
+  // tohto prehliadača, nie v databáze. Slúži na vyskúšanie konceptu.
+  let linkConverterEnabled = localStorage.getItem('lc_enabled') === 'true';
+  document.getElementById('toggle-link-converter').checked = linkConverterEnabled;
+
+  window.toggleLinkConverter = function(checked) {
+    linkConverterEnabled = checked;
+    localStorage.setItem('lc_enabled', checked);
+    if (checked) {
+      alert('⚠️ Testovací režim: toto nastavenie sa neukladá do databázy a nemení reálne linky. Slúži len na vyskúšanie konceptu v tomto prehliadači.');
+    }
+  };
+
+  function getMappings() {
+    const raw = localStorage.getItem('lc_mappings');
+    if (raw) {
+      try { return JSON.parse(raw); } catch(e) {}
+    }
+    // Demo placeholder mapovania – NIE reálne affiliate linky
+    return [
+      { domain: 'lidl.sk', template: 'https://demo-affiliate.example/click?aff_id=12345&url={URL}' },
+      { domain: 'alza.sk', template: 'https://demo-affiliate.example/aff/alza?ref=99887&target={URL}' }
+    ];
+  }
+
+  function saveMappings(mappings) {
+    localStorage.setItem('lc_mappings', JSON.stringify(mappings));
+  }
+
+  function renderMappings() {
+    const mappings = getMappings();
+    const el = document.getElementById('converter-mappings-list');
+    el.innerHTML = mappings.map((m, i) => `
+      <div class="mapping-row">
+        <input type="text" value="${escapeAttr(m.domain)}" placeholder="napr. lidl.sk"
+               onchange="updateMapping(${i}, 'domain', this.value)">
+        <input type="text" value="${escapeAttr(m.template)}" placeholder="https://aff.example/click?id=X&url={URL}"
+               onchange="updateMapping(${i}, 'template', this.value)">
+        <button class="btn btn-delete" onclick="deleteMapping(${i})">🗑</button>
+      </div>
+    `).join('') || '<p style="font-size:.85rem; color:var(--muted);">Žiadne mapovania. Klikni "+ Pridať mapovanie".</p>';
+  }
+
+  window.addMappingRow = function() {
+    const mappings = getMappings();
+    mappings.push({ domain: '', template: '' });
+    saveMappings(mappings);
+    renderMappings();
+  };
+
+  window.updateMapping = function(index, field, value) {
+    const mappings = getMappings();
+    mappings[index][field] = value;
+    saveMappings(mappings);
+  };
+
+  window.deleteMapping = function(index) {
+    const mappings = getMappings();
+    mappings.splice(index, 1);
+    saveMappings(mappings);
+    renderMappings();
+  };
+
+  window.testConvertLink = function() {
+    const input = document.getElementById('test-url-input').value.trim();
+    const resultEl = document.getElementById('test-result');
+    if (!input) {
+      resultEl.innerHTML = '<span style="color:var(--red);">Vlož najprv nejakú URL.</span>';
+      return;
+    }
+    let hostname;
+    try {
+      hostname = new URL(input).hostname.replace(/^www\./, '');
+    } catch(e) {
+      resultEl.innerHTML = '<span style="color:var(--red);">Neplatná URL.</span>';
+      return;
+    }
+    const mappings = getMappings();
+    const match = mappings.find(m => hostname === m.domain || hostname.endsWith('.' + m.domain));
+    if (!match) {
+      resultEl.innerHTML = `<span style="color:var(--muted);">Pre doménu <strong>${escapeHtml(hostname)}</strong> nemáš mapovanie. Link by zostal nezmenený:</span><br><code style="word-break:break-all;">${escapeHtml(input)}</code>`;
+      return;
+    }
+    const converted = match.template.replace('{URL}', encodeURIComponent(input));
+    resultEl.innerHTML = `
+      <div style="color:var(--green); font-weight:600; margin-bottom:4px;">✓ Nájdená šablóna pre ${escapeHtml(hostname)}:</div>
+      <code style="word-break:break-all; background:var(--bg); padding:8px; border-radius:6px; display:block;">${escapeHtml(converted)}</code>
+      <p style="font-size:.76rem; color:var(--muted); margin-top:6px;">⚠️ Toto je len ukážka s demo šablónou, nie skutočný affiliate link.</p>
+    `;
+  };
+
+  renderMappings();
+
   function startListening() {
     const q = query(collection(db, "deals"), orderBy("timestamp", "desc"));
     unsub = onSnapshot(q, (snap) => {
@@ -551,6 +645,16 @@
 
   /* ── Admin sekcie (Dealy / Zľavové kódy / Komentáre) ─────────────────── */
   .admin-section { margin-bottom: 36px; }
+  .test-badge { background: #fff3cd; color: #8a6200; font-size: .68rem; padding: 3px 9px;
+    border-radius: 12px; font-weight: 700; margin-left: 8px; vertical-align: middle; }
+  .converter-box { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; }
+  .converter-box h3 { font-size: .92rem; margin-bottom: 12px; }
+  .mapping-row { display: grid; grid-template-columns: 1fr 1.6fr auto; gap: 8px; align-items: center;
+    margin-bottom: 8px; }
+  .mapping-row input { padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 5px; font-size: .82rem; }
+  .mapping-row .btn-delete { padding: 6px 10px; }
+  @media (max-width: 600px) { .mapping-row { grid-template-columns: 1fr; } }
   .section-title { font-size: 1.15rem; margin-bottom: 12px; color: var(--ink); }
 
   /* ── Settings panel (jeden prepínač moderácie per sekcia) ─────────────── */
@@ -684,6 +788,35 @@
         <button class="tab-btn coupon-tab-btn" onclick="setCouponTab('archived', this)">Archív (<span id="coupcount-archived">0</span>)</button>
       </div>
       <div id="coupon-list"></div>
+    </section>
+
+    <!-- ── Sekcia: Link Converter (TESTOVACIA PREVÁDZKA) ──────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">🔗 Link Converter <span class="test-badge">TESTOVACIA PREVÁDZKA</span></h2>
+      <div class="settings-panel">
+        <label class="switch-label">
+          <span>Automaticky konvertovať linky pri schválení</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-link-converter" onchange="toggleLinkConverter(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <p class="settings-hint">⚠️ V testovacej prevádzke odporúčame nechať vypnuté. Slúži len na vyskúšanie konceptu – mapovania nižšie sú demo/placeholder údaje, kým nedoplníme reálne affiliate formáty.</p>
+      </div>
+
+      <div class="converter-box">
+        <h3>Mapovania domén → affiliate šablóny</h3>
+        <div id="converter-mappings-list"></div>
+        <button class="btn btn-edit" style="margin-top:10px;" onclick="addMappingRow()">+ Pridať mapovanie</button>
+      </div>
+
+      <div class="converter-box" style="margin-top:16px;">
+        <h3>Vyskúšať konverziu</h3>
+        <label style="font-size:.85rem; font-weight:600; display:block; margin-bottom:4px;">Vlož URL produktu (napr. z Lidl.sk)</label>
+        <input type="text" id="test-url-input" placeholder="https://www.lidl.sk/p/produkt-123" style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:6px; font-size:.85rem;">
+        <button class="btn btn-approve" style="margin-top:10px;" onclick="testConvertLink()">Skonvertovať (test)</button>
+        <div id="test-result" style="margin-top:10px; font-size:.85rem;"></div>
+      </div>
     </section>
 
     <!-- ── Sekcia: Komentáre ──────────────────────────────────────────── -->
