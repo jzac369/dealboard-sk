@@ -971,7 +971,12 @@
       el.innerHTML = `<div class="empty"><div class="icon">🔍</div>Žiadne dealy nenájdené.</div>`;
       return;
     }
-    el.innerHTML = list.map(dealCard).join('');
+    try {
+      el.innerHTML = list.map(dealCard).join('');
+    } catch(e) {
+      console.error('Chyba pri vykresľovaní dealov:', e);
+      el.innerHTML = `<div class="empty">Nepodarilo sa zobraziť dealy. Skús obnoviť stránku.</div>`;
+    }
   }
 
   function discount(d) {
