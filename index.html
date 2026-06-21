@@ -34,10 +34,47 @@
   onAuthStateChanged(auth, (user) => {
     if (user) {
       currentUid = user.uid;
+      recordVisit(user.uid);
     } else {
       signInAnonymously(auth).catch(e => console.error("Auth error:", e));
     }
   });
+
+  // ── Návštevnosť: jeden záznam na zariadenie/deň, s odhadom krajiny z IP ─────
+  function todayKeyVisit() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  async function recordVisit(uid) {
+    const today = todayKeyVisit();
+    const lastRecorded = sessionStorage.getItem('hk_visit_recorded');
+    if (lastRecorded === today) return; // už zaznamenané v tomto session/dni
+    try {
+      const visitRef = doc(db, "visits", `${today}_${uid}`);
+      const existing = await getDoc(visitRef);
+      if (existing.exists()) {
+        sessionStorage.setItem('hk_visit_recorded', today);
+        return;
+      }
+      let country = 'Neznáma';
+      try {
+        const res = await fetch('https://ip-api.com/json/?fields=country');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.country) country = data.country;
+        }
+      } catch(e) { /* geolokácia zlyhala, zaznamenáme aspoň návštevu bez krajiny */ }
+
+      await setDoc(visitRef, {
+        country,
+        date: today,
+        timestamp: serverTimestamp()
+      });
+      sessionStorage.setItem('hk_visit_recorded', today);
+    } catch(e) {
+      console.error('Visit tracking error:', e);
+    }
+  }
 
   // ── Nastavenia moderácie (čítané pri každom novom príspevku) ────────────────
   async function getInitialStatus(type) {
