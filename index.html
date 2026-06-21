@@ -504,7 +504,8 @@
 
   /* ── Layout ──────────────────────────────────────────────────────────── */
   .container { max-width: 1120px; margin: 0 auto; padding: 0 16px 24px; display: grid;
-    grid-template-columns: 1fr 300px; gap: 20px; }
+    grid-template-columns: 1fr 300px; gap: 20px; min-width: 0; }
+  .container > * { min-width: 0; }
   @media (max-width: 720px) { .container { grid-template-columns: 1fr; } }
 
   /* ── Top category nav ───────────────────────────────────────────────── */
@@ -533,7 +534,7 @@
     margin: 16px 0 6px; flex-wrap: wrap; gap: 10px; }
   .sort-bar { display: flex; gap: 22px; flex-wrap: wrap; }
   @media (max-width: 720px) {
-    .tabs-bar .header-search { flex: 1 1 100%; max-width: 100% !important; order: 10; }
+    .tabs-bar .header-search { width: 100%; max-width: 100% !important; flex: none; order: 10; }
     .sort-bar { gap: 14px; }
   }
   .sort-btn { background: none; border: none; border-bottom: 2px solid transparent;
@@ -544,11 +545,11 @@
   .section-sub { font-size: .82rem; color: var(--muted); margin-bottom: 14px; }
 
   /* ── Deal card (layout C3: hlavný riadok + footer s teaser popisom) ──── */
-  .deals-list { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+  .deals-list { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; min-width: 0; }
   .deal-card {
     background: var(--card); border-radius: var(--r); box-shadow: var(--shadow);
     display: flex; flex-direction: column; overflow: hidden; transition: box-shadow .15s;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line); width: 100%; max-width: 100%; min-width: 0;
   }
   .deal-card:hover { box-shadow: var(--shadow-lg); }
 
