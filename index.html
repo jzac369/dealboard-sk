@@ -531,7 +531,11 @@
   /* ── Tabs bar (For you / Hottest / Trending / All) ─────────────────────── */
   .tabs-bar { display: flex; align-items: center; justify-content: space-between;
     margin: 16px 0 6px; flex-wrap: wrap; gap: 10px; }
-  .sort-bar { display: flex; gap: 22px; }
+  .sort-bar { display: flex; gap: 22px; flex-wrap: wrap; }
+  @media (max-width: 720px) {
+    .tabs-bar .header-search { flex: 1 1 100%; max-width: 100% !important; order: 10; }
+    .sort-bar { gap: 14px; }
+  }
   .sort-btn { background: none; border: none; border-bottom: 2px solid transparent;
     padding: 8px 2px; font-size: .92rem; cursor: pointer; color: var(--muted);
     transition: all .15s; font-weight: 500; }
