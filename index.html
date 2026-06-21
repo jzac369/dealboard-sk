@@ -803,6 +803,10 @@
     </div>
     <div class="modal-body">
       <div>
+        <label>Vaše meno / prezývka *</label>
+        <input type="text" id="f-author" placeholder="napr. Jarko123" maxlength="40">
+      </div>
+      <div>
         <label>Názov produktu *</label>
         <input type="text" id="f-title" placeholder="napr. Samsung Galaxy S24 128GB">
       </div>
@@ -1019,7 +1023,7 @@
           <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
         </div>
         <div class="deal-main">
-          <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}</div>
+          <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}${d.author ? ' · 👤 ' + escapeHtml(d.author) : ''}</div>
           <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${d.title||''}</a>
           <div class="deal-price-row">
             <span class="price-now">${d.dealPrice} ${d.currency||'€'}</span>
@@ -1290,6 +1294,7 @@
       <div class="deal-meta" style="margin-top:0;">
         <span class="tag-store">${d.store||''}</span>
         <span class="tag-cat">${d.category||''}</span>
+        ${d.author ? `<span class="tag-cat">👤 ${escapeHtml(d.author)}</span>` : ''}
         <span class="deal-age">${timeAgo(d.timestamp)}</span>
       </div>
       <h2 style="font-size:1.25rem; margin-top:10px; color:var(--ink);">${escapeHtml(d.title||'')}</h2>
@@ -1356,13 +1361,14 @@
   });
 
   window.handleSubmit = async function() {
+    const author = document.getElementById('f-author').value.trim();
     const title = document.getElementById('f-title').value.trim();
     const store = document.getElementById('f-store').value.trim();
     const deal  = parseFloat(document.getElementById('f-deal').value);
     const url   = document.getElementById('f-url').value.trim();
     const honeypot = document.getElementById('f-honeypot').value.trim();
     const imgFile  = document.getElementById('f-img-file').files[0];
-    if (!title || !store || isNaN(deal) || !url) {
+    if (!author || !title || !store || isNaN(deal) || !url) {
       alert('Vyplň prosím povinné polia (*).');
       return;
     }
@@ -1380,6 +1386,7 @@
         imageUrl = await window.uploadDealImage(imgFile);
       }
       const data = {
+        author,
         title,
         store,
         dealPrice: deal,
@@ -1392,7 +1399,7 @@
       };
       const status = await window.submitDeal(data, honeypot);
       closeModal();
-      ['f-title','f-store','f-orig','f-deal','f-url','f-desc','f-honeypot'].forEach(id =>
+      ['f-author','f-title','f-store','f-orig','f-deal','f-url','f-desc','f-honeypot'].forEach(id =>
         document.getElementById(id).value = '');
       document.getElementById('f-img-file').value = '';
       document.getElementById('img-preview-wrap').style.display = 'none';
