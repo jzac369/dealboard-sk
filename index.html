@@ -506,9 +506,8 @@
     position: sticky; top: 0; z-index: 100;
     border-bottom: 1px solid var(--line);
   }
-  .logo { font-size: 1.3rem; font-weight: 800; letter-spacing: -.3px; white-space: nowrap;
-    color: #fff; background: #1A1A1A; padding: 8px 16px; display: inline-block; }
-  .logo span { color: var(--orange); }
+  .logo-link { display: inline-flex; align-items: center; flex-shrink: 0; }
+  .logo-img { height: 48px; width: auto; display: block; }
   .header-search {
     flex: 1; max-width: 480px;
     background: var(--white); border: 1.5px solid var(--line);
@@ -534,7 +533,8 @@
 
   @media (max-width: 720px) {
     header { flex-wrap: wrap; height: auto; padding: 10px 16px; gap: 10px; }
-    .logo { flex: 0 0 auto; }
+    .logo-link { flex: 0 0 auto; }
+    .logo-img { height: 38px; }
     .main-section-nav { order: 3; width: 100%; justify-content: center; }
     .btn-add { order: 2; }
   }
@@ -743,7 +743,7 @@
 <body>
 
 <header>
-  <div class="logo">Hen<span>Kukaj</span>.sk</div>
+  <a href="." class="logo-link"><img src="images/logo.png" alt="HenKukaj.sk" class="logo-img"></a>
   <div class="main-section-nav">
     <button class="main-section-btn active" onclick="setMainSection('deals', this)">🔥 Dealy</button>
     <button class="main-section-btn" onclick="setMainSection('coupons', this)">🎟️ Zľavové kódy</button>
