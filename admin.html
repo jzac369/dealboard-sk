@@ -47,6 +47,7 @@
       startListeningComments();
       startListeningCoupons();
       startListeningSettings();
+      startListeningVisits();
     } else {
       console.log('Auth debug: no admin user. user =', user, 'isAnonymous =', user && user.isAnonymous);
       loginView.style.display = 'flex';
@@ -54,6 +55,7 @@
       if (unsub) { unsub(); unsub = null; }
       if (unsubComments) { unsubComments(); unsubComments = null; }
       if (unsubCoupons) { unsubCoupons(); unsubCoupons = null; }
+      if (unsubVisits) { unsubVisits(); unsubVisits = null; }
     }
   });
 
@@ -182,6 +184,55 @@
   };
 
   renderMappings();
+
+  // ── Návštevnosť ──────────────────────────────────────────────────────────
+  let unsubVisits = null;
+
+  function startListeningVisits() {
+    const q = query(collection(db, "visits"), orderBy("timestamp", "desc"));
+    unsubVisits = onSnapshot(q, (snap) => {
+      const visits = snap.docs.map(d => d.data());
+      renderVisitsStats(visits);
+    }, (err) => console.error('Visits query error:', err));
+  }
+
+  function renderVisitsStats(visits) {
+    const today = new Date().toISOString().slice(0, 10);
+    const sevenDaysAgoStr = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      return d.toISOString().slice(0, 10);
+    })();
+
+    const todayCount = visits.filter(v => v.date === today).length;
+    const last7Count = visits.filter(v => v.date >= sevenDaysAgoStr).length;
+    const totalCount = visits.length;
+
+    document.getElementById('visits-today').textContent = todayCount;
+    document.getElementById('visits-7d').textContent = last7Count;
+    document.getElementById('visits-total').textContent = totalCount;
+
+    const countryCounts = {};
+    visits.forEach(v => {
+      const c = v.country || 'Neznáma';
+      countryCounts[c] = (countryCounts[c] || 0) + 1;
+    });
+    const sorted = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
+    const maxCount = sorted.length ? sorted[0][1] : 1;
+
+    const el = document.getElementById('visits-by-country');
+    if (!sorted.length) {
+      el.innerHTML = '<p style="font-size:.85rem; color:var(--muted);">Zatiaľ žiadne dáta o návštevnosti.</p>';
+      return;
+    }
+    el.innerHTML = sorted.map(([country, count]) => `
+      <div class="country-row">
+        <span>${escapeHtml(country)}</span>
+        <div class="country-bar-wrap"><div class="country-bar" style="width:${(count/maxCount*100).toFixed(0)}%;"></div></div>
+        <strong>${count}</strong>
+      </div>
+    `).join('');
+  }
 
   function startListening() {
     const q = query(collection(db, "deals"), orderBy("timestamp", "desc"));
@@ -659,6 +710,18 @@
   .mapping-row .btn-delete { padding: 6px 10px; }
   @media (max-width: 600px) { .mapping-row { grid-template-columns: 1fr; } }
 
+  /* ── Návštevnosť ──────────────────────────────────────────────────────── */
+  .visits-stats-row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .visit-stat-box { flex: 1; min-width: 130px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px; text-align: center; }
+  .visit-stat-number { font-size: 1.8rem; font-weight: 800; color: var(--orange); }
+  .visit-stat-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .country-row { display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
+  .country-row:last-child { border-bottom: none; }
+  .country-bar-wrap { flex: 1; margin: 0 12px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .country-bar { height: 100%; background: var(--orange); border-radius: 4px; }
+
   /* ── Settings panel (jeden prepínač moderácie per sekcia) ─────────────── */
   .settings-panel { background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
     padding: 14px 18px; margin-bottom: 16px; }
@@ -839,6 +902,29 @@
         <input type="text" id="test-url-input" placeholder="https://www.lidl.sk/p/produkt-123" style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:6px; font-size:.85rem;">
         <button class="btn btn-approve" style="margin-top:10px;" onclick="testConvertLink()">Skonvertovať (test)</button>
         <div id="test-result" style="margin-top:10px; font-size:.85rem;"></div>
+      </div>
+    </section>
+
+    <!-- ── Sekcia: Návštevnosť ────────────────────────────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">📊 Návštevnosť</h2>
+      <div class="visits-stats-row">
+        <div class="visit-stat-box">
+          <div class="visit-stat-number" id="visits-today">–</div>
+          <div class="visit-stat-label">Dnes</div>
+        </div>
+        <div class="visit-stat-box">
+          <div class="visit-stat-number" id="visits-7d">–</div>
+          <div class="visit-stat-label">Posledných 7 dní</div>
+        </div>
+        <div class="visit-stat-box">
+          <div class="visit-stat-number" id="visits-total">–</div>
+          <div class="visit-stat-label">Celkovo</div>
+        </div>
+      </div>
+      <div class="converter-box" style="margin-top:16px;">
+        <h3>Návštevy podľa krajiny</h3>
+        <div id="visits-by-country"><p style="font-size:.85rem; color:var(--muted);">Načítavam…</p></div>
       </div>
     </section>
 
