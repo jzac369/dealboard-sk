@@ -644,10 +644,13 @@
   .container { max-width: 980px; margin: 0 auto; padding: 20px 16px; }
 
   /* ── Admin sekcie (Dealy / Zľavové kódy / Komentáre) ─────────────────── */
-  .admin-section { margin-bottom: 36px; }
+  .admin-section { margin-bottom: 28px; background: var(--card); border: 1.5px solid var(--line);
+    border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow); }
+  .section-title { display: flex; align-items: center; font-size: 1.15rem; color: var(--ink);
+    padding-bottom: 14px; margin-bottom: 14px; border-bottom: 2px solid var(--line); }
   .test-badge { background: #fff3cd; color: #8a6200; font-size: .68rem; padding: 3px 9px;
     border-radius: 12px; font-weight: 700; margin-left: 8px; vertical-align: middle; }
-  .converter-box { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  .converter-box { background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
     padding: 16px 18px; }
   .converter-box h3 { font-size: .92rem; margin-bottom: 12px; }
   .mapping-row { display: grid; grid-template-columns: 1fr 1.6fr auto; gap: 8px; align-items: center;
@@ -655,10 +658,9 @@
   .mapping-row input { padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 5px; font-size: .82rem; }
   .mapping-row .btn-delete { padding: 6px 10px; }
   @media (max-width: 600px) { .mapping-row { grid-template-columns: 1fr; } }
-  .section-title { font-size: 1.15rem; margin-bottom: 12px; color: var(--ink); }
 
   /* ── Settings panel (jeden prepínač moderácie per sekcia) ─────────────── */
-  .settings-panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  .settings-panel { background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
     padding: 14px 18px; margin-bottom: 16px; }
   .settings-hint { font-size: .8rem; color: var(--muted); margin-top: 6px; }
   .switch-label { display: flex; align-items: center; gap: 12px; font-size: .9rem; font-weight: 600;
@@ -790,6 +792,27 @@
       <div id="coupon-list"></div>
     </section>
 
+    <!-- ── Sekcia: Komentáre ──────────────────────────────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">💬 Komentáre</h2>
+      <div class="settings-panel">
+        <label class="switch-label">
+          <span>Povinná moderácia</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-comments" checked onchange="toggleModeration('comments', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <p class="settings-hint">Keď je vypnutá, nové komentáre sa zverejnia okamžite bez čakania na schválenie.</p>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn comment-tab-btn active" onclick="setCommentTab('pending', this)">Na schválenie (<span id="ccount-pending">0</span>)</button>
+        <button class="tab-btn comment-tab-btn" onclick="setCommentTab('approved', this)">Schválené (<span id="ccount-approved">0</span>)</button>
+        <button class="tab-btn comment-tab-btn" onclick="setCommentTab('rejected', this)">Zamietnuté (<span id="ccount-rejected">0</span>)</button>
+      </div>
+      <div id="comment-list"></div>
+    </section>
+
     <!-- ── Sekcia: Link Converter (TESTOVACIA PREVÁDZKA) ──────────────────── -->
     <section class="admin-section">
       <h2 class="section-title">🔗 Link Converter <span class="test-badge">TESTOVACIA PREVÁDZKA</span></h2>
@@ -817,27 +840,6 @@
         <button class="btn btn-approve" style="margin-top:10px;" onclick="testConvertLink()">Skonvertovať (test)</button>
         <div id="test-result" style="margin-top:10px; font-size:.85rem;"></div>
       </div>
-    </section>
-
-    <!-- ── Sekcia: Komentáre ──────────────────────────────────────────── -->
-    <section class="admin-section">
-      <h2 class="section-title">💬 Komentáre</h2>
-      <div class="settings-panel">
-        <label class="switch-label">
-          <span>Povinná moderácia</span>
-          <label class="switch">
-            <input type="checkbox" id="toggle-comments" checked onchange="toggleModeration('comments', this.checked)">
-            <span class="slider"></span>
-          </label>
-        </label>
-        <p class="settings-hint">Keď je vypnutá, nové komentáre sa zverejnia okamžite bez čakania na schválenie.</p>
-      </div>
-      <div class="tabs">
-        <button class="tab-btn comment-tab-btn active" onclick="setCommentTab('pending', this)">Na schválenie (<span id="ccount-pending">0</span>)</button>
-        <button class="tab-btn comment-tab-btn" onclick="setCommentTab('approved', this)">Schválené (<span id="ccount-approved">0</span>)</button>
-        <button class="tab-btn comment-tab-btn" onclick="setCommentTab('rejected', this)">Zamietnuté (<span id="ccount-rejected">0</span>)</button>
-      </div>
-      <div id="comment-list"></div>
     </section>
 
   </div>
