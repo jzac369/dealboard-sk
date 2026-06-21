@@ -310,7 +310,7 @@
         <div class="row-thumb row-thumb-empty">🎟️</div>
         <div class="row-info">
           <div class="row-title"><strong>${escapeHtml(c.code||'')}</strong> ${statusBadge}</div>
-          <div class="row-sub">${escapeHtml(c.store||'')} · ${escapeHtml(c.discount||'')} · ${c.votes||0} hlasov</div>
+          <div class="row-sub">${escapeHtml(c.store||'')} · ${escapeHtml(c.discount||'')} · ${c.votes||0} hlasov · 👤 ${escapeHtml(c.author||'neznámy')}</div>
         </div>
         <div class="row-actions">
           ${c.status === 'pending' ? `
