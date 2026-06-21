@@ -456,7 +456,7 @@
         ${thumb}
         <div class="row-info">
           <div class="row-title"><strong>${escapeHtml(d.title||'')}</strong> ${statusBadge}</div>
-          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · ${d.dealPrice||0} €</div>
+          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · ${d.dealPrice||0} € · 👤 ${escapeHtml(d.author||'neznámy')}</div>
         </div>
         <div class="row-actions">
           ${d.status === 'pending' ? `
