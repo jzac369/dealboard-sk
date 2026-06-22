@@ -455,7 +455,7 @@
       rejected: '<span class="badge badge-rejected">Zamietnuté</span>',
       archived: '<span class="badge badge-archived">Archivované</span>'
     }[c.status] || '';
-    const expiredBadge = c.expired ? '<span class="badge badge-expired">Expirované</span>' : '';
+    const expiredBadge = c.expired ? '<span class="badge badge-expired">EXSPIROVANÉ</span>' : '';
 
     return `
     <div class="deal-row">
@@ -478,7 +478,7 @@
             <button class="btn btn-reject" onclick="rejectCoupon('${c.id}')">Skryť</button>
             <button class="btn btn-archive" onclick="archiveCoupon('${c.id}')">📦 Archivovať</button>
             <button class="btn ${c.expired ? 'btn-restore' : 'btn-expired'}" onclick="toggleExpiredCoupon('${c.id}', ${!c.expired})">
-              ${c.expired ? '↩ Zrušiť expiráciu' : '⏰ Označiť expirované'}
+              ${c.expired ? '↩ Zrušiť exspiráciu' : '⏰ Označiť exspirované'}
             </button>
           ` : ''}
           ${c.status === 'archived' ? `
@@ -601,7 +601,7 @@
       rejected: '<span class="badge badge-rejected">Zamietnuté</span>',
       archived: '<span class="badge badge-archived">Archivované</span>'
     }[d.status] || '';
-    const expiredBadge = d.expired ? '<span class="badge badge-expired">Expirované</span>' : '';
+    const expiredBadge = d.expired ? '<span class="badge badge-expired">EXSPIROVANÉ</span>' : '';
 
     const thumb = d.imageUrl
       ? `<img class="row-thumb" src="${d.imageUrl}" alt="">`
@@ -628,7 +628,7 @@
             <button class="btn btn-reject" onclick="rejectDeal('${d.id}')">Skryť</button>
             <button class="btn btn-archive" onclick="archiveDeal('${d.id}')">📦 Archivovať</button>
             <button class="btn ${d.expired ? 'btn-restore' : 'btn-expired'}" onclick="toggleExpiredDeal('${d.id}', ${!d.expired})">
-              ${d.expired ? '↩ Zrušiť expiráciu' : '⏰ Označiť expirované'}
+              ${d.expired ? '↩ Zrušiť exspiráciu' : '⏰ Označiť exspirované'}
             </button>
           ` : ''}
           ${d.status === 'archived' ? `
