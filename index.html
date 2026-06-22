@@ -650,18 +650,23 @@
 
   /* ── Mobile compactness ──────────────────────────────────────────────── */
   @media (max-width: 560px) {
-    .deal-main-row { padding: 10px 12px; flex-wrap: nowrap; align-items: flex-start; }
-    .deal-img { width: 52px; min-width: 52px; height: 52px; margin-right: 8px; border-radius: 6px; }
-    .vote-pill { padding: 0 6px; margin-right: 8px; gap: 1px; flex-shrink: 0; }
-    .vote-btn { padding: 1px; font-size: .68rem; }
-    .vote-count { font-size: .72rem; min-width: 16px; }
-    .deal-main { overflow: hidden; min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
-    .deal-title { font-size: .82rem; white-space: normal; overflow: visible; text-overflow: unset;
+    .deal-main-row { padding: 12px; flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
+    .deal-img { width: 88px; min-width: 88px; height: 88px; margin-right: 0; border-radius: 8px; order: 2; }
+    .vote-pill { flex-direction: column; align-items: center; padding: 0; margin-right: 0;
+      gap: 4px; flex-shrink: 0; order: 1; }
+    .vote-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--bg);
+      border: 1.5px solid var(--line); font-size: .85rem; padding: 0; }
+    .vote-btn.up:hover, .vote-btn.up:active { background: #fdece2; border-color: var(--orange); color: var(--orange-dk); }
+    .vote-btn.dn:hover, .vote-btn.dn:active { background: #eef2ee; border-color: var(--green); color: var(--green); }
+    .vote-count { font-size: .82rem; min-width: 24px; }
+    .deal-main { overflow: hidden; min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column;
+      gap: 5px; order: 3; }
+    .deal-title { font-size: .88rem; white-space: normal; overflow: visible; text-overflow: unset;
       word-break: break-word; }
-    .deal-meta { font-size: .65rem; white-space: normal; overflow: visible; text-overflow: unset; line-height: 1.4; }
-    .price-now { font-size: .98rem; }
-    .price-was { font-size: .68rem; }
-    .price-pct { font-size: .66rem; }
+    .deal-meta { font-size: .68rem; white-space: normal; overflow: visible; text-overflow: unset; line-height: 1.4; }
+    .price-now { font-size: 1.05rem; }
+    .price-was { font-size: .72rem; }
+    .price-pct { font-size: .68rem; }
     .btn-go-desktop { display: none; }
     .btn-go-mobile { display: inline-block; width: auto; align-self: flex-end; margin-left: 0;
       margin-top: 6px; padding: 8px 12px; font-size: .8rem; }
