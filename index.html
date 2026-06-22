@@ -615,11 +615,13 @@
   /* vote pill: úzky pruh hneď za fotkou, oddelený čiarou */
   .vote-pill { display: flex; align-items: center; gap: 5px; padding: 0 14px;
     border-right: 1px solid var(--line); margin-right: 14px; flex-shrink: 0; }
-  .vote-btn { background: none; border: none; cursor: pointer; font-size: .85rem;
+  .vote-btn { background: var(--bg); border: 1.5px solid var(--line); cursor: pointer; font-size: .85rem;
     display: flex; align-items: center; justify-content: center; color: var(--muted);
-    padding: 4px; transition: color .15s; }
-  .vote-btn.up:hover { color: var(--orange-dk); }
-  .vote-btn.dn:hover { color: var(--green); }
+    width: 28px; height: 28px; border-radius: 50%; padding: 0; transition: all .15s; }
+  .vote-btn.up { background: #FBEAEA; border-color: #E2433D; color: #C0392B; }
+  .vote-btn.up:hover { background: #E2433D; color: #fff; }
+  .vote-btn.dn { background: #E8F0FB; border-color: #3B6FC9; color: #2C5AA8; }
+  .vote-btn.dn:hover { background: #3B6FC9; color: #fff; }
   .vote-count { font-size: .92rem; font-weight: 800; color: var(--orange-dk); min-width: 26px; text-align: center; }
 
   .deal-main { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
