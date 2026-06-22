@@ -674,8 +674,9 @@
     .btn-go-desktop { display: none; }
     .btn-go-mobile { display: inline-block; width: auto; align-self: flex-end; margin-left: 0;
       margin-top: 6px; padding: 8px 12px; font-size: .8rem; }
-    .deal-footer { padding: 8px 12px; gap: 10px; }
-    .deal-desc-truncated { display: none; }
+    .deal-footer { padding: 8px 12px; gap: 6px 10px; flex-wrap: wrap; }
+    .deal-desc-truncated { flex: 1 1 100%; order: -1; white-space: normal;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .deal-footer a span.footer-label { display: none; }
     .deal-age { font-size: .68rem; }
   }
@@ -1130,7 +1131,7 @@
             <span class="price-now">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</span>
             ${orig}
             ${badge}
-            ${d.expired ? '<span class="expired-badge">Expirované</span>' : ''}
+            ${d.expired ? '<span class="expired-badge">EXSPIROVANÉ</span>' : ''}
           </div>
           <a class="btn-go btn-go-mobile" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
         </div>
@@ -1255,7 +1256,7 @@
         <button class="coupon-copy-btn" onclick="copyCoupon('${c.id}', '${escapeAttr(c.code||'')}')" id="copy-btn-${c.id}">Kopírovať</button>
       </div>
       <div class="coupon-info">
-        <div class="coupon-title">${escapeHtml(c.discount||'')} – <span style="color:var(--muted); font-weight:500;">${escapeHtml(c.store||'')}</span>${c.expired ? ' <span class="expired-badge">Expirované</span>' : ''}</div>
+        <div class="coupon-title">${escapeHtml(c.discount||'')} – <span style="color:var(--muted); font-weight:500;">${escapeHtml(c.store||'')}</span>${c.expired ? ' <span class="expired-badge">EXSPIROVANÉ</span>' : ''}</div>
         <div class="coupon-sub">${escapeHtml(c.description||'')}</div>
         ${c.author ? `<div class="coupon-sub" style="margin-top:2px;">👤 ${escapeHtml(c.author)}</div>` : ''}
         ${expiry}
@@ -1408,7 +1409,7 @@
         <span class="price-now">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</span>
         ${orig}
         ${badge}
-        ${d.expired ? '<span class="expired-badge">Expirované</span>' : ''}
+        ${d.expired ? '<span class="expired-badge">EXSPIROVANÉ</span>' : ''}
       </div>
       <p style="font-size:.92rem; color:var(--muted); line-height:1.6; margin-top:10px; white-space:pre-wrap;">${escapeHtml(d.description||'')}</p>
       <div class="vote-pill" style="margin-top:14px;">
