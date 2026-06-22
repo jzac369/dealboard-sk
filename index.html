@@ -646,22 +646,25 @@
     padding: 9px 20px; border-radius: 22px; font-size: .85rem; font-weight: 700;
     cursor: pointer; text-decoration: none; transition: background .15s; align-self: center; }
   .btn-go:hover { background: #993C1D; }
+  .btn-go-mobile { display: none; }
 
   /* ── Mobile compactness ──────────────────────────────────────────────── */
   @media (max-width: 560px) {
-    .deal-main-row { padding: 10px 12px; flex-wrap: wrap; align-items: flex-start; }
+    .deal-main-row { padding: 10px 12px; flex-wrap: nowrap; align-items: flex-start; }
     .deal-img { width: 52px; min-width: 52px; height: 52px; margin-right: 8px; border-radius: 6px; }
-    .vote-pill { padding: 0 6px; margin-right: 8px; gap: 1px; }
+    .vote-pill { padding: 0 6px; margin-right: 8px; gap: 1px; flex-shrink: 0; }
     .vote-btn { padding: 1px; font-size: .68rem; }
     .vote-count { font-size: .72rem; min-width: 16px; }
-    .deal-main { overflow: hidden; min-width: 0; flex: 1 1 auto; }
-    .deal-title { font-size: .82rem; white-space: normal; overflow: visible; text-overflow: unset; }
+    .deal-main { overflow: hidden; min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
+    .deal-title { font-size: .82rem; white-space: normal; overflow: visible; text-overflow: unset;
+      word-break: break-word; }
     .deal-meta { font-size: .65rem; white-space: normal; overflow: visible; text-overflow: unset; line-height: 1.4; }
     .price-now { font-size: .98rem; }
     .price-was { font-size: .68rem; }
     .price-pct { font-size: .66rem; }
-    .btn-go { width: auto; margin-left: auto; margin-top: 8px; flex-shrink: 0; text-align: center;
-      order: 10; padding: 8px 12px; font-size: .8rem; }
+    .btn-go-desktop { display: none; }
+    .btn-go-mobile { display: inline-block; width: auto; align-self: flex-end; margin-left: 0;
+      margin-top: 6px; padding: 8px 12px; font-size: .8rem; }
     .deal-footer { padding: 8px 12px; gap: 10px; }
     .deal-desc-truncated { display: none; }
     .deal-footer a span.footer-label { display: none; }
@@ -1119,8 +1122,9 @@
             ${orig}
             ${badge}
           </div>
+          <a class="btn-go btn-go-mobile" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
         </div>
-        <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
+        <a class="btn-go btn-go-desktop" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
       </div>
       <div class="deal-footer" onclick="event.stopPropagation()">
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
