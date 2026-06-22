@@ -289,6 +289,10 @@
     await updateDoc(doc(db, "deals", id), { status: 'pending' });
   };
 
+  window.toggleExpiredDeal = async function(id, expired) {
+    await updateDoc(doc(db, "deals", id), { expired });
+  };
+
   window.deleteDeal = async function(id) {
     if (!confirm('Naozaj natrvalo vymazať tento deal? Toto sa nedá vrátiť späť (skús Archivovať, ak chceš zachovať možnosť obnovy).')) return;
     await deleteDoc(doc(db, "deals", id));
@@ -391,6 +395,9 @@
   window.restoreCoupon = async function(id) {
     await updateDoc(doc(db, "coupons", id), { status: 'pending' });
   };
+  window.toggleExpiredCoupon = async function(id, expired) {
+    await updateDoc(doc(db, "coupons", id), { expired });
+  };
   window.deleteCoupon = async function(id) {
     if (!confirm('Naozaj natrvalo vymazať tento kód?')) return;
     await deleteDoc(doc(db, "coupons", id));
@@ -448,13 +455,14 @@
       rejected: '<span class="badge badge-rejected">Zamietnuté</span>',
       archived: '<span class="badge badge-archived">Archivované</span>'
     }[c.status] || '';
+    const expiredBadge = c.expired ? '<span class="badge badge-expired">Expirované</span>' : '';
 
     return `
     <div class="deal-row">
       <div class="row-header">
         <div class="row-thumb row-thumb-empty">🎟️</div>
         <div class="row-info">
-          <div class="row-title"><strong>${escapeHtml(c.code||'')}</strong> ${statusBadge}</div>
+          <div class="row-title"><strong>${escapeHtml(c.code||'')}</strong> ${statusBadge} ${expiredBadge}</div>
           <div class="row-sub">${escapeHtml(c.store||'')} · ${escapeHtml(c.discount||'')} · ${c.votes||0} hlasov · 👤 ${escapeHtml(c.author||'neznámy')}</div>
         </div>
         <div class="row-actions">
@@ -469,6 +477,9 @@
           ${c.status === 'approved' ? `
             <button class="btn btn-reject" onclick="rejectCoupon('${c.id}')">Skryť</button>
             <button class="btn btn-archive" onclick="archiveCoupon('${c.id}')">📦 Archivovať</button>
+            <button class="btn ${c.expired ? 'btn-restore' : 'btn-expired'}" onclick="toggleExpiredCoupon('${c.id}', ${!c.expired})">
+              ${c.expired ? '↩ Zrušiť expiráciu' : '⏰ Označiť expirované'}
+            </button>
           ` : ''}
           ${c.status === 'archived' ? `
             <button class="btn btn-restore" onclick="restoreCoupon('${c.id}')">↩ Obnoviť</button>
@@ -590,6 +601,7 @@
       rejected: '<span class="badge badge-rejected">Zamietnuté</span>',
       archived: '<span class="badge badge-archived">Archivované</span>'
     }[d.status] || '';
+    const expiredBadge = d.expired ? '<span class="badge badge-expired">Expirované</span>' : '';
 
     const thumb = d.imageUrl
       ? `<img class="row-thumb" src="${d.imageUrl}" alt="">`
@@ -600,8 +612,8 @@
       <div class="row-header">
         ${thumb}
         <div class="row-info">
-          <div class="row-title"><strong>${escapeHtml(d.title||'')}</strong> ${statusBadge}</div>
-          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · ${d.dealPrice||0} € · 👤 ${escapeHtml(d.author||'neznámy')}</div>
+          <div class="row-title"><strong>${escapeHtml(d.title||'')}</strong> ${statusBadge} ${expiredBadge}</div>
+          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · ${(d.dealPrice||0).toFixed(2)} € · 👤 ${escapeHtml(d.author||'neznámy')}</div>
         </div>
         <div class="row-actions">
           ${d.status === 'pending' ? `
@@ -615,6 +627,9 @@
           ${d.status === 'approved' ? `
             <button class="btn btn-reject" onclick="rejectDeal('${d.id}')">Skryť</button>
             <button class="btn btn-archive" onclick="archiveDeal('${d.id}')">📦 Archivovať</button>
+            <button class="btn ${d.expired ? 'btn-restore' : 'btn-expired'}" onclick="toggleExpiredDeal('${d.id}', ${!d.expired})">
+              ${d.expired ? '↩ Zrušiť expiráciu' : '⏰ Označiť expirované'}
+            </button>
           ` : ''}
           ${d.status === 'archived' ? `
             <button class="btn btn-restore" onclick="restoreDeal('${d.id}')">↩ Obnoviť</button>
@@ -768,6 +783,8 @@
   .badge-approved { background: #e3f3e6; color: var(--green); }
   .badge-rejected { background: #fdeceb; color: var(--red); }
   .badge-archived { background: #ece7f7; color: #6b3fc9; }
+  .badge-expired { background: #fdeceb; color: #C0392B; }
+  .btn-expired { background: #fdeceb; color: #C0392B; }
 
   .edit-panel { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
   .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
