@@ -631,6 +631,8 @@
   .price-now { font-size: 1.2rem; font-weight: 800; color: var(--green); }
   .price-was { font-size: .8rem; color: var(--muted); text-decoration: line-through; }
   .price-pct { color: var(--orange-dk); font-size: .78rem; font-weight: 800; }
+  .expired-badge { color: #fff; background: #C0392B; font-size: .74rem; font-weight: 800;
+    padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
 
   /* footer: skrátený popis + komentáre + zdieľať + čas, oddelené čiarou */
   .deal-footer { display: flex; align-items: center; gap: 14px; padding: 9px 16px;
@@ -1047,7 +1049,7 @@
         ${img}
         <div class="hot-mini-info">
           <div class="hot-mini-title">${escapeHtml(d.title||'')}</div>
-          <div class="hot-mini-price">${d.dealPrice} ${d.currency||'€'}</div>
+          <div class="hot-mini-price">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</div>
         </div>
       </a>`;
     }).join('');
@@ -1108,7 +1110,7 @@
   function dealCard(d) {
     const pct   = discount(d);
     const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
-    const orig  = d.originalPrice ? `<span class="price-was">${d.originalPrice} ${d.currency||'€'}</span>` : '';
+    const orig  = d.originalPrice ? `<span class="price-was">${d.originalPrice.toFixed(2)} ${d.currency||'€'}</span>` : '';
     const img   = d.imageUrl
       ? `<div class="deal-img"><img src="${d.imageUrl}" alt="" loading="lazy"></div>`
       : '';
@@ -1125,9 +1127,10 @@
           <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}${d.author ? ' · 👤 ' + escapeHtml(d.author) : ''}</div>
           <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${d.title||''}</a>
           <div class="deal-price-row">
-            <span class="price-now">${d.dealPrice} ${d.currency||'€'}</span>
+            <span class="price-now">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</span>
             ${orig}
             ${badge}
+            ${d.expired ? '<span class="expired-badge">Expirované</span>' : ''}
           </div>
           <a class="btn-go btn-go-mobile" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
         </div>
@@ -1252,7 +1255,7 @@
         <button class="coupon-copy-btn" onclick="copyCoupon('${c.id}', '${escapeAttr(c.code||'')}')" id="copy-btn-${c.id}">Kopírovať</button>
       </div>
       <div class="coupon-info">
-        <div class="coupon-title">${escapeHtml(c.discount||'')} – <span style="color:var(--muted); font-weight:500;">${escapeHtml(c.store||'')}</span></div>
+        <div class="coupon-title">${escapeHtml(c.discount||'')} – <span style="color:var(--muted); font-weight:500;">${escapeHtml(c.store||'')}</span>${c.expired ? ' <span class="expired-badge">Expirované</span>' : ''}</div>
         <div class="coupon-sub">${escapeHtml(c.description||'')}</div>
         ${c.author ? `<div class="coupon-sub" style="margin-top:2px;">👤 ${escapeHtml(c.author)}</div>` : ''}
         ${expiry}
@@ -1282,7 +1285,7 @@
   // ── Zdieľanie dealu ──────────────────────────────────────────────────────
   window.shareDeal = async function(id, title, price, currency) {
     const url = `${window.location.origin}${window.location.pathname}?deal=${id}`;
-    const text = `${title} – len ${price} ${currency}! 🔥`;
+    const text = `${title} – len ${Number(price).toFixed(2)} ${currency}! 🔥`;
     if (navigator.share) {
       try {
         await navigator.share({ title: text, url });
@@ -1388,7 +1391,7 @@
   function renderDealDetail(d) {
     const pct   = discount(d);
     const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
-    const orig  = d.originalPrice ? `<span class="price-was">${d.originalPrice} ${d.currency||'€'}</span>` : '';
+    const orig  = d.originalPrice ? `<span class="price-was">${d.originalPrice.toFixed(2)} ${d.currency||'€'}</span>` : '';
     const img   = d.imageUrl
       ? `<img src="${d.imageUrl}" alt="" style="width:100%; max-height:320px; object-fit:cover; border-radius:var(--r); display:block; margin-bottom:14px;">`
       : '';
@@ -1402,9 +1405,10 @@
       </div>
       <h2 style="font-size:1.25rem; margin-top:10px; color:var(--ink);">${escapeHtml(d.title||'')}</h2>
       <div class="deal-price-row" style="margin-top:8px;">
-        <span class="price-now">${d.dealPrice} ${d.currency||'€'}</span>
+        <span class="price-now">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</span>
         ${orig}
         ${badge}
+        ${d.expired ? '<span class="expired-badge">Expirované</span>' : ''}
       </div>
       <p style="font-size:.92rem; color:var(--muted); line-height:1.6; margin-top:10px; white-space:pre-wrap;">${escapeHtml(d.description||'')}</p>
       <div class="vote-pill" style="margin-top:14px;">
