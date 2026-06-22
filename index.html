@@ -497,14 +497,17 @@
   header {
     background: var(--card);
     color: var(--ink);
+    height: 84px;
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--line);
+  }
+  .header-inner {
+    max-width: 1120px; margin: 0 auto; height: 100%;
     padding: 0 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    height: 84px;
-    position: sticky; top: 0; z-index: 100;
-    border-bottom: 1px solid var(--line);
   }
   .logo-link { display: inline-flex; align-items: center; flex-shrink: 0; margin-right: 4px; }
   .logo-img { height: 72px; width: auto; display: block; }
@@ -532,7 +535,8 @@
   .main-section-btn.active { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
 
   @media (max-width: 720px) {
-    header { flex-wrap: wrap; height: auto; padding: 10px 16px; gap: 10px; }
+    header { height: auto; }
+    .header-inner { flex-wrap: wrap; padding: 10px 16px; gap: 10px; }
     .logo-link { flex: 0 0 auto; }
     .logo-img { height: 52px; }
     .main-section-nav { order: 3; width: 100%; justify-content: center; }
@@ -559,7 +563,8 @@
   .cat-nav button.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
 
   /* ── Sidebar (now used for promo/info) ─────────────────────────────────── */
-  .sidebar { margin-top: 60px; }
+  .sidebar-spacer { margin: 16px 0 6px; height: 33px; }
+  @media (max-width: 720px) { .sidebar-spacer { display: none; } }
   .sidebar h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em;
     color: var(--muted); margin-bottom: 10px; font-weight: 700; }
   .sidebar-box { background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
@@ -786,15 +791,17 @@
 <body>
 
 <header>
-  <a href="." class="logo-link"><img src="images/logo.png" alt="HenKukaj.sk" class="logo-img"></a>
-  <div class="main-section-nav">
-    <button class="main-section-btn active" onclick="setMainSection('deals', this)">🔥 Dealy</button>
-    <button class="main-section-btn" onclick="setMainSection('coupons', this)">🎟️ Zľavové kódy</button>
-    <button class="main-section-btn" onclick="setMainSection('leaflets', this)">📰 Letáky</button>
+  <div class="header-inner">
+    <a href="." class="logo-link"><img src="images/logo.png" alt="HenKukaj.sk" class="logo-img"></a>
+    <div class="main-section-nav">
+      <button class="main-section-btn active" onclick="setMainSection('deals', this)">🔥 Dealy</button>
+      <button class="main-section-btn" onclick="setMainSection('coupons', this)">🎟️ Zľavové kódy</button>
+      <button class="main-section-btn" onclick="setMainSection('leaflets', this)">📰 Letáky</button>
+    </div>
+    <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
+    <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
+    <button class="btn-add" id="btn-add-placeholder" style="display:none; visibility:hidden;" aria-hidden="true">+ Pridaj deal</button>
   </div>
-  <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
-  <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
-  <button class="btn-add" id="btn-add-placeholder" style="display:none; visibility:hidden;" aria-hidden="true">+ Pridaj deal</button>
 </header>
 
 <!-- Top category nav -->
@@ -863,6 +870,7 @@
 
   <!-- Sidebar -->
   <aside class="sidebar">
+    <div class="sidebar-spacer" aria-hidden="true"></div>
     <div class="sidebar-box" id="hottest-sidebar-box">
       <h3>🔥 Najhorúcejšie dealy</h3>
       <div id="hottest-sidebar-list"><p style="font-size:.82rem; color:var(--muted);">Načítavam…</p></div>
