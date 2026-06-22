@@ -722,6 +722,17 @@
   .coupon-go { background: var(--orange-dk); color: #fff; border: none; padding: 9px 18px;
     border-radius: 22px; font-size: .82rem; font-weight: 700; text-decoration: none; }
   .coupon-go:hover { background: #993C1D; }
+  @media (max-width: 560px) {
+    .coupon-card { padding: 14px 16px; gap: 10px; }
+    .coupon-code-box { padding: 7px 12px; }
+    .coupon-code-box code { font-size: .95rem; }
+    .coupon-copy-btn { padding: 4px 10px; font-size: .7rem; }
+    .coupon-info { flex: 1 1 100%; order: 3; min-width: 0; }
+    .coupon-title { font-size: .9rem; }
+    .coupon-sub { font-size: .76rem; }
+    .coupon-vote-pill { order: 2; margin-left: auto; }
+    .coupon-go { order: 4; margin-left: auto; padding: 7px 14px; font-size: .78rem; }
+  }
   #fb-banner {
     display: none; background: var(--badge); color: var(--badge-t);
     border: 1px solid #f0c79a; border-radius: var(--r);
