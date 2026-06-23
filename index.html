@@ -1681,19 +1681,19 @@
 </footer>
 
 <script>
-  // ── Promo popup "Pridaj deal" – zobrazí sa max 1x za deň na návštevníka ──
+  // ── Promo popup "Pridaj deal" – zobrazí sa pri každej 3. návšteve ───────
   (function () {
-    const STORAGE_KEY = 'hk_promo_popup_last_shown';
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const lastShown = localStorage.getItem(STORAGE_KEY);
-    if (lastShown === today) return;
+    const COUNT_KEY = 'hk_promo_popup_visit_count';
+    let count = parseInt(localStorage.getItem(COUNT_KEY) || '0', 10) + 1;
+    localStorage.setItem(COUNT_KEY, String(count));
+
+    if (count % 3 !== 0) return;
 
     const overlay = document.getElementById('promo-popup-overlay');
     const closeBtn = document.getElementById('promo-popup-close');
     if (!overlay || !closeBtn) return;
 
     overlay.style.display = 'flex';
-    localStorage.setItem(STORAGE_KEY, today);
 
     function closePopup() {
       overlay.style.display = 'none';
