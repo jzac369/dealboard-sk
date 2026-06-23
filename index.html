@@ -697,7 +697,9 @@
     padding: 24px 20px; text-align: center; box-shadow: var(--shadow); transition: box-shadow .15s, transform .15s; }
   .leaflet-card.active-store:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
   .leaflet-store-logo { width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 12px;
-    display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 800; color: #fff; }
+    display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 800; color: #fff;
+    letter-spacing: -0.02em; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .leaflet-store-logo.multi { font-size: .85rem; }
   .leaflet-card h3 { font-size: 1.05rem; margin-bottom: 6px; color: var(--ink); }
   .leaflet-card p { font-size: .82rem; color: var(--muted); margin-bottom: 16px; min-height: 18px; }
   .leaflet-card-btn { display: inline-block; background: var(--orange-dk); color: #fff; border: none;
@@ -1208,9 +1210,55 @@
       initial: 'K',
       active: true
     },
-    tesco: { label: 'Tesco', url: null, color: '#00539F', initial: 'T', active: false },
-    lidl:  { label: 'Lidl', url: null, color: '#0050AA', initial: 'L', active: false },
-    billa: { label: 'Billa', url: null, color: '#E2001A', initial: 'B', active: false }
+    tesco: {
+      label: 'Tesco',
+      url: 'https://www.tesco.sk/akciove-ponuky/letaky-a-katalogy',
+      color: '#00539F',
+      initial: 'T',
+      active: true
+    },
+    billa: {
+      label: 'Billa',
+      url: 'https://www.billa.sk/letaky-a-akcie/aktualny-letak',
+      color: '#E2001A',
+      initial: 'B',
+      active: true
+    },
+    lidl: {
+      label: 'Lidl',
+      url: 'https://www.lidl.sk/c/online-letak/s10008489',
+      color: '#0050AA',
+      initial: 'L',
+      active: true
+    },
+    jednota: {
+      label: 'Jednota COOP',
+      url: 'https://jednota-nz.sk/akcie/',
+      color: '#00984A',
+      initial: 'J',
+      active: true
+    },
+    fresh: {
+      label: 'Fresh',
+      url: 'https://ifresh.sk/newsletters',
+      color: '#3CA55C',
+      initial: 'F',
+      active: true
+    },
+    koruna: {
+      label: 'Koruna',
+      url: 'https://potravinykoruna.sk/letaky/',
+      color: '#F2A900',
+      initial: 'Ko',
+      active: true
+    },
+    cba: {
+      label: 'PT CBA',
+      url: 'https://www.cbataborsky.sk/',
+      color: '#C8102E',
+      initial: 'CBA',
+      active: true
+    }
   };
 
   function renderLeafletGrid() {
@@ -1222,7 +1270,7 @@
       const sub = store.active ? 'Aktuálna ponuka tento týždeň' : 'Čoskoro dostupné';
       return `
       <div class="leaflet-card ${store.active ? 'active-store' : ''}">
-        <div class="leaflet-store-logo" style="background:${store.color};">${store.initial}</div>
+        <div class="leaflet-store-logo${store.initial.length > 1 ? ' multi' : ''}" style="background:${store.color};">${store.initial}</div>
         <h3>${store.label}</h3>
         <p>${sub}</p>
         ${btn}
