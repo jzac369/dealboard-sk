@@ -700,6 +700,8 @@
     display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 800; color: #fff;
     letter-spacing: -0.02em; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
   .leaflet-store-logo.multi { font-size: .85rem; }
+  .leaflet-store-logo.has-img { background: #fff; border: 1px solid var(--line); }
+  .leaflet-store-logo.has-img img { width: 78%; height: 78%; object-fit: contain; }
   .leaflet-card h3 { font-size: 1.05rem; margin-bottom: 6px; color: var(--ink); }
   .leaflet-card p { font-size: .82rem; color: var(--muted); margin-bottom: 16px; min-height: 18px; }
   .leaflet-card-btn { display: inline-block; background: var(--orange-dk); color: #fff; border: none;
@@ -1208,6 +1210,7 @@
       url: 'https://predajne.kaufland.sk/aktualna-ponuka/letak.html',
       color: '#E10915',
       initial: 'K',
+      logo: 'https://commons.wikimedia.org/wiki/Special:FilePath/Kaufland%20201x%20logo.svg',
       active: true
     },
     tesco: {
@@ -1215,6 +1218,7 @@
       url: 'https://www.tesco.sk/akciove-ponuky/letaky-a-katalogy',
       color: '#00539F',
       initial: 'T',
+      logo: 'https://commons.wikimedia.org/wiki/Special:FilePath/Tesco%202016%20logo.svg',
       active: true
     },
     billa: {
@@ -1222,6 +1226,7 @@
       url: 'https://www.billa.sk/letaky-a-akcie/aktualny-letak',
       color: '#E2001A',
       initial: 'B',
+      logo: 'https://commons.wikimedia.org/wiki/Special:FilePath/Logo%20BILLA.svg',
       active: true
     },
     lidl: {
@@ -1229,6 +1234,7 @@
       url: 'https://www.lidl.sk/c/online-letak/s10008489',
       color: '#0050AA',
       initial: 'L',
+      logo: 'https://commons.wikimedia.org/wiki/Special:FilePath/Lidl-Logo.svg',
       active: true
     },
     jednota: {
@@ -1263,19 +1269,34 @@
 
   function renderLeafletGrid() {
     const el = document.getElementById('leaflet-grid');
-    el.innerHTML = Object.values(LEAFLET_STORES).map(store => {
+    el.innerHTML = Object.entries(LEAFLET_STORES).map(([key, store]) => {
       const btn = store.active
         ? `<a class="leaflet-card-btn" href="${store.url}" target="_blank" rel="noopener">Prelistovať leták ↗</a>`
         : `<span class="leaflet-card-btn disabled">Pripravujeme</span>`;
       const sub = store.active ? 'Aktuálna ponuka tento týždeň' : 'Čoskoro dostupné';
+      const multiClass = store.initial.length > 1 ? ' multi' : '';
+      const badge = store.logo
+        ? `<div class="leaflet-store-logo has-img" id="logo-${key}">
+             <img src="${store.logo}" alt="${store.label} logo" loading="lazy" data-key="${key}" onerror="leafletLogoFallback(this)">
+           </div>`
+        : `<div class="leaflet-store-logo${multiClass}" style="background:${store.color};">${store.initial}</div>`;
       return `
       <div class="leaflet-card ${store.active ? 'active-store' : ''}">
-        <div class="leaflet-store-logo${store.initial.length > 1 ? ' multi' : ''}" style="background:${store.color};">${store.initial}</div>
+        ${badge}
         <h3>${store.label}</h3>
         <p>${sub}</p>
         ${btn}
       </div>`;
     }).join('');
+  }
+
+  function leafletLogoFallback(img) {
+    const key = img.dataset.key;
+    const store = LEAFLET_STORES[key];
+    const wrap = document.getElementById('logo-' + key);
+    if (!wrap || !store) return;
+    const multiClass = store.initial.length > 1 ? ' multi' : '';
+    wrap.outerHTML = `<div class="leaflet-store-logo${multiClass}" style="background:${store.color};">${store.initial}</div>`;
   }
 
   // ── Zľavové kódy: render, filter, sort ──────────────────────────────────────
