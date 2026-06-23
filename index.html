@@ -688,6 +688,40 @@
     .deal-age { font-size: .68rem; }
   }
 
+  /* ── Promo popup banner ("Pridaj deal") ───────────────────────────────── */
+  .promo-popup-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(20, 15, 10, .55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    animation: promoFadeIn .2s ease-out;
+  }
+  @keyframes promoFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .promo-popup-box {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    animation: promoPopIn .25s ease-out;
+  }
+  @keyframes promoPopIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .promo-popup-img { display: block; width: 100%; height: auto; }
+  .promo-popup-close {
+    position: absolute; top: 10px; right: 10px;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(0,0,0,.55); color: #fff; border: none;
+    font-size: 1.4rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .promo-popup-close:hover { background: rgba(0,0,0,.8); }
+  @media (max-width: 480px) {
+    .promo-popup-box { max-width: 340px; border-radius: 16px; }
+    .promo-popup-close { width: 30px; height: 30px; font-size: 1.2rem; top: 8px; right: 8px; }
+  }
+
   /* ── Letáky ─────────────────────────────────────────────────────────── */
   .leaflet-intro { margin-bottom: 18px; }
   .leaflet-intro h2 { font-size: 1.15rem; margin-bottom: 6px; color: var(--ink); }
@@ -793,6 +827,14 @@
 </style>
 </head>
 <body>
+
+<!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
+<div id="promo-popup-overlay" class="promo-popup-overlay" style="display:none;">
+  <div class="promo-popup-box">
+    <button id="promo-popup-close" class="promo-popup-close" aria-label="Zavrieť">&times;</button>
+    <img src="assets/pridaj-deal-banner.jpg" alt="Našiel si aj ty skvelý deal? Zazdieľaj ho a podeľ sa s ostatnými!" class="promo-popup-img">
+  </div>
+</div>
 
 <header>
   <div class="header-inner">
@@ -1637,5 +1679,33 @@
     <a href="admin.html" style="color:var(--muted); text-decoration:none; opacity:.6;" aria-hidden="true">&nbsp;•</a>
   </div>
 </footer>
+
+<script>
+  // ── Promo popup "Pridaj deal" – zobrazí sa max 1x za deň na návštevníka ──
+  (function () {
+    const STORAGE_KEY = 'hk_promo_popup_last_shown';
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const lastShown = localStorage.getItem(STORAGE_KEY);
+    if (lastShown === today) return;
+
+    const overlay = document.getElementById('promo-popup-overlay');
+    const closeBtn = document.getElementById('promo-popup-close');
+    if (!overlay || !closeBtn) return;
+
+    overlay.style.display = 'flex';
+    localStorage.setItem(STORAGE_KEY, today);
+
+    function closePopup() {
+      overlay.style.display = 'none';
+    }
+    closeBtn.addEventListener('click', closePopup);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closePopup();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePopup();
+    });
+  })();
+</script>
 </body>
 </html>
