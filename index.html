@@ -248,6 +248,14 @@
   };
 
   // ── Zmenší a skomprimuje obrázok, vráti base64 dátový text (žiadny Storage potrebný) ──
+  // Niektoré file pickery (najmä v Android TWA appke / WebView) nevrátia
+  // správny file.type pre obrázky – preto kontrolujeme aj príponu súboru.
+  function isImageFile(file) {
+    if (!file) return false;
+    if (file.type && file.type.startsWith('image/')) return true;
+    return /\.(jpe?g|png|gif|webp|heic|heif|bmp|avif)$/i.test(file.name || '');
+  }
+
   window.uploadDealImage = function(file) {
     const MAX_BYTES = 5 * 1024 * 1024;     // limit pre vstupný súbor od užívateľa
     const MAX_DIM   = 640;                 // max šírka/výška po zmenšení
@@ -255,7 +263,7 @@
 
     return new Promise((resolve, reject) => {
       if (!file) { resolve(null); return; }
-      if (!file.type.startsWith('image/')) { reject(new Error('not-image')); return; }
+      if (!isImageFile(file)) { reject(new Error('not-image')); return; }
       if (file.size > MAX_BYTES) { reject(new Error('too-large')); return; }
 
       // FileReader je na mobilných prehliadačoch spoľahlivejší ako createObjectURL
@@ -1591,7 +1599,7 @@
     const wrap = document.getElementById('img-preview-wrap');
     const img  = document.getElementById('img-preview');
     if (!file) { wrap.style.display = 'none'; return; }
-    if (!file.type.startsWith('image/')) {
+    if (!isImageFile(file)) {
       alert('Vybraný súbor nie je obrázok. Vyber prosím fotku (JPG, PNG, atď.).');
       e.target.value = '';
       wrap.style.display = 'none';
