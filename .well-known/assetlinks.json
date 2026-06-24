@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "sk.henkukaj.app",
+    "sha256_cert_fingerprints": [
+      "B5:3C:A0:3F:C1:3D:F1:5B:32:AE:97:10:2F:BB:0C:7A:0B:B0:32:90:EF:2D:6E:39:D4:50:68:65:01:FA:51:94"
+    ]
+  }
+}]
