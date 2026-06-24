@@ -550,6 +550,8 @@
         return;
       }
     }
+    const dealPriceNum = parseFloat(get('deal')) || 0;
+    const originalPriceNum = parseFloat(get('orig')) || null;
     const updates = {
       title: get('title'),
       store: get('store'),
@@ -557,8 +559,10 @@
       url: get('url'),
       imageUrl,
       description: get('desc'),
-      dealPrice: parseFloat(get('deal')) || 0,
-      originalPrice: parseFloat(get('orig')) || null
+      dealPrice: dealPriceNum,
+      originalPrice: originalPriceNum,
+      discountPercent: (originalPriceNum && dealPriceNum && originalPriceNum > dealPriceNum)
+        ? Math.round((1 - dealPriceNum / originalPriceNum) * 100) : 0
     };
     await updateDoc(doc(db, "deals", id), updates);
     alert('Uložené.');
