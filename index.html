@@ -248,6 +248,14 @@
   };
 
   // ── Zmenší a skomprimuje obrázok, vráti base64 dátový text (žiadny Storage potrebný) ──
+  // Ak užívateľ zadá adresu bez http(s):// (napr. "alza.sk/produkt/..."),
+  // automaticky doplníme https:// – nemusí ho písať sám.
+  function normalizeUrl(value) {
+    if (!value) return value;
+    if (/^https?:\/\//i.test(value)) return value;
+    return 'https://' + value.replace(/^\/+/, '');
+  }
+
   // Niektoré file pickery (najmä v Android TWA appke / WebView) nevrátia
   // správny file.type pre obrázky – preto kontrolujeme aj príponu súboru.
   function isImageFile(file) {
@@ -989,7 +997,7 @@
       </div>
       <div>
         <label>Odkaz na deal *</label>
-        <input type="url" id="f-url" placeholder="https://alza.sk/produkt/...">
+        <input type="text" id="f-url" placeholder="alza.sk/produkt/... (https:// doplníme automaticky)">
       </div>
       <div>
         <label>Obrázok produktu</label>
@@ -1081,7 +1089,7 @@
       </div>
       <div>
         <label>Odkaz na e-shop *</label>
-        <input type="url" id="cp-url" placeholder="https://...">
+        <input type="text" id="cp-url" placeholder="eshop.sk (https:// doplníme automaticky)">
       </div>
       <div>
         <label>Platí do (voliteľné)</label>
@@ -1487,7 +1495,7 @@
     const code     = document.getElementById('cp-code').value.trim().toUpperCase();
     const store    = document.getElementById('cp-store').value.trim();
     const discount = document.getElementById('cp-discount').value.trim();
-    const url      = document.getElementById('cp-url').value.trim();
+    const url      = normalizeUrl(document.getElementById('cp-url').value.trim());
     if (!author || !code || !store || !discount || !url) {
       alert('Vyplň prosím povinné polia (*).');
       return;
@@ -1621,7 +1629,7 @@
     const title = document.getElementById('f-title').value.trim();
     const store = document.getElementById('f-store').value.trim();
     const deal  = parseFloat(document.getElementById('f-deal').value);
-    const url   = document.getElementById('f-url').value.trim();
+    const url   = normalizeUrl(document.getElementById('f-url').value.trim());
     const honeypot = document.getElementById('f-honeypot').value.trim();
     const imgFile  = document.getElementById('f-img-file').files[0];
     if (!author || !title || !store || isNaN(deal) || !url) {
