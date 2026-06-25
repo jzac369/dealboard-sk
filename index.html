@@ -180,17 +180,20 @@
   ];
 
   // ── Dealy: stránkované načítavanie (20 na stranu) + infinite scroll ────────
-  let allDeals   = [];
-  let activeSort = 'new';
-  let activeCat  = 'Všetky';
+  // Stav je na `window`, pretože ho potrebuje aj druhý (klasický, nie-modulový)
+  // <script> blok nižšie v stránke – moduly majú izolovaný scope, klasické
+  // <script> bloky medzi sebou nezdieľajú "let" premenné z modulu.
+  window.allDeals   = [];
+  window.activeSort = 'new';
+  window.activeCat  = 'Všetky';
   const DEALS_PAGE_SIZE = 20;
   const DEALS_SEARCH_CAP = 200;
-  let dealsLastDoc   = null;
-  let dealsHasMore   = true;
-  let dealsLoading   = false;
-  let dealsSearchMode = false;
+  window.dealsLastDoc   = null;
+  window.dealsHasMore   = true;
+  window.dealsLoading   = false;
+  window.dealsSearchMode = false;
   let dealsSearchDebounce = null;
-  let dealsSentinelObserver = null;
+  window.dealsSentinelObserver = null;
 
   function dealSortField(sort) {
     return { new: 'timestamp', votes: 'votes', discount: 'discountPercent' }[sort] || 'timestamp';
@@ -198,84 +201,118 @@
 
   function buildDealsBaseQuery() {
     const constraints = [where('status', '==', 'approved')];
-    if (activeCat !== 'Všetky') constraints.push(where('category', '==', activeCat));
-    constraints.push(orderBy(dealSortField(activeSort), 'desc'));
+    if (window.activeCat !== 'Všetky') constraints.push(where('category', '==', window.activeCat));
+    constraints.push(orderBy(dealSortField(window.activeSort), 'desc'));
     return query(collection(db, 'deals'), ...constraints);
   }
 
-  async function loadDealsPage(reset) {
+  window.loadDealsPage = async function(reset) {
     if (reset) {
-      allDeals = [];
-      dealsLastDoc = null;
-      dealsHasMore = true;
-      dealsSearchMode = false;
+      window.allDeals = [];
+      window.dealsLastDoc = null;
+      window.dealsHasMore = true;
+      window.dealsSearchMode = false;
     }
-    if (!dealsHasMore || dealsLoading) return;
-    dealsLoading = true;
-    renderDealsList(); // zobrazí "Načítavam ďalšie…" v sentinele
+    if (!window.dealsHasMore || window.dealsLoading) return;
+    window.dealsLoading = true;
+    window.renderDealsList(); // zobrazí "Načítavam ďalšie…" v sentinele
     try {
       let qy = buildDealsBaseQuery();
-      qy = dealsLastDoc ? query(qy, startAfter(dealsLastDoc), limit(DEALS_PAGE_SIZE)) : query(qy, limit(DEALS_PAGE_SIZE));
+      qy = window.dealsLastDoc ? query(qy, startAfter(window.dealsLastDoc), limit(DEALS_PAGE_SIZE)) : query(qy, limit(DEALS_PAGE_SIZE));
       const snap = await getDocs(qy);
       const newItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (reset && newItems.length === 0 && activeCat === 'Všetky' && activeSort === 'new') {
+      if (reset && newItems.length === 0 && window.activeCat === 'Všetky' && window.activeSort === 'new') {
         await insertDemoIfEmpty([]);
       }
-      allDeals = allDeals.concat(newItems);
-      if (snap.docs.length) dealsLastDoc = snap.docs[snap.docs.length - 1];
-      dealsHasMore = newItems.length === DEALS_PAGE_SIZE;
+      window.allDeals = window.allDeals.concat(newItems);
+      if (snap.docs.length) window.dealsLastDoc = snap.docs[snap.docs.length - 1];
+      window.dealsHasMore = newItems.length === DEALS_PAGE_SIZE;
       document.getElementById('fb-banner').style.display = 'none';
     } catch (e) {
       console.error('Chyba pri načítaní dealov (možno chýba Firestore index – pozri link v konzole):', e);
-      if (allDeals.length === 0) {
+      if (window.allDeals.length === 0) {
         document.getElementById('deals-list').innerHTML =
           `<div class="empty">Dealy sa nepodarilo načítať. Ak si vývojár: skontroluj konzolu prehliadača – Firestore pravdepodobne potrebuje vytvoriť composite index (v chybovej správe je priamy link na jeho vytvorenie v Firebase Console).</div>`;
       }
-      dealsHasMore = false;
+      window.dealsHasMore = false;
     } finally {
-      dealsLoading = false;
-      renderDealsList();
+      window.dealsLoading = false;
+      window.renderDealsList();
     }
-  }
+  };
 
-  async function performDealsSearch() {
+  window.performDealsSearch = async function() {
     const q = document.getElementById('search-input').value.trim().toLowerCase();
-    if (!q) { loadDealsPage(true); return; }
-    dealsSearchMode = true;
-    dealsLoading = true;
-    renderDealsList();
+    if (!q) { window.loadDealsPage(true); return; }
+    window.dealsSearchMode = true;
+    window.dealsLoading = true;
+    window.renderDealsList();
     try {
       const qy = query(buildDealsBaseQuery(), limit(DEALS_SEARCH_CAP));
       const snap = await getDocs(qy);
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      allDeals = items.filter(d =>
+      window.allDeals = items.filter(d =>
         (d.title || '').toLowerCase().includes(q) ||
         (d.store || '').toLowerCase().includes(q) ||
         (d.description || '').toLowerCase().includes(q)
       );
-      dealsHasMore = false;
+      window.dealsHasMore = false;
     } catch (e) {
       console.error('Chyba pri vyhľadávaní dealov:', e);
-      allDeals = [];
+      window.allDeals = [];
     } finally {
-      dealsLoading = false;
-      renderDealsList();
+      window.dealsLoading = false;
+      window.renderDealsList();
     }
-  }
+  };
 
   window.filterDeals = function() {
     clearTimeout(dealsSearchDebounce);
-    dealsSearchDebounce = setTimeout(performDealsSearch, 300);
+    dealsSearchDebounce = setTimeout(window.performDealsSearch, 300);
   };
 
-  function ensureDealsSentinelObserver() {
-    if (dealsSentinelObserver) return;
-    dealsSentinelObserver = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !dealsSearchMode && dealsHasMore && !dealsLoading) {
-        loadDealsPage(false);
+  window.DEALS_SEARCH_CAP = DEALS_SEARCH_CAP;
+
+  window.ensureDealsSentinelObserver = function() {
+    if (window.dealsSentinelObserver) return;
+    window.dealsSentinelObserver = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !window.dealsSearchMode && window.dealsHasMore && !window.dealsLoading) {
+        window.loadDealsPage(false);
       }
     }, { rootMargin: '400px' });
-  }
+  };
+
+  window.refreshHottestSidebar = async function() {
+    const el = document.getElementById('hottest-sidebar-list');
+    if (!el) return;
+    try {
+      const qy = query(collection(db, 'deals'), where('status', '==', 'approved'), orderBy('votes', 'desc'), limit(3));
+      const snap = await getDocs(qy);
+      const top = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (!top.length) {
+        el.innerHTML = '<p style="font-size:.82rem; color:var(--muted);">Zatiaľ žiadne dealy.</p>';
+        return;
+      }
+      el.innerHTML = top.map(d => {
+        const img = d.imageUrl
+          ? `<img class="hot-mini-img" src="${d.imageUrl}" alt="" loading="lazy">`
+          : `<div class="hot-mini-img"></div>`;
+        return `
+        <a class="hot-mini-item" href="#" onclick="openDealDetail('${d.id}'); return false;">
+          <div class="hot-mini-vote">
+            <span class="hot-mini-vote-num">${d.votes||0}°</span>
+          </div>
+          ${img}
+          <div class="hot-mini-info">
+            <div class="hot-mini-title">${(d.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            <div class="hot-mini-price">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</div>
+          </div>
+        </a>`;
+      }).join('');
+    } catch (e) {
+      console.error('Chyba pri načítaní najhorúcejších dealov:', e);
+    }
+  };
 
   let firstSnapshot = true;
   let demoInserted = false;
@@ -286,21 +323,21 @@
     for (const d of DEMO_DEALS) {
       await addDoc(collection(db, "deals"), d);
     }
-    loadDealsPage(true);
+    window.loadDealsPage(true);
   }
 
   // Prvotné načítanie + globálna kontrola Firebase chyby (zobrazí demo dáta, ak Firebase nie je nastavený)
   (async () => {
     try {
-      await loadDealsPage(true);
+      await window.loadDealsPage(true);
     } catch (e) {
       console.error("Firebase error:", e);
       document.getElementById("fb-banner").style.display = 'block';
-      allDeals = DEMO_DEALS.map((d, i) => ({ ...d, id: "demo-" + i, timestamp: { seconds: Date.now() / 1000 } }));
-      renderDealsList();
+      window.allDeals = DEMO_DEALS.map((d, i) => ({ ...d, id: "demo-" + i, timestamp: { seconds: Date.now() / 1000 } }));
+      window.renderDealsList();
     }
+    window.refreshHottestSidebar();
   })();
-  refreshHottestSidebar();
 
 
   // ── Voting – 1 hlas na anonymné UID na deal ─────────────────────────────────
@@ -336,13 +373,13 @@
         return change;
       });
       // Optimisticky aktualizuj lokálny stav a DOM, bez nutnosti znova naťahovať celý zoznam
-      const item = allDeals.find(d => d.id === id);
+      const item = window.allDeals.find(d => d.id === id);
       if (item) {
         item.votes = (item.votes || 0) + netChange;
         const countEl = document.querySelector(`#deal-${id} .vote-count`);
         if (countEl) countEl.textContent = item.votes + '°';
       }
-      refreshHottestSidebar();
+      window.refreshHottestSidebar();
     } catch(e) {
       console.error('Vote error:', e);
       alert('Hlasovanie zlyhalo: ' + e.message);
@@ -539,91 +576,92 @@
   };
 
   // ── Zľavové kódy: stránkované načítavanie (20 na stranu) + infinite scroll ─
-  let allCoupons = [];
-  let activeCouponSort = 'new';
+  window.allCoupons = [];
+  window.activeCouponSort = 'new';
   const COUPONS_PAGE_SIZE = 20;
   const COUPONS_SEARCH_CAP = 200;
-  let couponsLastDoc = null;
-  let couponsHasMore = true;
-  let couponsLoading = false;
-  let couponsSearchMode = false;
+  window.couponsLastDoc = null;
+  window.couponsHasMore = true;
+  window.couponsLoading = false;
+  window.couponsSearchMode = false;
   let couponsSearchDebounce = null;
-  let couponsSentinelObserver = null;
+  window.couponsSentinelObserver = null;
+  window.COUPONS_SEARCH_CAP = COUPONS_SEARCH_CAP;
 
   function couponSortField(sort) {
     return { new: 'timestamp', votes: 'votes' }[sort] || 'timestamp';
   }
 
   function buildCouponsBaseQuery() {
-    return query(collection(db, 'coupons'), where('status', '==', 'approved'), orderBy(couponSortField(activeCouponSort), 'desc'));
+    return query(collection(db, 'coupons'), where('status', '==', 'approved'), orderBy(couponSortField(window.activeCouponSort), 'desc'));
   }
 
-  async function loadCouponsPage(reset) {
+  window.loadCouponsPage = async function(reset) {
     if (reset) {
-      allCoupons = [];
-      couponsLastDoc = null;
-      couponsHasMore = true;
-      couponsSearchMode = false;
+      window.allCoupons = [];
+      window.couponsLastDoc = null;
+      window.couponsHasMore = true;
+      window.couponsSearchMode = false;
     }
-    if (!couponsHasMore || couponsLoading) return;
-    couponsLoading = true;
-    renderCouponsList();
+    if (!window.couponsHasMore || window.couponsLoading) return;
+    window.couponsLoading = true;
+    window.renderCouponsList();
     try {
       let qy = buildCouponsBaseQuery();
-      qy = couponsLastDoc ? query(qy, startAfter(couponsLastDoc), limit(COUPONS_PAGE_SIZE)) : query(qy, limit(COUPONS_PAGE_SIZE));
+      qy = window.couponsLastDoc ? query(qy, startAfter(window.couponsLastDoc), limit(COUPONS_PAGE_SIZE)) : query(qy, limit(COUPONS_PAGE_SIZE));
       const snap = await getDocs(qy);
       const newItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      allCoupons = allCoupons.concat(newItems);
-      if (snap.docs.length) couponsLastDoc = snap.docs[snap.docs.length - 1];
-      couponsHasMore = newItems.length === COUPONS_PAGE_SIZE;
+      window.allCoupons = window.allCoupons.concat(newItems);
+      if (snap.docs.length) window.couponsLastDoc = snap.docs[snap.docs.length - 1];
+      window.couponsHasMore = newItems.length === COUPONS_PAGE_SIZE;
     } catch (e) {
       console.error("Coupons error (možno chýba Firestore index – pozri link v konzole):", e);
-      if (allCoupons.length === 0) {
+      if (window.allCoupons.length === 0) {
         document.getElementById('coupons-list').innerHTML =
           '<div class="empty">Zľavové kódy sa nepodarilo načítať. (Možno chýba Firestore index – pozri konzolu prehliadača.)</div>';
       }
-      couponsHasMore = false;
+      window.couponsHasMore = false;
     } finally {
-      couponsLoading = false;
-      renderCouponsList();
+      window.couponsLoading = false;
+      window.renderCouponsList();
     }
-  }
+  };
 
-  async function performCouponsSearch() {
+  window.performCouponsSearch = async function() {
     const q = (document.getElementById('coupon-search-input')?.value || '').trim().toLowerCase();
-    if (!q) { loadCouponsPage(true); return; }
-    couponsSearchMode = true;
-    couponsLoading = true;
-    renderCouponsList();
+    if (!q) { window.loadCouponsPage(true); return; }
+    window.couponsSearchMode = true;
+    window.couponsLoading = true;
+    window.renderCouponsList();
     try {
       const qy = query(buildCouponsBaseQuery(), limit(COUPONS_SEARCH_CAP));
       const snap = await getDocs(qy);
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      allCoupons = items.filter(c =>
+      window.allCoupons = items.filter(c =>
         (c.code || '').toLowerCase().includes(q) ||
         (c.store || '').toLowerCase().includes(q) ||
         (c.discount || '').toLowerCase().includes(q)
       );
-      couponsHasMore = false;
+      window.couponsHasMore = false;
     } catch (e) {
       console.error('Chyba pri vyhľadávaní kódov:', e);
-      allCoupons = [];
+      window.allCoupons = [];
     } finally {
-      couponsLoading = false;
-      renderCouponsList();
+      window.couponsLoading = false;
+      window.renderCouponsList();
     }
-  }
+  };
 
-  function ensureCouponsSentinelObserver() {
-    if (couponsSentinelObserver) return;
-    couponsSentinelObserver = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !couponsSearchMode && couponsHasMore && !couponsLoading) {
-        loadCouponsPage(false);
+  window.ensureCouponsSentinelObserver = function() {
+    if (window.couponsSentinelObserver) return;
+    window.couponsSentinelObserver = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !window.couponsSearchMode && window.couponsHasMore && !window.couponsLoading) {
+        window.loadCouponsPage(false);
       }
     }, { rootMargin: '400px' });
-  }
+  };
 
-  loadCouponsPage(true);
+  window.loadCouponsPage(true);
 
   window.voteCoupon = async (id, delta) => {
     if (!currentUid) { alert("Načítavam... skús o sekundu znova."); return; }
@@ -649,7 +687,7 @@
         tx.update(doc(db, "coupons", id), { votes: increment(change) });
         return change;
       });
-      const item = allCoupons.find(c => c.id === id);
+      const item = window.allCoupons.find(c => c.id === id);
       if (item) {
         item.votes = (item.votes || 0) + netChange;
         const countEl = document.querySelector(`#coupon-${id} .vote-count`);
@@ -1308,42 +1346,10 @@
 <script>
   // ── State ────────────────────────────────────────────────────────────────
   // ── Render ───────────────────────────────────────────────────────────────
-  async function refreshHottestSidebar() {
-    const el = document.getElementById('hottest-sidebar-list');
-    if (!el) return;
-    try {
-      const qy = query(collection(db, 'deals'), where('status', '==', 'approved'), orderBy('votes', 'desc'), limit(3));
-      const snap = await getDocs(qy);
-      const top = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (!top.length) {
-        el.innerHTML = '<p style="font-size:.82rem; color:var(--muted);">Zatiaľ žiadne dealy.</p>';
-        return;
-      }
-      el.innerHTML = top.map(d => {
-        const img = d.imageUrl
-          ? `<img class="hot-mini-img" src="${d.imageUrl}" alt="" loading="lazy">`
-          : `<div class="hot-mini-img"></div>`;
-        return `
-        <a class="hot-mini-item" href="#" onclick="openDealDetail('${d.id}'); return false;">
-          <div class="hot-mini-vote">
-            <span class="hot-mini-vote-num">${d.votes||0}°</span>
-          </div>
-          ${img}
-          <div class="hot-mini-info">
-            <div class="hot-mini-title">${escapeHtml(d.title||'')}</div>
-            <div class="hot-mini-price">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</div>
-          </div>
-        </a>`;
-      }).join('');
-    } catch (e) {
-      console.error('Chyba pri načítaní najhorúcejších dealov:', e);
-    }
-  }
-
   function renderDealsList() {
     const el = document.getElementById('deals-list');
-    if (!allDeals.length) {
-      if (dealsLoading) {
+    if (!window.allDeals.length) {
+      if (window.dealsLoading) {
         el.innerHTML = `<div class="loading">Načítavam dealy…</div>`;
       } else {
         el.innerHTML = `<div class="empty"><div class="icon">🔍</div>Žiadne dealy nenájdené.</div>`;
@@ -1351,17 +1357,17 @@
       return;
     }
     try {
-      let html = allDeals.map(dealCard).join('');
-      if (!dealsSearchMode && dealsHasMore) {
-        html += `<div id="deals-load-sentinel" class="loading" style="padding:24px 0;">${dealsLoading ? 'Načítavam ďalšie dealy…' : ''}</div>`;
-      } else if (dealsSearchMode && allDeals.length >= DEALS_SEARCH_CAP) {
-        html += `<div class="empty" style="padding:14px 0; font-size:.85rem;">Zobrazených je prvých ${DEALS_SEARCH_CAP} výsledkov – skús vyhľadávanie zúžiť.</div>`;
+      let html = window.allDeals.map(dealCard).join('');
+      if (!window.dealsSearchMode && window.dealsHasMore) {
+        html += `<div id="deals-load-sentinel" class="loading" style="padding:24px 0;">${window.dealsLoading ? 'Načítavam ďalšie dealy…' : ''}</div>`;
+      } else if (window.dealsSearchMode && window.allDeals.length >= window.DEALS_SEARCH_CAP) {
+        html += `<div class="empty" style="padding:14px 0; font-size:.85rem;">Zobrazených je prvých ${window.DEALS_SEARCH_CAP} výsledkov – skús vyhľadávanie zúžiť.</div>`;
       }
       el.innerHTML = html;
-      if (!dealsSearchMode && dealsHasMore) {
-        ensureDealsSentinelObserver();
+      if (!window.dealsSearchMode && window.dealsHasMore) {
+        window.ensureDealsSentinelObserver();
         const sentinel = document.getElementById('deals-load-sentinel');
-        if (sentinel) dealsSentinelObserver.observe(sentinel);
+        if (sentinel) window.dealsSentinelObserver.observe(sentinel);
       }
     } catch(e) {
       console.error('Chyba pri vykresľovaní dealov:', e);
@@ -1427,21 +1433,21 @@
 
   // ── Controls ─────────────────────────────────────────────────────────────
   window.setCategory = function(cat) {
-    activeCat = cat;
+    window.activeCat = cat;
     document.querySelectorAll('#cat-list button').forEach(b => {
       const label = b.textContent.trim().replace(/^\S+\s/, '');
       b.classList.toggle('active', label === cat);
     });
     const searchVal = document.getElementById('search-input').value.trim();
-    if (searchVal) performDealsSearch(); else loadDealsPage(true);
+    if (searchVal) window.performDealsSearch(); else window.loadDealsPage(true);
   };
 
   window.setSort = function(sort, btn) {
-    activeSort = sort;
+    window.activeSort = sort;
     document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const searchVal = document.getElementById('search-input').value.trim();
-    if (searchVal) performDealsSearch(); else loadDealsPage(true);
+    if (searchVal) window.performDealsSearch(); else window.loadDealsPage(true);
   };
 
   // ── Sekcia: Dealy / Zľavové kódy ────────────────────────────────────────────
@@ -1560,38 +1566,39 @@
   // ── Zľavové kódy: render ─────────────────────────────────────────────────
   function renderCouponsList() {
     const el = document.getElementById('coupons-list');
-    if (!allCoupons.length) {
-      if (couponsLoading) {
+    if (!window.allCoupons.length) {
+      if (window.couponsLoading) {
         el.innerHTML = `<div class="loading">Načítavam zľavové kódy…</div>`;
       } else {
         el.innerHTML = `<div class="empty"><div class="icon">🎟️</div>Žiadne zľavové kódy nenájdené.</div>`;
       }
       return;
     }
-    let html = allCoupons.map(couponCard).join('');
-    if (!couponsSearchMode && couponsHasMore) {
-      html += `<div id="coupons-load-sentinel" class="loading" style="padding:24px 0;">${couponsLoading ? 'Načítavam ďalšie kódy…' : ''}</div>`;
-    } else if (couponsSearchMode && allCoupons.length >= COUPONS_SEARCH_CAP) {
-      html += `<div class="empty" style="padding:14px 0; font-size:.85rem;">Zobrazených je prvých ${COUPONS_SEARCH_CAP} výsledkov – skús vyhľadávanie zúžiť.</div>`;
+    let html = window.allCoupons.map(couponCard).join('');
+    if (!window.couponsSearchMode && window.couponsHasMore) {
+      html += `<div id="coupons-load-sentinel" class="loading" style="padding:24px 0;">${window.couponsLoading ? 'Načítavam ďalšie kódy…' : ''}</div>`;
+    } else if (window.couponsSearchMode && window.allCoupons.length >= window.COUPONS_SEARCH_CAP) {
+      html += `<div class="empty" style="padding:14px 0; font-size:.85rem;">Zobrazených je prvých ${window.COUPONS_SEARCH_CAP} výsledkov – skús vyhľadávanie zúžiť.</div>`;
     }
     el.innerHTML = html;
-    if (!couponsSearchMode && couponsHasMore) {
-      ensureCouponsSentinelObserver();
+    if (!window.couponsSearchMode && window.couponsHasMore) {
+      window.ensureCouponsSentinelObserver();
       const sentinel = document.getElementById('coupons-load-sentinel');
-      if (sentinel) couponsSentinelObserver.observe(sentinel);
+      if (sentinel) window.couponsSentinelObserver.observe(sentinel);
     }
   }
 
+  let couponsSearchDebounce = null;
   window.filterCoupons = function() {
     clearTimeout(couponsSearchDebounce);
-    couponsSearchDebounce = setTimeout(performCouponsSearch, 300);
+    couponsSearchDebounce = setTimeout(window.performCouponsSearch, 300);
   };
   window.setCouponSort = function(sort, btn) {
-    activeCouponSort = sort;
+    window.activeCouponSort = sort;
     btn.parentElement.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const searchVal = (document.getElementById('coupon-search-input')?.value || '').trim();
-    if (searchVal) performCouponsSearch(); else loadCouponsPage(true);
+    if (searchVal) window.performCouponsSearch(); else window.loadCouponsPage(true);
   };
 
   function couponCard(c) {
@@ -1668,7 +1675,7 @@
     const dealId = params.get('deal');
     if (!dealId) return;
     setTimeout(() => {
-      if (allDeals.find(d => d.id === dealId)) {
+      if (window.allDeals.find(d => d.id === dealId)) {
         openDealDetail(dealId);
       }
     }, 600);
@@ -1723,7 +1730,7 @@
   });
   // ── Detail dealu (modal) ─────────────────────────────────────────────────
   window.openDealDetail = function(dealId) {
-    const deal = allDeals.find(d => d.id === dealId);
+    const deal = window.allDeals.find(d => d.id === dealId);
     if (!deal) return;
     document.getElementById('detail-modal').classList.add('open');
     renderDealDetail(deal);
