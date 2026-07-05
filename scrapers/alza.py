@@ -49,11 +49,13 @@ class AlzaScraper(BaseScraper):
         try:
             driver.get(ALZA_URL)
             WebDriverWait(driver, config.PAGE_LOAD_TIMEOUT_SECONDS).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div.browsingitem"))
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "div.box.browsingitem")
+                )
             )
             time.sleep(config.REQUEST_DELAY_SECONDS)
 
-            items = driver.find_elements(By.CSS_SELECTOR, "div.browsingitem")
+            items = driver.find_elements(By.CSS_SELECTOR, "div.box.browsingitem")
             logger.info("Alza: nájdených %d produktových kariet", len(items))
 
             for item in items:
@@ -71,33 +73,33 @@ class AlzaScraper(BaseScraper):
         return candidates
 
     def _parse_item(self, item) -> DealCandidate | None:
-        title_el = item.find_elements(By.CSS_SELECTOR, "h3.name, .name a")
-        if not title_el:
+        # Názov + link na produkt
+        link_el = item.find_elements(By.CSS_SELECTOR, "a.name.browsinglink")
+        if not link_el:
             return None
-        title = title_el[0].text.strip()
-
-        link_el = item.find_elements(By.CSS_SELECTOR, "a.name, h3.name a")
-        source_url = link_el[0].get_attribute("href") if link_el else None
-        if not source_url:
+        title = link_el[0].text.strip()
+        source_url = link_el[0].get_attribute("href")
+        if not title or not source_url:
             return None
 
-        # Aktuálna (zľavnená) cena
-        new_price_el = item.find_elements(By.CSS_SELECTOR, ".price-box__price, .price")
+        # Aktuálna (zľavnená) cena, napr. "426 €"
+        new_price_el = item.find_elements(
+            By.CSS_SELECTOR, ".ads-pb__price-value, .js-price-box__primary-price-value"
+        )
         new_price = parse_price(new_price_el[0].text) if new_price_el else None
 
-        # Pôvodná cena (prečiarknutá)
-        old_price_el = item.find_elements(
-            By.CSS_SELECTOR, ".price-box__old-price, .price-old, del"
-        )
-        old_price = parse_price(old_price_el[0].text) if old_price_el else None
+        # Alza neukazuje priamo starú cenu, len sumu úspory: "Ušetríte 53 €"
+        savings_el = item.find_elements(By.CSS_SELECTOR, ".ads-pb__original-price")
+        savings = parse_price(savings_el[0].text) if savings_el else None
 
         img_el = item.find_elements(By.CSS_SELECTOR, "img")
         image_url = img_el[0].get_attribute("src") if img_el else None
 
-        if not title or new_price is None or old_price is None:
+        if new_price is None or savings is None or savings <= 0:
+            # Bez informácie o úspore nevieme spočítať % zľavy - preskočiť
             return None
-        if old_price <= new_price:
-            return None  # nevalidný/nulový discount, preskočiť
+
+        old_price = round(new_price + savings, 2)
 
         return DealCandidate(
             title=title,
