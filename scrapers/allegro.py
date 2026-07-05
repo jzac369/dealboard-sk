@@ -25,6 +25,7 @@ cenu.
 """
 
 import re
+import time
 import logging
 import requests
 from bs4 import BeautifulSoup
@@ -36,18 +37,30 @@ logger = logging.getLogger(__name__)
 
 ALLEGRO_URL = "https://allegro.sk/cenovehity/allegro-dni"
 
+DISCOUNT_PATTERN = re.compile(
+    r"-(\d+)%\s*([\d\s.,]+)\s*€\s*cena za posledn", re.IGNORECASE
+)
+CURRENT_PRICE_PATTERN = re.compile(r"znížením ceny\s*([\d\s.,]+)\s*€")
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     ),
-    "Accept-Language": "sk-SK,sk;q=0.9,en;q=0.8",
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "sk-SK,sk;q=0.9,cs;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-User": "?1",
+    "Referer": "https://allegro.sk/",
 }
-
-DISCOUNT_PATTERN = re.compile(
-    r"-(\d+)%\s*([\d\s.,]+)\s*€\s*cena za posledn", re.IGNORECASE
-)
-CURRENT_PRICE_PATTERN = re.compile(r"znížením ceny\s*([\d\s.,]+)\s*€")
 
 
 class AllegroScraper(BaseScraper):
@@ -56,7 +69,17 @@ class AllegroScraper(BaseScraper):
     def fetch_candidates(self) -> list[DealCandidate]:
         candidates: list[DealCandidate] = []
 
-        response = requests.get(ALLEGRO_URL, headers=HEADERS, timeout=20)
+        session = requests.Session()
+        session.headers.update(HEADERS)
+
+        # Najprv "navštívime" hlavnú stránku ako reálny prehliadač, aby sme
+        # získali cookies - niektoré weby vracajú 403 pri priamom vstupe
+        # rovno na podstránku bez predchádzajúcej návštevy.
+        homepage_resp = session.get("https://allegro.sk/", timeout=20)
+        homepage_resp.raise_for_status()
+        time.sleep(1.5)
+
+        response = session.get(ALLEGRO_URL, timeout=20)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
