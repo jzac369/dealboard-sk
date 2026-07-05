@@ -2,8 +2,9 @@ name: Deal Hunter - denný beh
 
 on:
   schedule:
+    # 06:30 UTC = 07:30/08:30 SK čas (podľa letného/zimného času)
     - cron: "30 6 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch: {}  # umožní aj manuálne spustenie z GitHub UI
 
 jobs:
   run-deal-hunter:
@@ -38,6 +39,14 @@ jobs:
           MIN_DISCOUNT_PERCENT: "15"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Upload debug screenshot (ak scraper nenašiel produkty)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-alza
+          path: debug-alza/
+          if-no-files-found: ignore
 
       - name: Cleanup credentials file
         if: always()
