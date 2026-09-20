@@ -29,6 +29,56 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://www.zlacnene.sk"
 LISTING_URL = f"{BASE_URL}/akciovy-tovar/"
 
+# Kategórie zlacnene.sk -> kategórie na henkukaj.sk.
+#
+# Prečo sťahujeme po kategóriách a nie len zo všeobecného zoznamu:
+# 1. Vieme kategóriu, nemusíme ju hádať z názvu. Hádanie zlyháva na
+#    značkách — "Lindt Excellence" ani "Zlatý Bažant" nemá v názve nič,
+#    z čoho by sa dalo určiť, že ide o potraviny.
+# 2. Všeobecný zoznam je zaplavený potravinami, lebo letáky reťazcov sú
+#    prevažne potravinové. Bez kategórií by na stránke bolo len jedlo.
+#
+# Zoznam je overený: každá z týchto kategórií reálne vracala tovar.
+# Kategórie mobily/pc-tablety/tv-video sú tu zámerne vynechané — sú
+# prázdne a vracajú len odporúčaný blok z inej kategórie.
+CATEGORY_MAP: dict[str, str] = {
+    # nábytok a domácnosť
+    "sedacie-supravy": "Dom & Záhrada",
+    "stolicky-stoly": "Dom & Záhrada",
+    "spalne": "Dom & Záhrada",
+    "kuchyne": "Dom & Záhrada",
+    "kupelne": "Dom & Záhrada",
+    "svietidla": "Dom & Záhrada",
+    "koberce-podlahy": "Dom & Záhrada",
+    "ulozne-priestory": "Dom & Záhrada",
+    "textil-bytovy": "Dom & Záhrada",
+    # náradie a stavba
+    "naradie": "Dom & Záhrada",
+    "zahradna-technika": "Dom & Záhrada",
+    "stavebne-materialy": "Dom & Záhrada",
+    # elektro
+    "ostatna-elektronika": "Elektronika",
+    "chladnicky-mraznicky": "Elektronika",
+    # ostatné
+    "knihy-papiernictvo": "Iné",
+    "hracky": "Hračky",
+    "sportove-vybavenie": "Šport",
+    "obuv": "Móda",
+    "oblecenie-panske": "Móda",
+    "oblecenie-damske": "Móda",
+    "oblecenie-detske": "Móda",
+    "domaci-maznacikovia": "Iné",
+    # potraviny
+    "maso": "Jedlo & Nápoje",
+    "mliecne-vyrobky": "Jedlo & Nápoje",
+    "ovocie": "Jedlo & Nápoje",
+    "zelenina": "Jedlo & Nápoje",
+    "napoje-nealkoholicke": "Jedlo & Nápoje",
+    "napoje-alkoholicke": "Jedlo & Nápoje",
+    "cukrovinky-pochutiny": "Jedlo & Nápoje",
+    "trvanlive": "Jedlo & Nápoje",
+}
+
 # "-40%" v badge alebo "-40<span>%</span>" v ponuke
 _DISCOUNT_RE = re.compile(r"-\s*(\d{1,3})\s*%")
 # "Platí do: 22.9.2026"
@@ -39,6 +89,16 @@ class ZlacneneScraper(BaseScraper):
     source_name = "zlacnene.sk"
 
     def fetch_candidates(self) -> list[DealCandidate]:
+        candidates: list[DealCandidate] = []
+        # Poradie je dôležité: deduplikácia si drží prvý výskyt, a položka
+        # z kategórie nesie správnu kategóriu, kým tá zo všeobecného
+        # zoznamu ju má len odhadnutú z názvu.
+        candidates.extend(self._fetch_categories())
+        candidates.extend(self._fetch_general_listing())
+        return candidates
+
+    def _fetch_general_listing(self) -> list[DealCandidate]:
+        """Všeobecný zoznam — tu bývajú najväčšie zľavy naprieč kategóriami."""
         candidates: list[DealCandidate] = []
 
         for page in range(1, config.ZLACNENE_MAX_PAGES + 1):
@@ -57,18 +117,42 @@ class ZlacneneScraper(BaseScraper):
 
         return candidates
 
+    def _fetch_categories(self) -> list[DealCandidate]:
+        """
+        Prejde jednotlivé kategórie. Vďaka tomu kategóriu poznáme (nehádame)
+        a na stránku sa dostane aj nepotravinový tovar.
+        """
+        candidates: list[DealCandidate] = []
+        slugs = config.ZLACNENE_CATEGORIES or list(CATEGORY_MAP)
+
+        for slug in slugs:
+            site_category = CATEGORY_MAP.get(slug)
+            if site_category is None:
+                logger.warning("%s: neznáma kategória '%s' — preskakujem", self.source_name, slug)
+                continue
+
+            html = http_client.get(f"{LISTING_URL}{slug}/")
+            if not html:
+                continue
+
+            found = self.parse_listing(html, category_hint=site_category)
+            logger.info("%s: kategória %s -> %d kandidátov", self.source_name, slug, len(found))
+            candidates.extend(found)
+
+        return candidates
+
     # ── parsovanie ────────────────────────────────────────────────────
     # Oddelené od sťahovania, aby sa dalo testovať offline na uloženom
     # HTML (tests/fixtures) bez toho, aby sme zaťažovali cudzí server.
 
-    def parse_listing(self, html: str) -> list[DealCandidate]:
+    def parse_listing(self, html: str, category_hint: str | None = None) -> list[DealCandidate]:
         soup = BeautifulSoup(html, "html.parser")
         products = soup.find_all(attrs={"itemtype": re.compile(r"schema\.org/Product")})
 
         candidates: list[DealCandidate] = []
         for product in products:
             try:
-                candidate = self._parse_product(product)
+                candidate = self._parse_product(product, category_hint)
             except Exception as e:
                 # Jedna chybná karta nesmie zhodiť zvyšok strany.
                 logger.warning("%s: preskakujem položku (%s)", self.source_name, e)
@@ -78,7 +162,7 @@ class ZlacneneScraper(BaseScraper):
 
         return candidates
 
-    def _parse_product(self, product) -> Optional[DealCandidate]:
+    def _parse_product(self, product, category_hint: str | None = None) -> Optional[DealCandidate]:
         title = self._itemprop_content(product, "name")
         rel_url = self._itemprop_content(product, "url")
         if not title or not rel_url:
@@ -111,6 +195,7 @@ class ZlacneneScraper(BaseScraper):
             explicit_discount_percent=discount,
             image_url=image_url,
             valid_until=valid_until,
+            category_hint=category_hint,
         )
 
     def _best_offer(self, offers) -> Optional[tuple[float, str, Optional[str], Optional[float]]]:

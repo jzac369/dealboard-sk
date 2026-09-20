@@ -270,3 +270,80 @@ def test_broken_feed_returns_empty_not_crash():
     from scrapers.feeds import FeedsScraper
 
     assert FeedsScraper().parse_feed("toto nie je XML") == []
+
+
+# ── popisky ───────────────────────────────────────────────────────────
+
+def test_description_is_generated_when_source_has_none():
+    from models import DealCandidate
+
+    deal = DealCandidate(
+        title="Borges Extra Virgin olivový olej 500 ml",
+        deal_price=4.99, explicit_discount_percent=55,
+        url="https://x.sk/a", source="zlacnene.sk", store="BILLA",
+        valid_until="22.9.2026",
+    )
+    text = deal.to_firestore_dict()["description"]
+
+    sentences = [s for s in text.split(". ") if s.strip()]
+    assert 3 <= len(sentences) <= 4, f"ocakavam 3-4 vety, mam {len(sentences)}: {text}"
+    assert "BILLA" in text
+    assert "4,99" in text and "22.9.2026" in text   # cisla su z dat, nie vymyslene
+
+
+def test_description_is_stable_for_the_same_deal():
+    # Popisok sa nesmie menit pri kazdom behu - posobilo by to neprirodzene.
+    from models import DealCandidate
+
+    def make():
+        return DealCandidate(
+            title="Uterák STIDSVIG", deal_price=6.0, explicit_discount_percent=67,
+            url="https://x.sk/b", source="zlacnene.sk", store="Jysk",
+        )
+
+    assert make().to_firestore_dict()["description"] == make().to_firestore_dict()["description"]
+
+
+def test_different_deals_get_different_descriptions():
+    from models import DealCandidate
+
+    texts = {
+        DealCandidate(
+            title=f"Produkt {i}", deal_price=10.0 + i,
+            explicit_discount_percent=40, url=f"https://x.sk/{i}",
+            source="zlacnene.sk", store=f"Obchod{i}",
+        ).to_firestore_dict()["description"]
+        for i in range(8)
+    }
+    # Aspon polovica musi byt unikatna, inak su sablony prilis chude.
+    assert len(texts) >= 4
+
+
+def test_description_makes_no_unverifiable_claims():
+    """
+    Popisok nesmie tvrdit nic, co sa neda overit z dat - ze som produkt
+    kupil, vyskusal, alebo ze ide o historicky najnizsiu cenu.
+    """
+    from models import DealCandidate
+    from descriptions import build_description
+
+    banned = ["kúpil som", "vyskúšal som", "otestoval", "historicky najniž",
+              "najlacnejšie na trhu", "posledné kusy", "mám doma"]
+
+    for i in range(60):
+        text = build_description(
+            store="BILLA", category="Jedlo & Nápoje", old_price=10.0,
+            new_price=5.0, discount_percent=50, valid_until="1.1.2027",
+            seed=f"seed{i}",
+        ).lower()
+        for phrase in banned:
+            assert phrase not in text, f"zakazane tvrdenie '{phrase}' v: {text}"
+
+
+def test_category_hint_from_listing_reaches_the_document():
+    from scrapers.zlacnene import ZlacneneScraper
+
+    html = (FIXTURES / "zlacnene_akciovy_tovar.html").read_text(encoding="utf-8")
+    items = ZlacneneScraper().parse_listing(html, category_hint="Elektronika")
+    assert items
+    assert all(i.to_firestore_dict()["category"] == "Elektronika" for i in items)

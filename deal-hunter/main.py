@@ -19,7 +19,7 @@ import sys
 from collections import defaultdict
 
 import config
-from models import DealCandidate
+from models import DealCandidate, guess_category
 from scrapers import AVAILABLE_SCRAPERS
 
 logging.basicConfig(
@@ -94,19 +94,29 @@ def deduplicate(
 
 def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandidate]:
     """
-    Zoradí podľa zľavy a vyberie top N, ale najviac config.MAX_PER_STORE
-    z jedného obchodu — aby výber na stránke vyzeral pestro, nie ako leták jedného reťazca.
+    Zoradí podľa zľavy a vyberie top N so stropom na obchod aj kategóriu.
+
+    Bez stropu na kategóriu by výber tvorili takmer len potraviny — letáky
+    reťazcov sú prevažne potravinové, takže najväčšie zľavy sú tam. Strop
+    prepustí aj nábytok, náradie či oblečenie, aj keď majú menšiu zľavu.
     """
     ranked = sorted(candidates, key=lambda c: c.discount_percent, reverse=True)
 
     selected: list[DealCandidate] = []
     per_store: dict[str, int] = defaultdict(int)
+    per_category: dict[str, int] = defaultdict(int)
 
     for candidate in ranked:
         store = candidate.store or candidate.source
+        category = guess_category(candidate.title, candidate.category_hint)
+
         if per_store[store] >= config.MAX_PER_STORE:
             continue
+        if per_category[category] >= config.MAX_PER_CATEGORY:
+            continue
+
         per_store[store] += 1
+        per_category[category] += 1
         selected.append(candidate)
         if len(selected) >= limit:
             break

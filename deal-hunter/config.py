@@ -50,6 +50,9 @@ MAX_DEALS_PER_RUN = _env_int("MAX_DEALS_PER_RUN", 12)
 # Najviac dealov z jedného obchodu za beh - aby výber nevyzeral
 # ako leták jediného reťazca.
 MAX_PER_STORE = _env_int("MAX_PER_STORE", 4)
+# Najviac dealov z jednej kategórie za beh. Bez tohto by potraviny
+# obsadili celý výber - letáky reťazcov sú prevažne potravinové.
+MAX_PER_CATEGORY = _env_int("MAX_PER_CATEGORY", 3)
 # Koľko dní dozadu sa pozerať pri kontrole duplicít.
 DEDUPE_LOOKBACK_DAYS = _env_int("DEDUPE_LOOKBACK_DAYS", 30)
 
@@ -58,8 +61,11 @@ DEDUPE_LOOKBACK_DAYS = _env_int("DEDUPE_LOOKBACK_DAYS", 30)
 # Zapnuté scrapery. Názvy zodpovedajú kľúčom v scrapers/__init__.py.
 ENABLED_SCRAPERS = _env_list("ENABLED_SCRAPERS") or ["zlacnene", "feeds"]
 
-# Koľko strán listingu prejsť na zlacnene.sk (20 položiek na stranu).
-ZLACNENE_MAX_PAGES = _env_int("ZLACNENE_MAX_PAGES", 3)
+# Koľko strán všeobecného zoznamu prejsť na zlacnene.sk (20 položiek na stranu).
+ZLACNENE_MAX_PAGES = _env_int("ZLACNENE_MAX_PAGES", 2)
+# Ktoré kategórie sťahovať. Prázdne = všetky z CATEGORY_MAP
+# v scrapers/zlacnene.py. Napr: ZLACNENE_CATEGORIES="naradie,hracky"
+ZLACNENE_CATEGORIES = _env_list("ZLACNENE_CATEGORIES")
 
 # Affiliate produktové feedy (Dognet a pod.) — URL oddelené čiarkami.
 # Napr: FEED_URLS="https://partner1.sk/feed.xml,https://partner2.sk/heureka.xml"

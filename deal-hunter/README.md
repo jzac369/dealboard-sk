@@ -69,6 +69,22 @@ aby si najprv videl, čo by pridal, bez zápisu do databázy.
 
 ### `zlacnene` — zlacnene.sk (zapnuté)
 
+Sťahuje sa **po kategóriách** (`CATEGORY_MAP` v `scrapers/zlacnene.py`),
+nielen zo všeobecného zoznamu. Dôvody sú dva:
+
+1. **Kategóriu vieme, nehádame ju.** Hádanie z názvu zlyháva na značkách —
+   z "Lindt Excellence" ani "Zlatý Bažant" sa nedá vyčítať, že ide o jedlo.
+2. **Bez toho by na stránke bolo len jedlo.** Letáky reťazcov sú prevažne
+   potravinové, takže najväčšie zľavy sú tam. Kategórie prinesú nábytok
+   (XXXLutz, Jysk), náradie (OBI), stavebniny (STAVMAT) aj oblečenie
+   (INTERSPORT).
+
+Kategórie sa sťahujú **pred** všeobecným zoznamom, lebo deduplikácia si
+drží prvý výskyt — a ten z kategórie nesie správnu kategóriu.
+
+Strop `MAX_PER_CATEGORY` navyše bráni tomu, aby potraviny obsadili
+celý výber.
+
 Akciový tovar z letákov reťazcov (BILLA, Tesco, Kaufland, Lidl…). Pokrýva
 naraz **potraviny aj letáky**, čo je pôvodná téma Hen Kukaj.
 
@@ -97,12 +113,46 @@ Rozpozná sa automaticky:
 Položka bez pôvodnej *aj* akciovej ceny sa zahadzuje — bez zľavy by z nej
 na deal stránke bola karta s „-0 %".
 
+### Prečo tam nie je elektronika
+
+Skutočná spotrebná elektronika sa scrapovaním získať nedá:
+
+| Zdroj | Prečo nie |
+|---|---|
+| allegro.sk | HTTP 403, ochrana DataDome s captchou |
+| mall.sk | presmerované na Allegro, rovnaká ochrana |
+| nay.sk | prázdny HTML obal, produkty dopĺňa JavaScript |
+| datart.sk | to isté, JSON-LD obsahuje len údaje o firme |
+| zlacnene.sk | kategórie `mobily`, `pc-tablety`, `tv-video` sú prázdne |
+
+Headless prehliadač by to teoreticky obišiel, ale presne to robila
+pôvodná verzia tohto agenta a rok nenašla nič — GitHub Actions beží na
+IP adresách dátových centier, ktoré tieto weby blokujú.
+
+**Na elektroniku vedú affiliate feedy.** Dognet má Alzu, Datart aj Nay
+medzi partnermi a feed je štruktúrovaný, legálny a neblokovateľný.
+
 ### Prečo tam nie je Alza
 
 Alza aktívne blokuje prístup z dátových centier. Pri overovaní vrátila
 anti-bot stránku aj na obyčajný `robots.txt`. Keďže GitHub Actions beží
 presne na takých IP adresách, scraper by v praxi nikdy nič nenašiel.
 Alza je dostupná cez Dognet — cestou feedu, nie scrapovania.
+
+## Popisky dealov
+
+Ku každému dealu sa generuje 3-4 vetový popisok v prvej osobe
+(`descriptions.py`). Skladá sa zo štyroch častí: úvod, fakt o cene,
+názor a záver s platnosťou.
+
+**Popisok nikdy netvrdí nič, čo sa nedá overiť z dát** — že som produkt
+kúpil, vyskúšal, že je to historicky najnižšia cena alebo že dochádzajú
+zásoby. Také vety by čitateľ raz overil a stratil dôveru v celý web.
+Nadšenie a vlastný názor sú v poriadku, vymyslené fakty nie. Stráži to
+test `test_description_makes_no_unverifiable_claims`.
+
+Výber viet je deterministický (seed = dedupe kľúč), takže ten istý deal
+má vždy rovnaký popisok — inak by sa text menil pri každom behu.
 
 ## Údržba
 

@@ -18,6 +18,8 @@ from typing import Optional
 import re
 import unicodedata
 
+from descriptions import build_description
+
 # Kategórie presne tak, ako ich ponúka formulár na henkukaj.sk (index.html).
 VALID_CATEGORIES = [
     "Elektronika",
@@ -45,6 +47,10 @@ _CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
         "zelenina", "jablk", "banan", "karfiol", "zemiak", "cukor", "muka",
         "olej", "ryza", "cestovin", "napoj", "dzus", "salam", "paradajk",
         "maslo", "vajcia", "susienk", "zmrzlin", "konzerv", "klobas", "smotan",
+        "hrozno", "figy", "paprik", "uhork", "cibul", "mrkv", "kapust", "salat",
+        "citron", "pomaranc", "jahod", "maliny", "hruska", "broskyn", "slivk",
+        "radler", "kofola", "malinovk", "sirup", "horcic", "kecup", "majonez",
+        "ryba", "losos", "tuniak", "saláma", "parky", "spekacky", "tvaroh",
     )),
     ("Dom & Záhrada", (
         "sedacia", "gauc", "postel", "matrac", "stolicka", "skrin",
@@ -186,16 +192,29 @@ class DealCandidate:
         Pole 'timestamp' sem zámerne NEPATRÍ - dopĺňa ho firestore_client
         cez SERVER_TIMESTAMP, aby čas určil server, nie bežiaci scraper.
         """
+        category = guess_category(self.title, self.category_hint)
+
+        # Ak zdroj vlastný popis nedal (letáky ho nemajú takmer nikdy),
+        # zložíme ho z dát. Popis od zdroja má prednosť — je konkrétnejší.
         description = self.description.strip()
-        if self.valid_until:
-            suffix = f"Platí do: {self.valid_until}"
-            description = f"{description}\n\n{suffix}".strip() if description else suffix
+        if not description:
+            description = build_description(
+                store=self.store,
+                category=category,
+                old_price=self.effective_original_price,
+                new_price=self.deal_price,
+                discount_percent=self.discount_percent,
+                valid_until=self.valid_until,
+                seed=self.dedupe_key,
+            )
+        elif self.valid_until:
+            description = f"{description}\n\nPlatí do: {self.valid_until}"
 
         return {
             # -- polia, ktoré zobrazuje stránka --
             "title": self.title.strip()[:200],
             "store": self.store.strip() or self.source,
-            "category": guess_category(self.title, self.category_hint),
+            "category": category,
             "originalPrice": self.effective_original_price,
             "dealPrice": round(self.deal_price, 2),
             "discountPercent": round(self.discount_percent),
