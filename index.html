@@ -1412,6 +1412,18 @@
   border-bottom: 1px solid var(--line); }
 #detail-modal .modal-header h2 { font-size: .95rem; color: var(--muted); font-weight: 600; }
 #detail-modal .modal-close { color: var(--muted); }
+
+/* Zvislé zarovnanie v riadku karty.
+   Riadok má align-items: stretch, ale prepínač aj obrázok majú pevnú
+   výšku, takže sa prilepili k hornej hrane a s obsahom vedľa neseděli. */
+.deal-main-row > .vote-seg,
+.deal-main-row > .deal-img,
+.deal-main-row > .btn-go-desktop { align-self: center; }
+
+/* Tlačidlo "Zobraziť deal" - mierne zaoblený obdĺžnik namiesto pilulky,
+   tak ako v schválenom návrhu. Jemný tieň mu dá tú hĺbku, o ktorú išlo. */
+.btn-go { border-radius: 9px; box-shadow: 0 2px 5px rgba(232,89,12,.28); }
+.btn-go.btn-off { box-shadow: none; }
 </style>
 </head>
 <body>
