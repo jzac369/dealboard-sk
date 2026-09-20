@@ -1,53 +1,67 @@
-name: Deal Hunter - denný beh
+name: Deal Hunter
 
 on:
   schedule:
-    # 06:30 UTC = 07:30/08:30 SK čas (podľa letného/zimného času)
-    - cron: "30 6 * * *"
-  workflow_dispatch: {}  # umožní aj manuálne spustenie z GitHub UI
+    # 3x denne. Časy sú v UTC; Slovensko je +2 h v lete, +1 h v zime.
+    # 05:30 UTC -> 07:30 SK (leto) / 06:30 SK (zima)
+    - cron: "30 5 * * *"
+    # 10:30 UTC -> 12:30 SK (leto)
+    - cron: "30 10 * * *"
+    # 16:30 UTC -> 18:30 SK (leto)
+    - cron: "30 16 * * *"
+  workflow_dispatch:
+    # Umožní manuálne spustenie z GitHub UI (záložka Actions).
+    inputs:
+      dry_run:
+        description: "Len vypísať nájdené dealy, nezapisovať do databázy"
+        type: boolean
+        default: false
 
 jobs:
-  run-deal-hunter:
+  hunt:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    defaults:
+      run:
+        # Agent zije vo vlastnom podpriecinku, aby sa nemiesal so strankou.
+        working-directory: deal-hunter
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: deal-hunter/requirements-dev.txt
 
-      - name: Set up Chrome
-        uses: browser-actions/setup-chrome@v1
+      - name: Inštalácia závislostí
+        run: pip install -r requirements-dev.txt
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Testy parsovania
+        # Ak sa rozbil parser, nemá zmysel zapisovať nezmysly do databázy.
+        run: python -m pytest tests/ -q
 
-      - name: Write Firebase credentials
+      - name: Zápis Firebase kľúča
         run: echo "$FIREBASE_SERVICE_ACCOUNT" > firebase-credentials.json
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Run Deal Hunter
+      - name: Spustenie Deal Huntera
         run: python main.py
         env:
           FIRESTORE_PROJECT_ID: dealboard-e60bf
-          MIN_DEALS_PER_DAY: "5"
-          MIN_DISCOUNT_PERCENT: "15"
+          DRY_RUN: ${{ inputs.dry_run }}
+          MIN_DISCOUNT_PERCENT: "25"
+          MAX_DEALS_PER_RUN: "12"
+          # Affiliate feedy (Dognet) — nastav ako repository secret.
+          # Bez neho beží len zlacnene.sk, čo je v poriadku.
+          FEED_URLS: ${{ secrets.FEED_URLS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      - name: Upload debug screenshot (ak scraper nenašiel produkty)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-alza
-          path: debug-alza/
-          if-no-files-found: ignore
-
-      - name: Cleanup credentials file
+      - name: Zmazanie kľúča
+        # `always()` = zmaže sa aj keď predchádzajúci krok zlyhal.
         if: always()
         run: rm -f firebase-credentials.json
