@@ -1298,10 +1298,61 @@
 #cb-reject{background:transparent;color:var(--orange-dk);}
 #cb-accept{background:var(--orange-dk);color:#fff;border-color:var(--orange-dk);}
 @media(max-width:560px){#cookie-bar .cb-btns{width:100%}#cookie-bar button{flex:1}}
+
+/* ── Karta dealu ─────────────────────────────────────────────────────
+   Farebná hrana vľavo nesie kategóriu. Rovnaká farba je aj v bublinke,
+   takže kategóriu vidno periférne aj pri rýchlom scrollovaní. */
+.deal-card { border-left: 4px solid var(--cat-color, var(--line)); }
+.deal-card.is-expired { border-left-color: var(--line); }
+
+/* Pás pri skončenej akcii. Zámerne s vysvetlením, nie len slovom
+   EXSPIROVANÉ - to samo o sebe nepovie, že cena u predajcu môže byť iná. */
+.expired-band { display: flex; align-items: center; gap: 7px;
+  background: #C0392B; color: #fff; font-size: .74rem; padding: 6px 14px; }
+
+/* Bublinky predajcu a kategórie. Predajca má vždy oranžovú (kde sa to
+   kúpi), kategória svoju vlastnú (čo to je). */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 5px; }
+.chip { display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 600; }
+.chip-store { background: var(--badge); color: var(--badge-t); }
+.chip-cat { background: color-mix(in srgb, var(--cat-color, #868E96) 14%, transparent);
+  color: var(--cat-color, var(--muted)); }
+.is-expired .chip { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+
+/* Hlasovanie: tlačidlá aj číslo v jednom ráme a v rovnakej výške,
+   aby číslo opticky nevypadávalo a karty sa pod sebou zarovnali. */
+.vote-seg { display: inline-flex; align-items: stretch; height: 34px;
+  border: 1.5px solid var(--line); border-radius: 999px; overflow: hidden;
+  background: var(--card); flex-shrink: 0; margin-right: 14px; }
+.vote-seg button { width: 34px; border: 0; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: var(--muted); padding: 0; }
+.vote-seg .vs-up:hover { background: #FBEAEA; color: #C0392B; }
+.vote-seg .vs-dn:hover { background: #E8F0FB; color: #2C5AA8; }
+.vote-seg .vs-num { display: flex; align-items: center; justify-content: center;
+  min-width: 48px; font-size: .9rem; font-weight: 800; color: var(--orange-dk);
+  border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.is-expired .vote-seg { opacity: .55; }
+
+/* Stlmenie obsahu skončenej akcie. */
+.is-expired .deal-img, .is-expired .deal-title, .is-expired .deal-price-row { opacity: .55; }
+.is-expired .price-now { color: var(--muted); }
+
+/* Neutrálne tlačidlo namiesto oranžového. Posielať človeka veľkým
+   oranžovým tlačidlom na skončenú akciu je zavádzajúce. */
+.btn-go.btn-off { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.btn-go.btn-off:hover { background: var(--line); }
+
+@media (max-width: 640px) {
+  .vote-seg { height: 30px; margin-right: 0; }
+  .vote-seg button { width: 30px; }
+  .vote-seg .vs-num { min-width: 40px; font-size: .82rem; }
+  .chip { font-size: .68rem; padding: 2px 8px; }
+}
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
 
 
 <!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
@@ -1666,6 +1717,45 @@
     return Math.floor(diff/1440) + ' dní';
   }
 
+  // Farby kategórií - musia sedieť s lištou v hlavičke, inak by farba
+  // prestala niečo znamenať.
+  const CAT_COLORS = {
+    'Elektronika': '#1C7ED6', 'Dom & Záhrada': '#2F9E44', 'Móda': '#C2255C',
+    'Hračky': '#9C36B5', 'Šport': '#0CA678', 'Jedlo & Nápoje': '#E03131',
+    'Cestovanie': '#1098AD', 'Iné': '#868E96'
+  };
+  const CAT_ICONS = {
+    'Elektronika': 'device-mobile', 'Dom & Záhrada': 'home', 'Móda': 'shirt',
+    'Hračky': 'puzzle', 'Šport': 'ball-football', 'Jedlo & Nápoje': 'tools-kitchen-2',
+    'Cestovanie': 'plane', 'Iné': 'dots'
+  };
+
+  function icon(name) {
+    return `<svg class="ic" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+  }
+
+  // "5 hod" samo o sebe nikto neprečíta. Sloveso rozlišuje, či deal našiel
+  // agent alebo ho pridal človek - je to presnejšie a zároveň to priznáva,
+  // že za návrhom stojí stroj.
+  function ageSentence(d) {
+    const ago = timeAgo(d.timestamp);
+    if (!ago) return '';
+    const verb = d.autoGenerated ? 'Nájdené' : 'Pridané';
+    const when = ago === 'práve teraz' ? 'práve teraz' : 'pred ' + ago;
+    const until = d.validUntil ? ` · platí do ${shortDate(d.validUntil)}` : '';
+    return `${verb} ${when}${until}`;
+  }
+
+  // "20.9.2026" -> "20. 9." Rok vynechávame, ak je tohtoročný - pri akcii,
+  // ktorá platí pár dní, je len šumom.
+  function shortDate(raw) {
+    const m = /^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/.exec((raw || '').trim());
+    if (!m) return escapeHtml(raw || '');
+    const [, day, month, year] = m;
+    const sameYear = Number(year) === new Date().getFullYear();
+    return `${day}. ${month}.` + (sameYear ? '' : ` ${year}`);
+  }
+
   function dealCard(d) {
     const pct   = discount(d);
     const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
@@ -1673,34 +1763,50 @@
     const img   = d.imageUrl
       ? `<div class="deal-img"><img src="${escapeAttr(d.imageUrl)}" alt="" loading="lazy"></div>`
       : '';
+    const cat   = d.category || '';
+    const color = CAT_COLORS[cat] || '#868E96';
+    const expired = !!d.expired;
+    const author = d.author ? escapeHtml(stripEmoji(d.author)) : '';
+
+    const band = expired
+      ? `<div class="expired-band">${icon('clock-off')} Táto akcia už skončila. Cena u predajcu môže byť iná.</div>`
+      : '';
+    const cta = expired
+      ? `Pozrieť u predajcu`
+      : `Zobraziť deal →`;
+    const ctaClass = expired ? 'btn-go btn-off' : 'btn-go';
+
     return `
-    <div class="deal-card" id="deal-${d.id}" onclick="openDealDetail('${d.id}')" style="cursor:pointer;">
+    <div class="deal-card${expired ? ' is-expired' : ''}" id="deal-${d.id}" onclick="openDealDetail('${d.id}')" style="cursor:pointer; --cat-color:${color};">
+      ${band}
       <div class="deal-main-row">
         ${img}
-        <div class="vote-pill" onclick="event.stopPropagation()">
-          <button class="vote-btn dn" onclick="vote('${d.id}', -1)" title="Zlý deal">▼</button>
-          <span class="vote-count">${d.votes||0}°</span>
-          <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
+        <div class="vote-seg" onclick="event.stopPropagation()">
+          <button class="vs-dn" onclick="vote('${d.id}', -1)" title="Zlý deal" aria-label="Zlý deal">${icon('chevron-down')}</button>
+          <span class="vs-num">${d.votes||0}°</span>
+          <button class="vs-up" onclick="vote('${d.id}', 1)" title="Dobrý deal" aria-label="Dobrý deal">${icon('chevron-up')}</button>
         </div>
         <div class="deal-main">
-          <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}${d.author ? ' · ' + escapeHtml(stripEmoji(d.author)) : ''}</div>
+          <div class="chips">
+            ${d.store ? `<span class="chip chip-store">${icon('building-store')}${escapeHtml(d.store)}</span>` : ''}
+            ${cat ? `<span class="chip chip-cat">${icon(CAT_ICONS[cat] || 'dots')}${escapeHtml(cat)}</span>` : ''}
+          </div>
           <a class="deal-title" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
           <div class="deal-price-row">
             <span class="price-now">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</span>
             ${orig}
-            ${badge}
-            ${d.expired ? '<span class="expired-badge">EXSPIROVANÉ</span>' : ''}
+            ${expired ? '' : badge}
           </div>
-          <a class="btn-go btn-go-mobile" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">Zobraziť deal →</a>
+          <a class="${ctaClass} btn-go-mobile" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
         </div>
-        <a class="btn-go btn-go-desktop" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">Zobraziť deal →</a>
+        <a class="${ctaClass} btn-go-desktop" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
       </div>
       <div class="deal-footer" onclick="event.stopPropagation()">
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
-        <a href="#" onclick="openComments('${d.id}'); return false;"><svg class="ic" aria-hidden="true"><use href="#i-message-circle"></use></svg> ${d.comments||0}</a>
-        <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;"><svg class="ic" aria-hidden="true"><use href="#i-share"></use></svg> <span class="footer-label">Zdieľať</span></a>
-        <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;"><svg class="ic" aria-hidden="true"><use href="#i-bookmark"></use></svg></a>
-        <span class="deal-age">${timeAgo(d.timestamp)}</span>
+        <a href="#" onclick="openComments('${d.id}'); return false;">${icon('message-circle')} ${d.comments||0}</a>
+        <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">${icon('share')} <span class="footer-label">Zdieľať</span></a>
+        <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')}</a>
+        <span class="deal-age">${author ? author + ' · ' : ''}${ageSentence(d)}</span>
       </div>
     </div>`;
   }
