@@ -312,7 +312,7 @@
       }
       el.innerHTML = top.map(d => {
         const img = d.imageUrl
-          ? `<img class="hot-mini-img" src="${d.imageUrl}" alt="" loading="lazy">`
+          ? `<img class="hot-mini-img" src="${escapeAttr(d.imageUrl)}" alt="" loading="lazy">`
           : `<div class="hot-mini-img"></div>`;
         return `
         <a class="hot-mini-item" href="#" onclick="openDealDetail('${d.id}'); return false;">
@@ -639,6 +639,21 @@
 
   function escapeHtml(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Ošetrenie hodnôt, ktoré idú do HTML atribútu. escapeHtml nestačí —
+  // neošetruje úvodzovky, takže by sa dalo z atribútu "vyskočiť" a
+  // pridať vlastný onerror=/onclick= handler.
+  function escapeAttr(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  }
+
+  // Odkaz do href. Okrem escapovania zahodí aj schémy ako javascript:
+  // alebo data:, ktoré by sa dali zneužiť na spustenie kódu.
+  function safeUrl(u) {
+    const raw = (u||'').trim();
+    if (!/^https?:\/\//i.test(raw)) return '#';
+    return escapeAttr(raw);
   }
 
   function timeAgo(ts) {
@@ -1505,7 +1520,7 @@
     const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
     const orig  = d.originalPrice ? `<span class="price-was">${d.originalPrice.toFixed(2)} ${d.currency||'€'}</span>` : '';
     const img   = d.imageUrl
-      ? `<div class="deal-img"><img src="${d.imageUrl}" alt="" loading="lazy"></div>`
+      ? `<div class="deal-img"><img src="${escapeAttr(d.imageUrl)}" alt="" loading="lazy"></div>`
       : '';
     return `
     <div class="deal-card" id="deal-${d.id}" onclick="openDealDetail('${d.id}')" style="cursor:pointer;">
@@ -1518,16 +1533,16 @@
         </div>
         <div class="deal-main">
           <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}${d.author ? ' · 👤 ' + escapeHtml(d.author) : ''}</div>
-          <a class="deal-title" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${d.title||''}</a>
+          <a class="deal-title" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(d.title||'')}</a>
           <div class="deal-price-row">
             <span class="price-now">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</span>
             ${orig}
             ${badge}
             ${d.expired ? '<span class="expired-badge">EXSPIROVANÉ</span>' : ''}
           </div>
-          <a class="btn-go btn-go-mobile" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
+          <a class="btn-go btn-go-mobile" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
         </div>
-        <a class="btn-go btn-go-desktop" href="${d.url||'#'}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
+        <a class="btn-go btn-go-desktop" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
       </div>
       <div class="deal-footer" onclick="event.stopPropagation()">
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
@@ -1727,12 +1742,20 @@
         <span class="vote-count">${c.votes||0}</span>
         <button class="vote-btn up" onclick="voteCoupon('${c.id}', 1)" title="Funguje">👍</button>
       </div>
-      <a class="coupon-go" href="${c.url||'#'}" target="_blank" rel="noopener">Do e-shopu →</a>
+      <a class="coupon-go" href="${safeUrl(c.url)}" target="_blank" rel="noopener">Do e-shopu →</a>
     </div>`;
   }
 
   function escapeAttr(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  }
+
+  // Odkaz do href. Okrem escapovania zahodí aj schémy ako javascript:
+  // alebo data:, ktoré by sa dali zneužiť na spustenie kódu.
+  function safeUrl(u) {
+    const raw = (u||'').trim();
+    if (!/^https?:\/\//i.test(raw)) return '#';
+    return escapeAttr(raw);
   }
 
   window.copyCoupon = function(id, code) {
@@ -1855,7 +1878,7 @@
     const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
     const orig  = d.originalPrice ? `<span class="price-was">${d.originalPrice.toFixed(2)} ${d.currency||'€'}</span>` : '';
     const img   = d.imageUrl
-      ? `<img src="${d.imageUrl}" alt="" style="width:100%; max-height:320px; object-fit:contain; background:#f5f5f5; border-radius:var(--r); display:block; margin-bottom:14px;">`
+      ? `<img src="${escapeAttr(d.imageUrl)}" alt="" style="width:100%; max-height:320px; object-fit:contain; background:#f5f5f5; border-radius:var(--r); display:block; margin-bottom:14px;">`
       : '';
     document.getElementById('detail-body').innerHTML = `
       ${img}
@@ -1879,7 +1902,7 @@
         <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
       </div>
       <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
-        <a class="btn-go" href="${d.url||'#'}" target="_blank" rel="noopener">Zobraziť deal →</a>
+        <a class="btn-go" href="${safeUrl(d.url)}" target="_blank" rel="noopener">Zobraziť deal →</a>
         <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;"
            style="display:flex; align-items:center; gap:5px; color:var(--muted); text-decoration:none; font-size:.85rem; padding:9px 4px;">📤 Zdieľať</a>
       </div>

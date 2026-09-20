@@ -608,7 +608,7 @@
     const expiredBadge = d.expired ? '<span class="badge badge-expired">EXSPIROVANÉ</span>' : '';
 
     const thumb = d.imageUrl
-      ? `<img class="row-thumb" src="${d.imageUrl}" alt="">`
+      ? `<img class="row-thumb" src="${escapeAttr(d.imageUrl)}" alt="">`
       : `<div class="row-thumb row-thumb-empty">📦</div>`;
 
     return `
@@ -653,7 +653,7 @@
           <div class="full">
             <label>Obrázok</label>
             <div class="edit-img-row">
-              ${d.imageUrl ? `<img src="${d.imageUrl}" class="edit-img-preview">` : `<div class="edit-img-preview edit-img-empty">📦</div>`}
+              ${d.imageUrl ? `<img src="${escapeAttr(d.imageUrl)}" class="edit-img-preview">` : `<div class="edit-img-preview edit-img-empty">📦</div>`}
               <input type="file" id="e-imgfile-${d.id}" accept="image/*">
             </div>
             <input type="hidden" id="e-img-${d.id}" value="${escapeAttr(d.imageUrl)}">
