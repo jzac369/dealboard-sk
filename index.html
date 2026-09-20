@@ -52,10 +52,21 @@
   let currentUid = null;
 
   // ── Anonymous auth – each visitor gets a stable anonymous UID ──────────────
+  // ── Súhlas s meraním návštevnosti ───────────────────────────────────
+  // Prihlásenie a uložené dealy sú na fungovanie stránky nevyhnutné a
+  // súhlas nepotrebujú. Meranie návštevnosti nevyhnutné NIE JE - posiela
+  // IP adresu službe ip-api.com kvôli zisteniu krajiny - takže beží len
+  // vtedy, keď ho návštevník povolí. Kým nerozhodne, nebeží.
+  window.hasAnalyticsConsent = function() {
+    try { return localStorage.getItem('hk_consent') === 'accepted'; }
+    catch (e) { return false; }
+  };
+
   onAuthStateChanged(auth, (user) => {
     if (user) {
       currentUid = user.uid;
-      recordVisit(user.uid);
+      window.recordVisitNow = function () { recordVisit(user.uid); };
+      if (window.hasAnalyticsConsent()) recordVisit(user.uid);
     } else {
       signInAnonymously(auth).catch(e => console.error("Auth error:", e));
     }
@@ -71,12 +82,12 @@
     const lastRecorded = sessionStorage.getItem('hk_visit_recorded');
     if (lastRecorded === today) return; // už zaznamenané v tomto session/dni
     try {
+      // Zámerne si dokument NEČÍTAME. Pravidlá dovoľujú čítať kolekciu
+      // visits len adminovi, takže getDoc tu vždy skončil chybou a
+      // návšteva sa nezapísala nikdy. Duplicite bráni jednak príznak v
+      // sessionStorage, jednak samotné ID dokumentu (dátum + uid) -
+      // druhý zápis v ten istý deň pravidlá odmietnu a to je v poriadku.
       const visitRef = doc(db, "visits", `${today}_${uid}`);
-      const existing = await getDoc(visitRef);
-      if (existing.exists()) {
-        sessionStorage.setItem('hk_visit_recorded', today);
-        return;
-      }
       let country = 'Neznáma';
       try {
         const res = await fetch('https://ip-api.com/json/?fields=country');
@@ -93,7 +104,10 @@
       });
       sessionStorage.setItem('hk_visit_recorded', today);
     } catch(e) {
-      console.error('Visit tracking error:', e);
+      // Najčastejšie "už zaznamenané dnes" - druhý zápis toho istého
+      // dokumentu pravidlá odmietnu. Nie je to porucha, len to označíme
+      // ako hotové, nech to neskúšame znova.
+      sessionStorage.setItem('hk_visit_recorded', today);
     }
   }
 
@@ -1266,6 +1280,24 @@
 .cat-nav button .ic { color: var(--cat-color, currentColor); }
 .cat-nav button.active .ic { color: currentColor; }
 .tag-cat.has-cat { color: var(--cat-color); border-color: var(--cat-color); }
+
+/* Lišta so súhlasom. Zámerne neblokuje obsah - cookie wall, ktorý
+   nepustí ďalej, kým človek neklikne "Prijať", je sám o sebe problém.
+   Obe tlačidlá majú rovnakú váhu; predvybraté nie je nič. */
+#cookie-bar{position:fixed;left:0;right:0;bottom:0;z-index:3000;
+  background:var(--card);border-top:1px solid var(--line);
+  box-shadow:0 -2px 10px rgba(0,0,0,.08);padding:14px 16px;}
+#cookie-bar .cb-in{max-width:1120px;margin:0 auto;display:flex;
+  align-items:center;gap:14px;flex-wrap:wrap;font-size:.85rem;
+  color:var(--ink);line-height:1.5;}
+#cookie-bar p{margin:0;flex:1;min-width:240px;}
+#cookie-bar a{color:var(--orange-dk);font-weight:600;}
+#cookie-bar .cb-btns{display:flex;gap:9px;flex:none;}
+#cookie-bar button{font:inherit;font-weight:600;cursor:pointer;
+  padding:9px 18px;border-radius:999px;border:1.5px solid var(--orange-dk);}
+#cb-reject{background:transparent;color:var(--orange-dk);}
+#cb-accept{background:var(--orange-dk);color:#fff;border-color:var(--orange-dk);}
+@media(max-width:560px){#cookie-bar .cb-btns{width:100%}#cookie-bar button{flex:1}}
 </style>
 </head>
 <body>
@@ -2165,11 +2197,6 @@
 </script>
 <footer style="background:var(--card); border-top:1px solid var(--line); margin-top:24px; padding:24px 16px;">
   <div style="max-width:1120px; margin:0 auto; font-size:.8rem; color:var(--muted); line-height:1.6;">
-    <strong style="color:var(--ink);">Affiliate odkazy:</strong> HenKukaj.sk môže obsahovať affiliate (partnerské) odkazy.
-    To znamená, že ak klikneš na odkaz a uskutočníš nákup, môžeme získať malú províziu od daného e-shopu –
-    bez akéhokoľvek dodatočného poplatku pre teba. Tým podporujeme prevádzku tejto stránky.
-    Všetky príspevky prechádzajú moderáciou pred zverejnením.
-    <br><br>
     <a href="/podmienky.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Podmienky používania</a>
     &nbsp;·&nbsp;
     <a href="/ochrana-udajov.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Ochrana osobných údajov</a>
@@ -2204,6 +2231,48 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closePopup();
     });
+  })();
+</script>
+
+<script>
+  // Súhlas so štatistikou návštevnosti (GDPR / ePrivacy).
+  //
+  // Podstatné je, že voľba niečo naozaj robí: pri odmietnutí sa meranie
+  // ani služba na zistenie krajiny nespustia. Lišta, ktorá len informuje
+  // a nič nemení, nie je súhlas - je to ozdoba.
+  (function () {
+    var KEY = 'hk_consent';
+
+    function read() {
+      try { return localStorage.getItem(KEY); } catch (e) { return null; }
+    }
+    function write(value) {
+      try { localStorage.setItem(KEY, value); } catch (e) { /* inkognito */ }
+    }
+
+    if (read()) return;   // už rozhodol
+
+    var bar = document.createElement('div');
+    bar.id = 'cookie-bar';
+    bar.setAttribute('role', 'dialog');
+    bar.setAttribute('aria-label', 'Súhlas s meraním návštevnosti');
+    bar.innerHTML =
+      '<div class="cb-in">' +
+      '<p>Na stránke používame úložisko prehliadača, aby fungovalo hlasovanie a ukladanie dealov. So súhlasom meriame aj návštevnosť (krajina návštevy). Podrobnosti v <a href="/ochrana-udajov.html">Ochrane osobných údajov</a>.</p>' +
+      '<span class="cb-btns">' +
+      '<button type="button" id="cb-reject">Odmietnuť</button>' +
+      '<button type="button" id="cb-accept">Prijať</button>' +
+      '</span></div>';
+    document.body.appendChild(bar);
+
+    function decide(value) {
+      write(value);
+      bar.remove();
+      // Pri súhlase spustíme meranie hneď, nech sa návšteva nestratí.
+      if (value === 'accepted' && window.recordVisitNow) window.recordVisitNow();
+    }
+    document.getElementById('cb-accept').onclick = function () { decide('accepted'); };
+    document.getElementById('cb-reject').onclick = function () { decide('rejected'); };
   })();
 </script>
 </body>
