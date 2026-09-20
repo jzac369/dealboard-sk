@@ -108,10 +108,50 @@ FEED_URLS=https://partner1.sk/feed.xml?a_aid=TVOJE_ID,https://partner2.sk/heurek
 
 Rozpozná sa automaticky:
 - **Google Merchant / RSS** (`<g:price>`, `<g:sale_price>`)
-- **Heureka XML** (`<SHOPITEM><PRICE_VAT>`)
+- **Heureka XML** (`<SHOPITEM><PRICE_VAT>`) — tento používa Dognet
 
-Položka bez pôvodnej *aj* akciovej ceny sa zahadzuje — bez zľavy by z nej
-na deal stránke bola karta s „-0 %".
+#### Ako sa určuje zľava, keď ju feed neuvádza
+
+Heureka formát uvádza len aktuálnu cenu; pole s cenou pred zľavou v ňom
+spravidla nie je. Zahadzovať také položky by znamenalo, že z feedu
+neprejde prakticky nič.
+
+Preto agent ceny z feedov **sleduje sám** (`price_watch.py`) a položku
+zverejní až vtedy, keď cena spadne pod doteraz najnižšiu videnú
+(`FEED_MIN_DROP_PERCENT`, predvolene 20 %). Ako pôvodnú cenu ukáže to
+minimum — tvrdenie doložené vlastným meraním, na rozdiel od „bežnej
+ceny", ktorú si predajca určuje sám.
+
+> **Prvé dni feed nevydá nič**, kým sa nenazbierajú dáta. To je zámer,
+> nie porucha.
+
+Sledované ceny sú poskladané do 20 dokumentov („vedierok"), z ktorých
+každý drží stovky produktov. Firestore účtuje za dokumenty, nie za
+bajty — jeden dokument na produkt by pri tisíckach položiek minul denný
+limit zápisov.
+
+#### Partnerské odkazy
+
+Časť sietí dáva vo feede obyčajné adresy e-shopu. Bez tracking parametra
+by dealy fungovali, ale nezarobili nič. Nastav preto secret:
+
+```
+AFFILIATE_LINK_TEMPLATE=https://go.dognet.sk/?a_aid=TVOJE_ID&desturl={url}
+```
+
+Použije sa len na odkazy, ktoré tracking ešte nemajú — už otagovaný
+odkaz sa nechá tak, druhé obalenie by ho rozbilo.
+
+Odkaz z feedu sa tiež nikdy neprepisuje na vyhľadávanie u predajcu
+(`direct_url`), lebo mieri priamo na produkt.
+
+#### Diagnostika feedu
+
+Actions → Deal Hunter → Run workflow → zaškrtni **`feed_diagnostics`**.
+
+Vypíše formát, tagy, či feed obsahuje pôvodnú cenu, domény a **názvy**
+parametrov v odkazoch. Adresa feedu obsahuje partnerské ID, takže sa do
+logu nikdy nedostane a hodnoty parametrov sa nehlásia.
 
 ### Prečo tam nie je elektronika
 
