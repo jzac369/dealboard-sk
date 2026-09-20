@@ -452,3 +452,20 @@ def test_new_deals_have_no_votes_in_the_document():
         url="https://x.sk", source="s",
     ).to_firestore_dict()
     assert doc["votes"] == 0
+
+
+def test_deal_valid_until_today_is_not_expired_yet():
+    """
+    Hranicny pripad: "Plati do: 20.9." znamena, ze 20.9. este plati.
+    Exspirovat ma az 21.9. - inak by sme akcie zhasinali o den skor.
+    """
+    from datetime import date
+    from models import DealCandidate
+
+    today = date.today()
+    deal = DealCandidate(
+        title="Test", deal_price=5.0, explicit_discount_percent=30,
+        url="https://x.sk", source="s",
+        valid_until=f"{today.day}.{today.month}.{today.year}",
+    )
+    assert deal.is_already_expired is False

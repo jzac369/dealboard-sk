@@ -94,7 +94,18 @@ class ZlacneneScraper(BaseScraper):
         # z kategórie nesie správnu kategóriu, kým tá zo všeobecného
         # zoznamu ju má len odhadnutú z názvu.
         candidates.extend(self._fetch_categories())
-        candidates.extend(self._fetch_general_listing())
+
+        # Keď si niekto vyžiada konkrétne kategórie, všeobecný zoznam
+        # preskakujeme — je plný potravín a prepašoval by ich do výberu
+        # napriek tomu, že sa pýtal na niečo iné.
+        if config.ZLACNENE_CATEGORIES:
+            logger.info(
+                "%s: vyžiadané konkrétne kategórie — všeobecný zoznam preskakujem",
+                self.source_name,
+            )
+        else:
+            candidates.extend(self._fetch_general_listing())
+
         return candidates
 
     def _fetch_general_listing(self) -> list[DealCandidate]:

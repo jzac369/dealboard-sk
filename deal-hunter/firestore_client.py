@@ -158,7 +158,9 @@ def expire_past_deals(db: firestore.Client) -> int:
     """
     Označí za exspirované dealy, ktorým uplynul dátum platnosti z letáku.
 
-    Dotazuje sa na validUntilISO <= dnes. Je to dotaz na jedno pole, takže
+    Dotazuje sa na validUntilISO < dnes. Pozor na hranicu: "Platí do:
+    22.9.2026" znamená, že 22.9. ešte platí a exspiruje až 23.9. Preto
+    ostrá nerovnosť, nie <=. Je to dotaz na jedno pole, takže
     nepotrebuje composite index, a týka sa len dealov, pri ktorých dátum
     platnosti poznáme (teda tých od agenta) — ručne pridaných sa nedotkne.
 
@@ -171,7 +173,7 @@ def expire_past_deals(db: firestore.Client) -> int:
     try:
         stale = (
             db.collection(config.DEALS_COLLECTION)
-            .where(filter=FieldFilter("validUntilISO", "<=", today))
+            .where(filter=FieldFilter("validUntilISO", "<", today))
             .stream()
         )
         candidates = list(stale)

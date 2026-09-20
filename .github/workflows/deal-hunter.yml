@@ -24,6 +24,14 @@ on:
         description: "Jednorazovo: dať dealom bez hlasov štartovací žiar 5-25 stupňov"
         type: boolean
         default: false
+      categories:
+        description: "Len tieto kategórie (čiarkou, prázdne = všetky). Napr: naradie,hracky,obuv"
+        type: string
+        default: ""
+      max_deals:
+        description: "Koľko návrhov pridať (prázdne = 12)"
+        type: string
+        default: ""
 
 jobs:
   hunt:
@@ -67,7 +75,9 @@ jobs:
           VOTE_BOOST_MIN: ${{ inputs.vote_boost && 5 || 0 }}
           VOTE_BOOST_MAX: ${{ inputs.vote_boost && 25 || 0 }}
           MIN_DISCOUNT_PERCENT: "25"
-          MAX_DEALS_PER_RUN: "12"
+          # Prázdny vstup necháva predvolenú hodnotu z config.py.
+          MAX_DEALS_PER_RUN: ${{ inputs.max_deals || '12' }}
+          ZLACNENE_CATEGORIES: ${{ inputs.categories }}
           # Affiliate feedy (Dognet) — nastav ako repository secret.
           # Bez neho beží len zlacnene.sk, čo je v poriadku.
           FEED_URLS: ${{ secrets.FEED_URLS }}
