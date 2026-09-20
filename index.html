@@ -258,8 +258,14 @@
     }
   };
 
+  // Porovnávanie bez ohľadu na diakritiku: "uterak" musí nájsť "Uterák".
+  // NFD rozloží písmeno na základ + dĺžeň/mäkčeň, ten potom zahodíme.
+  window.normalizeText = function(text) {
+    return (text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  };
+
   window.performDealsSearch = async function() {
-    const q = document.getElementById('search-input').value.trim().toLowerCase();
+    const q = window.normalizeText(document.getElementById('search-input').value.trim());
     if (!q) { window.loadDealsPage(true); return; }
     window.dealsSearchMode = true;
     window.dealsLoading = true;
@@ -269,9 +275,9 @@
       const snap = await getDocs(qy);
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       window.allDeals = items.filter(d =>
-        (d.title || '').toLowerCase().includes(q) ||
-        (d.store || '').toLowerCase().includes(q) ||
-        (d.description || '').toLowerCase().includes(q)
+        window.normalizeText(d.title).includes(q) ||
+        window.normalizeText(d.store).includes(q) ||
+        window.normalizeText(d.description).includes(q)
       );
       window.dealsHasMore = false;
     } catch (e) {
@@ -1205,6 +1211,13 @@
 #new-deals-bar:hover{ background:#c92c39; }
 @keyframes newDealsIn{ from{ opacity:0; transform:translateX(-50%) translateY(-12px);} to{ opacity:1; transform:translateX(-50%) translateY(0);} }
 @media (prefers-reduced-motion: reduce){ #new-deals-bar{ animation:none; } }
+
+/* Filtre "Len platné" / "Uložené" v lište s triedením */
+.sort-btn.filter-btn{ opacity:.7; }
+.sort-btn.filter-btn.active{ opacity:1; background:#1d3557; color:#fff; }
+/* Záložka na karte dealu */
+.deal-footer .save-btn{ text-decoration:none; font-size:1.05rem; line-height:1; }
+.deal-footer .save-btn:hover{ transform:scale(1.15); display:inline-block; }
 </style>
 </head>
 <body>
@@ -1254,6 +1267,8 @@
         <button class="sort-btn active" onclick="setSort('new', this)">🆕 Najnovšie</button>
         <button class="sort-btn" onclick="setSort('votes', this)">🔥 Najhorúcejšie</button>
         <button class="sort-btn" onclick="setSort('discount', this)">💸 Najväčšia zľava</button>
+        <button class="sort-btn filter-btn" id="btn-valid-only" onclick="toggleValidOnly(this)" title="Skryť akcie, ktorým vypršala platnosť">✅ Len platné</button>
+        <button class="sort-btn filter-btn" id="btn-saved-only" onclick="toggleSavedOnly(this)" title="Zobraziť len dealy, ktoré si si uložil">🔖 Uložené</button>
       </div>
       <div class="header-search" style="max-width:220px;">
         <input type="text" id="search-input" placeholder="Hľadaj deal…" oninput="filterDeals()">
@@ -1468,8 +1483,61 @@
 <script>
   // ── State ────────────────────────────────────────────────────────────────
   // ── Render ───────────────────────────────────────────────────────────────
+  // ── Uložené dealy + filter platnosti ────────────────────────────────
+  // Uložené držíme v prehliadači (localStorage), nie v databáze - nechceme
+  // od návštevníka registráciu kvôli záložke. Nesmie to spadnúť v režime
+  // inkognito, kde localStorage môže byť nedostupný.
+  window.savedDeals = (() => {
+    try { return new Set(JSON.parse(localStorage.getItem('hk_saved') || '[]')); }
+    catch (e) { return new Set(); }
+  })();
+
+  function persistSaved() {
+    try { localStorage.setItem('hk_saved', JSON.stringify([...window.savedDeals])); }
+    catch (e) { /* inkognito alebo zakázané úložisko - záložka len nevydrží */ }
+  }
+
+  window.validOnly = false;
+  window.savedOnly = false;
+
+  window.toggleValidOnly = function(btn) {
+    window.validOnly = !window.validOnly;
+    btn.classList.toggle('active', window.validOnly);
+    renderDealsList();
+  };
+
+  window.toggleSavedOnly = function(btn) {
+    window.savedOnly = !window.savedOnly;
+    btn.classList.toggle('active', window.savedOnly);
+    renderDealsList();
+  };
+
+  window.toggleSaveDeal = function(id, btn) {
+    if (window.savedDeals.has(id)) window.savedDeals.delete(id);
+    else window.savedDeals.add(id);
+    persistSaved();
+    const on = window.savedDeals.has(id);
+    btn.textContent = on ? '🔖' : '📑';
+    btn.title = on ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr';
+    if (window.savedOnly) renderDealsList();
+  };
+
+  function visibleDeals() {
+    let list = window.allDeals;
+    if (window.validOnly) list = list.filter(d => !d.expired);
+    if (window.savedOnly) list = list.filter(d => window.savedDeals.has(d.id));
+    return list;
+  }
+
   function renderDealsList() {
     const el = document.getElementById('deals-list');
+    const shown = visibleDeals();
+    if (!shown.length && window.allDeals.length && !window.dealsLoading) {
+      el.innerHTML = window.savedOnly
+        ? `<div class="empty"><div class="icon">🔖</div>Zatiaľ nemáš uložený žiadny deal. Ulož si ho ikonkou na karte.</div>`
+        : `<div class="empty"><div class="icon">✅</div>Žiadne platné dealy v tomto výbere.</div>`;
+      return;
+    }
     if (!window.allDeals.length) {
       if (window.dealsLoading) {
         el.innerHTML = `<div class="loading">Načítavam dealy…</div>`;
@@ -1479,7 +1547,7 @@
       return;
     }
     try {
-      let html = window.allDeals.map(dealCard).join('');
+      let html = shown.map(dealCard).join('');
       if (!window.dealsSearchMode && window.dealsHasMore) {
         html += `<div id="deals-load-sentinel" class="loading" style="padding:24px 0;">${window.dealsLoading ? 'Načítavam ďalšie dealy…' : ''}</div>`;
       } else if (window.dealsSearchMode && window.allDeals.length >= window.DEALS_SEARCH_CAP) {
@@ -1548,6 +1616,7 @@
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
         <a href="#" onclick="openComments('${d.id}'); return false;">💬 ${d.comments||0}</a>
         <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">📤 <span class="footer-label">Zdieľať</span></a>
+        <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;">${window.savedDeals.has(d.id) ? '🔖' : '📑'}</a>
         <span class="deal-age">${timeAgo(d.timestamp)}</span>
       </div>
     </div>`;
@@ -1768,8 +1837,30 @@
   };
 
   // ── Zdieľanie dealu ──────────────────────────────────────────────────────
+  // Rovnaké pravidlo ako slugify() v generate_deal_pages.py - obe musia
+  // vyrobiť tú istú adresu, inak by zdieľaný odkaz viedol na 404.
+  function slugify(text) {
+    const base = (text || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    return base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/^-+|-+$/g, '') || 'deal';
+  }
+
+  // Zdieľame stránku konkrétneho dealu, nie domovskú - len tá má vlastný
+  // náhľadový obrázok a titulok pre Facebook a Messenger.
+  //
+  // Tú stránku generuje samostatný workflow, takže čerstvo schválený deal
+  // ju ešte nemusí mať. Preto ju najprv overíme a ak neexistuje, pošleme
+  // odkaz na domovskú stránku - radšej horší náhľad než 404.
+  async function bestShareUrl(id, title) {
+    const dealUrl = `${window.location.origin}/deal/${slugify(title)}-${id}/`;
+    try {
+      const res = await fetch(dealUrl, { method: 'HEAD' });
+      if (res.ok) return dealUrl;
+    } catch (e) { /* offline alebo blokované - použijeme záložnú adresu */ }
+    return `${window.location.origin}${window.location.pathname}?deal=${id}`;
+  }
+
   window.shareDeal = async function(id, title, price, currency) {
-    const url = `${window.location.origin}${window.location.pathname}?deal=${id}`;
+    const url = await bestShareUrl(id, title);
     const text = `${title} – len ${Number(price).toFixed(2)} ${currency}! 🔥`;
     if (navigator.share) {
       try {
@@ -2026,6 +2117,10 @@
     To znamená, že ak klikneš na odkaz a uskutočníš nákup, môžeme získať malú províziu od daného e-shopu –
     bez akéhokoľvek dodatočného poplatku pre teba. Tým podporujeme prevádzku tejto stránky.
     Všetky príspevky prechádzajú moderáciou pred zverejnením.
+    <br><br>
+    <a href="/podmienky.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Podmienky používania</a>
+    &nbsp;·&nbsp;
+    <a href="/ochrana-udajov.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Ochrana osobných údajov</a>
     <br><br>
     📧 Kontakt: <a href="mailto:info@henkukaj.sk" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">info@henkukaj.sk</a>
     <a href="admin.html" style="color:var(--muted); text-decoration:none; opacity:.6;" aria-hidden="true">&nbsp;•</a>

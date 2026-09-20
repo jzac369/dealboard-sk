@@ -2,7 +2,8 @@ name: Generuj SEO stránky dealov
 
 on:
   schedule:
-    - cron: "0 */3 * * *"   # každé 3 hodiny
+    - cron: "0 * * * *"   # každú hodinu - aby cerstvo schvaleny deal
+    #                      mal svoju stranku skor, kvoli zdielaniu
   workflow_dispatch: {}
 
 permissions:

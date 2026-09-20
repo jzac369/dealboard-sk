@@ -161,6 +161,12 @@ def render_deal_page(deal_id: str, d: dict) -> str:
 
 def build_sitemap(deal_urls: list[str]) -> str:
     urls = [f"  <url>\n    <loc>{SITE_URL}/</loc>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>"]
+    # Statické stránky - menia sa zriedka, ale patria do sitemap.
+    for static_path in ("podmienky.html", "ochrana-udajov.html"):
+        urls.append(
+            f"  <url>\n    <loc>{SITE_URL}/{static_path}</loc>\n"
+            f"    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>"
+        )
     for u in deal_urls:
         urls.append(
             f"  <url>\n    <loc>{u}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>"
