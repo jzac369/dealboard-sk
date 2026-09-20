@@ -1,0 +1,184 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══════════════════════════════════════════════════════════════
+    //  KRITICKÁ OPRAVA – nie je to kozmetika, prečítaj si to
+    //
+    //  Pôvodne tu bolo len overenie, že je užívateľ prihlásený heslom,
+    //  a obmedzenie na konkrétny e-mail bolo zakomentované.
+    //
+    //  Lenže registrácia e-mailom a heslom je v tomto projekte otvorená.
+    //  Ktokoľvek si cez verejné Firebase API vytvorí účet za sekundu.
+    //  Overené útokom: cudzí účet takto získal plné práva admina –
+    //  čítanie čakajúcich dealov, schvaľovanie, úpravu aj mazanie
+    //  čohokoľvek na stránke.
+    //
+    //  Preto je e-mail odteraz povinný. Bez neho je admin panel
+    //  otvorený celému internetu.
+    // ═══════════════════════════════════════════════════════════════
+    function isAdmin() {
+      return request.auth != null
+             && request.auth.token.firebase.sign_in_provider == 'password'
+             && request.auth.token.email == 'foresttt11@outlook.com';
+    }
+
+    match /deals/{dealId} {
+      // Verejnosť vidí len schválené dealy. Admin vidí všetko.
+      allow read: if resource.data.status == 'approved' || isAdmin();
+
+      // Nový deal: status "pending" alebo "approved" (podľa nastavenia
+      // moderácie), platné základné polia, 0 hlasov.
+      allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
+                    && request.resource.data.author is string
+                    && request.resource.data.author.size() > 0
+                    && request.resource.data.author.size() < 40
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() > 0
+                    && request.resource.data.title.size() < 200
+                    && request.resource.data.store is string
+                    && request.resource.data.dealPrice is number
+                    && request.resource.data.dealPrice >= 0
+                    && request.resource.data.url is string
+                    && request.resource.data.votes == 0
+                    && request.resource.data.comments == 0;
+
+      // Hlasovanie: ktokoľvek prihlásený (aj anonymne) môže meniť len
+      // "votes", a to najviac o 2 (prepnutie hlasu z + na - je delta*2).
+      // Počítadlo komentárov sa smie zvýšiť o presne 1.
+      // Admin môže upravovať čokoľvek.
+      allow update: if isAdmin()
+                    || (request.auth != null
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
+                        && request.resource.data.votes >= resource.data.votes - 2
+                        && request.resource.data.votes <= resource.data.votes + 2)
+                    || (request.auth != null
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments'])
+                        && request.resource.data.comments == resource.data.comments + 1);
+
+      allow delete: if isAdmin();
+
+      // Kto už hlasoval a ako. Návštevník smie čítať len svoj vlastný
+      // záznam – transakcia pri hlasovaní si ho musí prečítať.
+      match /voters/{voterId} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == voterId);
+        allow write: if request.auth != null && request.auth.uid == voterId;
+      }
+    }
+
+    // Komentáre – top-level wildcard, aby fungovali collectionGroup
+    // dotazy použité v admin paneli.
+    match /{path=**}/comments/{commentId} {
+      allow get: if resource.data.status == 'approved' || isAdmin();
+      allow list: if resource.data.status == 'approved' || isAdmin();
+
+      allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
+                    && request.resource.data.nickname is string
+                    && request.resource.data.nickname.size() > 0
+                    && request.resource.data.nickname.size() < 40
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() > 0
+                    && request.resource.data.text.size() < 500;
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Zľavové kódy – rovnaký princíp moderácie ako pri dealoch.
+    match /coupons/{couponId} {
+      allow read: if resource.data.status == 'approved' || isAdmin();
+
+      allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
+                    && request.resource.data.author is string
+                    && request.resource.data.author.size() > 0
+                    && request.resource.data.author.size() < 40
+                    && request.resource.data.code is string
+                    && request.resource.data.code.size() > 0
+                    && request.resource.data.code.size() < 40
+                    && request.resource.data.store is string
+                    && request.resource.data.discount is string
+                    && request.resource.data.url is string
+                    && request.resource.data.votes == 0;
+
+      allow update: if isAdmin()
+                    || (request.auth != null
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
+                        && request.resource.data.votes >= resource.data.votes - 2
+                        && request.resource.data.votes <= resource.data.votes + 2);
+
+      allow delete: if isAdmin();
+
+      match /voters/{voterId} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == voterId);
+        allow write: if request.auth != null && request.auth.uid == voterId;
+      }
+    }
+
+    // Nastavenia moderácie – verejné čítanie, zápis len admin.
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Návštevnosť – 1 záznam na deň a návštevníka. ID dokumentu obsahuje
+    // dátum aj uid, takže si nikto neprepíše cudzí záznam.
+    match /visits/{visitId} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+                    && visitId == request.resource.data.date + '_' + request.auth.uid
+                    && request.resource.data.country is string
+                    && request.resource.data.date is string;
+      allow update, delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  NOVÉ KOLEKCIE
+    // ═══════════════════════════════════════════════════════════════
+
+    // Predajcovia a ich odkazy – spravuje ich admin v admin paneli.
+    // Agent ich číta cez service account, ktorý pravidlá obchádza,
+    // takže verejné čítanie netreba.
+    match /merchants/{merchantId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Záznam zmien stavu dealov.
+    // Úprava a mazanie sú zakázané úplne – denník, ktorý sa dá
+    // prepísať, nie je denník.
+    match /audit_log/{entryId} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Prekliky na dealy – jediná kolekcia, kam smie zapisovať bežný
+    // návštevník. Inak by sa prekliky nedali merať.
+    //
+    // Obmedzenie na dve polia tu je, ale presná kontrola "presne +1"
+    // zámerne NIE: klient používa increment() a nepodarilo sa mi
+    // spoľahlivo doložiť, či sú takéto serverové transformácie v
+    // pravidlách viditeľné. Keby neboli, prísnejšia podmienka by
+    // počítadlo ticho zablokovala a ty by si to nespozoroval.
+    //
+    // Znamená to, že odhodlaný človek si vie číslo nafúknuť. Je to
+    // štatistika len pre teba a nič sa podľa nej neradí, takže je to
+    // prijateľná cena. Keby na presnosti záležalo, počítanie sa
+    // presunie do Cloud Function.
+    match /deal_clicks/{dealId} {
+      allow read: if isAdmin();
+
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['count', 'lastClick']);
+
+      allow update: if request.auth != null
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count', 'lastClick']);
+
+      allow delete: if isAdmin();
+    }
+
+    // Kolekcie agent_state a price_watch tu zámerne nie sú.
+    // Zapisuje do nich výhradne agent cez service account, ktorý
+    // pravidlá obchádza. Čokoľvek bez vlastného pravidla je pre
+    // klientov automaticky zakázané – presne to chceme.
+  }
+}
