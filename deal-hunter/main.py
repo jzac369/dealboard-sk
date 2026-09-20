@@ -128,24 +128,20 @@ def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandida
     return selected
 
 
-def notify_telegram(count: int) -> None:
-    if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
+def notify_telegram(written: list[tuple[str, dict]]) -> None:
+    """Pošle každý návrh do Telegramu s tlačidlami Schváliť / Zamietnuť."""
+    import telegram_bot
+
+    if not (written and telegram_bot.is_configured()):
         return
 
-    import requests
-
-    text = (
-        f"🛍️ Deal Hunter našiel {count} nových návrhov.\n"
-        f"Schváliť: https://henkukaj.sk/admin.html"
-    )
     try:
-        requests.post(
-            f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage",
-            json={"chat_id": config.TELEGRAM_CHAT_ID, "text": text},
-            timeout=10,
-        )
+        telegram_bot.send_summary(len(written))
+        for deal_id, deal in written:
+            telegram_bot.send_deal_for_approval(deal_id, deal)
     except Exception as e:
-        # Neúspešná notifikácia nie je dôvod označiť celý beh za zlyhaný.
+        # Neúspešná notifikácia nie je dôvod označiť celý beh za zlyhaný —
+        # dealy sú zapísané a schváliť sa dajú aj v admin paneli.
         logger.warning("Telegram notifikácia zlyhala: %s", e)
 
 

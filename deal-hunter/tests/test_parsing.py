@@ -588,3 +588,42 @@ def test_search_url_encodes_slashes():
     from merchant_links import build_merchant_url
     url = build_merchant_url("OBI", "KOMPRESOR TC-AC 190/24/8", "x")
     assert "/24/" not in url.replace("/search/", "")
+
+
+def test_summary_gets_a_count_not_the_whole_list():
+    """
+    Regresia: notify_telegram dostava zoznam dvojic (id, deal), ale suhrn
+    potrebuje POCET. Ked sa tam omylom posunul cely zoznam, do Telegramu
+    sa vypisal surovy Python objekt a sprava bola necitatelna.
+    """
+    import main
+    import telegram_bot
+
+    captured = {}
+
+    def fake_summary(count):
+        captured["count"] = count
+
+    def fake_send(deal_id, deal):
+        captured.setdefault("sent", []).append(deal_id)
+        return True
+
+    original = (
+        telegram_bot.send_summary,
+        telegram_bot.send_deal_for_approval,
+        telegram_bot.is_configured,
+    )
+    telegram_bot.send_summary = fake_summary
+    telegram_bot.send_deal_for_approval = fake_send
+    telegram_bot.is_configured = lambda: True
+    try:
+        main.notify_telegram([("id1", {"title": "A"}), ("id2", {"title": "B"})])
+    finally:
+        (telegram_bot.send_summary,
+         telegram_bot.send_deal_for_approval,
+         telegram_bot.is_configured) = original
+
+    assert captured["count"] == 2, "suhrn musi dostat pocet, nie zoznam"
+    assert isinstance(captured["count"], int)
+    # Kazdy deal musi ist ako samostatna sprava s tlacidlami.
+    assert captured["sent"] == ["id1", "id2"]
