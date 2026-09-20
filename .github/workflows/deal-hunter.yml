@@ -37,6 +37,17 @@ on:
         type: string
         default: ""
 
+# Tieto behy do repozitara nic nezapisuju - citaju kod a pisu do
+# Firestore. Najuzsie mozne opravnenia tokenu.
+permissions:
+  contents: read
+
+# Dva behy naraz by mohli zapisat tie iste dealy dvakrat -
+# deduplikacia sa opiera o pamat, ktoru druhy beh este nevidi.
+concurrency:
+  group: deal-hunter
+  cancel-in-progress: false
+
 jobs:
   hunt:
     runs-on: ubuntu-latest

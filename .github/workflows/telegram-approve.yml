@@ -13,6 +13,11 @@ concurrency:
   group: telegram-approve
   cancel-in-progress: false
 
+# Tieto behy do repozitara nic nezapisuju - citaju kod a pisu do
+# Firestore. Najuzsie mozne opravnenia tokenu.
+permissions:
+  contents: read
+
 jobs:
   poll:
     runs-on: ubuntu-latest
