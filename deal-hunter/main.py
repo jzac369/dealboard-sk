@@ -9,6 +9,7 @@ Postup jedného behu:
 4. Vyberie najlepšie kúsky, ale tak, aby nešli všetky z jedného obchodu.
 5. Zapíše ich do Firestore ako status "pending" — čakajú na tvoje schválenie
    v admin paneli na https://henkukaj.sk/admin.html
+6. Zároveň označí za exspirované dealy, ktorým uplynul dátum platnosti.
 
 Spúšťa sa cez GitHub Actions (.github/workflows/deal-hunter.yml).
 Lokálny test bez zápisu:  DRY_RUN=true python main.py
@@ -68,6 +69,9 @@ def is_sane(candidate: DealCandidate) -> bool:
     if candidate.deal_price < config.MIN_DEAL_PRICE:
         return False
     if not candidate.title.strip() or not candidate.url:
+        return False
+    # Akcia, ktorej platnosť už uplynula, nemá čo robiť na stránke.
+    if candidate.is_already_expired:
         return False
     return True
 
@@ -180,6 +184,13 @@ def main() -> int:
     import firestore_client
 
     db = firestore_client.get_client()
+
+    if config.RESET_PENDING:
+        firestore_client.reset_agent_pending(db)
+
+    # Najprv upraceme: čo už neplatí, dostane štítok EXSPIROVANÉ.
+    firestore_client.expire_past_deals(db)
+
     seen_keys, seen_urls = firestore_client.get_existing_keys(db)
     logger.info("Známych dealov na deduplikáciu: %d", len(seen_keys) + len(seen_urls))
 

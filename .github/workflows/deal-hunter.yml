@@ -16,6 +16,10 @@ on:
         description: "Len vypísať nájdené dealy, nezapisovať do databázy"
         type: boolean
         default: false
+      reset_pending:
+        description: "Čistý štart: zmazať NESCHVÁLENÉ návrhy od agenta a jeho pamäť"
+        type: boolean
+        default: false
 
 jobs:
   hunt:
@@ -53,6 +57,7 @@ jobs:
         env:
           FIRESTORE_PROJECT_ID: dealboard-e60bf
           DRY_RUN: ${{ inputs.dry_run }}
+          RESET_PENDING: ${{ inputs.reset_pending }}
           MIN_DISCOUNT_PERCENT: "25"
           MAX_DEALS_PER_RUN: "12"
           # Affiliate feedy (Dognet) — nastav ako repository secret.

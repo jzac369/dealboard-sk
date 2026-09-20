@@ -347,3 +347,66 @@ def test_category_hint_from_listing_reaches_the_document():
     items = ZlacneneScraper().parse_listing(html, category_hint="Elektronika")
     assert items
     assert all(i.to_firestore_dict()["category"] == "Elektronika" for i in items)
+
+
+# ── automatická exspirácia ────────────────────────────────────────────
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("22.9.2026", "2026-09-22"),
+        ("01.01.2027", "2027-01-01"),
+        ("3.1.2027", "2027-01-03"),
+        ("31.2.2026", None),      # neexistujuci datum
+        ("nezmysel", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_parse_valid_until(raw, expected):
+    from models import parse_valid_until
+    assert parse_valid_until(raw) == expected
+
+
+def test_iso_date_reaches_the_document():
+    from models import DealCandidate
+    deal = DealCandidate(
+        title="Test", deal_price=5.0, explicit_discount_percent=30,
+        url="https://x.sk", source="s", valid_until="22.9.2026",
+    )
+    doc = deal.to_firestore_dict()
+    assert doc["validUntilISO"] == "2026-09-22"
+    assert doc["validUntil"] == "22.9.2026"     # citatelny tvar zostava
+    assert doc["expired"] is False              # nove dealy nie su exspirovane
+
+
+def test_already_expired_deal_is_detected():
+    from datetime import date, timedelta
+    from models import DealCandidate
+
+    yesterday = date.today() - timedelta(days=1)
+    tomorrow = date.today() + timedelta(days=1)
+
+    def make(d):
+        return DealCandidate(
+            title="Test", deal_price=5.0, explicit_discount_percent=30,
+            url="https://x.sk", source="s",
+            valid_until=f"{d.day}.{d.month}.{d.year}",
+        )
+
+    assert make(yesterday).is_already_expired is True
+    assert make(tomorrow).is_already_expired is False
+
+
+def test_expired_deals_are_not_proposed():
+    from datetime import date, timedelta
+    from models import DealCandidate
+    import main
+
+    yesterday = date.today() - timedelta(days=1)
+    expired = DealCandidate(
+        title="Stara akcia", deal_price=5.0, explicit_discount_percent=50,
+        url="https://x.sk", source="s",
+        valid_until=f"{yesterday.day}.{yesterday.month}.{yesterday.year}",
+    )
+    assert main.is_sane(expired) is False

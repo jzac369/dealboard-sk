@@ -13,7 +13,7 @@ zapíše, ale na stránke sa vykreslí prázdna karta.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 import re
 import unicodedata
@@ -98,6 +98,27 @@ def guess_category(title: str, hint: Optional[str] = None) -> str:
     return "Iné"
 
 
+def parse_valid_until(raw: Optional[str]) -> Optional[str]:
+    """
+    '22.9.2026' -> '2026-09-22'. Vráti None, ak sa dátum nedá prečítať.
+
+    Textový tvar sa nedá porovnávať ("3.1.2027" < "22.9.2026" ako text),
+    preto si popri ňom držíme aj ISO tvar - podľa neho vie agent deal
+    automaticky označiť za exspirovaný.
+    """
+    if not raw:
+        return None
+    parts = raw.strip().rstrip(".").split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        day, month, year = (int(p) for p in parts)
+        return date(year, month, day).isoformat()
+    except ValueError:
+        # Neexistujúci dátum (31.2.) alebo nečíselný text.
+        return None
+
+
 def parse_price(raw: Optional[str]) -> Optional[float]:
     """
     '1 399,50 EUR' / '23,12' / '1399.50' -> float. Vráti None, ak sa to nepodarí.
@@ -177,6 +198,17 @@ class DealCandidate:
         return round(self.deal_price, 2)
 
     @property
+    def valid_until_iso(self) -> Optional[str]:
+        """Dátum platnosti v tvare YYYY-MM-DD, ak sa dá prečítať."""
+        return parse_valid_until(self.valid_until)
+
+    @property
+    def is_already_expired(self) -> bool:
+        """True, ak akcia skončila skôr, než sme ju stihli navrhnúť."""
+        iso = self.valid_until_iso
+        return bool(iso and iso < date.today().isoformat())
+
+    @property
     def dedupe_key(self) -> str:
         """
         Kľúč na rozpoznanie duplicity. Nie URL - ten istý produkt má na rôznych
@@ -232,4 +264,7 @@ class DealCandidate:
             "dedupeKey": self.dedupe_key,
             "foundAt": self.found_at,
             "validUntil": self.valid_until,
+            # ISO tvar sa dá porovnávať aj dotazovať - podľa neho beží
+            # automatická exspirácia.
+            "validUntilISO": self.valid_until_iso,
         }

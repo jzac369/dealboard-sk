@@ -90,5 +90,9 @@ HTTP_MAX_RETRIES = _env_int("HTTP_MAX_RETRIES", 3)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+# Jednorazový čistý štart: zmaže neschválené návrhy od agenta a jeho
+# pamäť, potom beží normálne ďalej. Schválených dealov sa nedotkne.
+RESET_PENDING = os.environ.get("RESET_PENDING", "false").lower() == "true"
+
 # Nezapisovať do Firestore, len vypísať, čo by sa zapísalo.
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
