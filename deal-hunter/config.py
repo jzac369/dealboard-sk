@@ -45,8 +45,9 @@ MAX_DISCOUNT_PERCENT = _env_float("MAX_DISCOUNT_PERCENT", 95)
 # Minimálna cena v €. Odfiltruje šum typu "zľava 50 %" na položke za 20 centov.
 # Nízka hranica je zámer: pri potravinách je aj minerálka za 0,55 € reálny deal.
 MIN_DEAL_PRICE = _env_float("MIN_DEAL_PRICE", 0.50)
-# Koľko návrhov maximálne zapísať za jeden beh (aby ťa schvaľovanie nezahltilo).
-MAX_DEALS_PER_RUN = _env_int("MAX_DEALS_PER_RUN", 12)
+# Koľko návrhov maximálne zapísať za jeden beh.
+# Pri 3 behoch denne to dáva denný strop 30 návrhov na schválenie.
+MAX_DEALS_PER_RUN = _env_int("MAX_DEALS_PER_RUN", 10)
 # Najviac dealov z jedného obchodu za beh - aby výber nevyzeral
 # ako leták jediného reťazca.
 MAX_PER_STORE = _env_int("MAX_PER_STORE", 4)

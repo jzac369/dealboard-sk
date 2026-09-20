@@ -33,7 +33,7 @@ on:
         type: string
         default: ""
       max_deals:
-        description: "Koľko návrhov pridať (prázdne = 12)"
+        description: "Koľko návrhov pridať (prázdne = 10, teda 30 denne pri 3 behoch)"
         type: string
         default: ""
 
@@ -81,7 +81,7 @@ jobs:
           VOTE_BOOST_MAX: ${{ inputs.vote_boost && 25 || 0 }}
           MIN_DISCOUNT_PERCENT: "25"
           # Prázdny vstup necháva predvolenú hodnotu z config.py.
-          MAX_DEALS_PER_RUN: ${{ inputs.max_deals || '12' }}
+          MAX_DEALS_PER_RUN: ${{ inputs.max_deals || '10' }}
           ZLACNENE_CATEGORIES: ${{ inputs.categories }}
           # Affiliate feedy (Dognet) — nastav ako repository secret.
           # Bez neho beží len zlacnene.sk, čo je v poriadku.
