@@ -1349,6 +1349,32 @@
   .vote-seg .vs-num { min-width: 40px; font-size: .82rem; }
   .chip { font-size: .68rem; padding: 2px 8px; }
 }
+
+/* Podpis autora: krúžok s iniciálami + meno. */
+.author-badge { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.avatar { width: 20px; height: 20px; border-radius: 50%; color: #fff;
+  font-size: .6rem; font-weight: 700; letter-spacing: .02em;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+/* Dlhá prezývka nesmie roztlačiť pätičku - radšej ju skrátime tromi bodkami. */
+.author-name { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deal-age { display: inline-flex; align-items: center; gap: 7px; }
+
+@media (max-width: 480px) {
+  /* Na úzkom displeji necháme krúžok a čas, meno by riadok zalomilo. */
+  .author-name { display: none; }
+  .avatar { width: 18px; height: 18px; font-size: .55rem; }
+}
+
+.author-sep { color: var(--line); }
+@media (max-width: 480px) { .author-sep { display: none; } }
+
+/* Ikony v záložkách pridali šírku a hlavička sa pri ~770 px prestala
+   zmestiť do jedného riadka - stránka začala pretekať doprava. Necháme
+   ju zalomiť skôr; druhý riadok je menšie zlo než vodorovné posúvanie. */
+@media (max-width: 880px) {
+  .header-inner { flex-wrap: wrap; row-gap: 10px; }
+  .main-section-btn { padding: 7px 13px; }
+}
 </style>
 </head>
 <body>
@@ -1717,6 +1743,55 @@
     return Math.floor(diff/1440) + ' dní';
   }
 
+
+  // ── Podpis autora ───────────────────────────────────────────────────
+  // Krúžok s iniciálami namiesto fotky. Nevyžaduje registráciu ani
+  // nahrávanie obrázka a farba je odvodená z mena, takže ten istý človek
+  // má vždy rovnakú - stane sa z nej rozpoznávací znak.
+
+  const AVATAR_COLORS = [
+    '#1C7ED6', '#2F9E44', '#C2255C', '#9C36B5', '#0CA678',
+    '#E8590C', '#1098AD', '#D6336C', '#5F3DC4', '#B36400'
+  ];
+
+  function authorInitials(name) {
+    const clean = stripEmoji(name || '');
+    // Berieme len písmená a číslice. Prezývky typu "***Jarko***" by inak
+    // dali iniciály "**".
+    const words = clean.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    if (!words.length) return '?';
+    if (words.length >= 2) {
+      return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    // Jedno slovo: dve písmená, ale ak je jednopísmenové, tak jedno.
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  function authorColor(name) {
+    const clean = stripEmoji(name || '');
+    if (!clean) return '#868E96';
+    // FNV-1a - jednoduchý súčet znakov rozhadzoval mená zle.
+    let hash = 2166136261;
+    for (let i = 0; i < clean.length; i++) {
+      hash ^= clean.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    // Pevná paleta namiesto celého farebného kruhu. Náhodný odtieň by
+    // občas trafil žltozelenú, na ktorej sa biely text zle číta, a susedné
+    // odtiene by sa od seba nedali rozoznať. Týchto desať je navzájom
+    // rozlíšiteľných a ladí s farbami kategórií.
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  }
+
+  function authorBadge(name) {
+    const clean = stripEmoji(name || '');
+    if (!clean) return '';
+    return `<span class="author-badge">`
+      + `<span class="avatar" style="background:${authorColor(clean)}" aria-hidden="true">${escapeHtml(authorInitials(clean))}</span>`
+      + `<span class="author-name">${escapeHtml(clean)}</span>`
+      + `<span class="author-sep" aria-hidden="true">·</span></span>`;
+  }
+
   // Farby kategórií - musia sedieť s lištou v hlavičke, inak by farba
   // prestala niečo znamenať.
   const CAT_COLORS = {
@@ -1806,7 +1881,7 @@
         <a href="#" onclick="openComments('${d.id}'); return false;">${icon('message-circle')} ${d.comments||0}</a>
         <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">${icon('share')} <span class="footer-label">Zdieľať</span></a>
         <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')}</a>
-        <span class="deal-age">${author ? author + ' · ' : ''}${ageSentence(d)}</span>
+        <span class="deal-age">${authorBadge(d.author)}${ageSentence(d)}</span>
       </div>
     </div>`;
   }
