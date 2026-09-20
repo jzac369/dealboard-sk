@@ -39,18 +39,25 @@ def is_configured() -> bool:
     return bool(config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID)
 
 
-def _call(method: str, payload: dict) -> Optional[dict]:
+def _call_quietly(method: str, payload: dict) -> Optional[dict]:
+    """Ako _call, ale neúspech len zaznamená do debug logu."""
+    return _call(method, payload, quiet=True)
+
+
+def _call(method: str, payload: dict, quiet: bool = False) -> Optional[dict]:
     """Zavolá Telegram API. Vráti None, keď to zlyhá — nikdy nevyhodí výnimku."""
     url = f"{API_BASE}{config.TELEGRAM_BOT_TOKEN}/{method}"
     try:
         response = requests.post(url, json=payload, timeout=_TIMEOUT)
         data = response.json()
     except Exception as e:
-        logger.warning("Telegram %s zlyhalo: %s", method, e)
+        logger.log(logging.DEBUG if quiet else logging.WARNING,
+                   "Telegram %s zlyhalo: %s", method, e)
         return None
 
     if not data.get("ok"):
-        logger.warning("Telegram %s vrátil chybu: %s", method, data.get("description"))
+        logger.log(logging.DEBUG if quiet else logging.WARNING,
+                   "Telegram %s vrátil chybu: %s", method, data.get("description"))
         return None
     return data.get("result")
 
@@ -242,7 +249,12 @@ def _apply_decision(db, callback: dict) -> bool:
         logger.error("Rozhodnutie o deale %s zlyhalo: %s", deal_id, e)
         answer = "Nepodarilo sa, skús to v admin paneli."
 
-    _call("answerCallbackQuery", {
+    # Bublinka s potvrdením priamo v Telegrame. Skúsime ju, ale takmer
+    # vždy zlyhá na "query is too old": Telegram čaká odpoveď do pár
+    # sekúnd a my sa pýtame až pri ďalšom behu, teda o minúty. Je to
+    # daň za riešenie bez servera, nie chyba — preto to nehlásime ako
+    # varovanie. Potvrdenie používateľ aj tak uvidí na tlačidlách nižšie.
+    _call_quietly("answerCallbackQuery", {
         "callback_query_id": callback["id"],
         "text": answer,
     })
