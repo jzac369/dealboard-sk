@@ -104,5 +104,8 @@ VOTE_BOOST_MAX = _env_int("VOTE_BOOST_MAX", 0)
 # pamäť, potom beží normálne ďalej. Schválených dealov sa nedotkne.
 RESET_PENDING = os.environ.get("RESET_PENDING", "false").lower() == "true"
 
+# Jednorazová oprava: prepíše odkazy starých dealov zo zdroja na predajcu.
+FIX_URLS = os.environ.get("FIX_URLS", "false").lower() == "true"
+
 # Nezapisovať do Firestore, len vypísať, čo by sa zapísalo.
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"

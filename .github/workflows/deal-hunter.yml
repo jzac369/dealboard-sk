@@ -24,6 +24,10 @@ on:
         description: "Jednorazovo: dať dealom bez hlasov štartovací žiar 5-25 stupňov"
         type: boolean
         default: false
+      fix_urls:
+        description: "Jednorazovo: prepísať staré odkazy zo zdroja na predajcu"
+        type: boolean
+        default: false
       categories:
         description: "Len tieto kategórie (čiarkou, prázdne = všetky). Napr: naradie,hracky,obuv"
         type: string
@@ -70,6 +74,7 @@ jobs:
           FIRESTORE_PROJECT_ID: dealboard-e60bf
           DRY_RUN: ${{ inputs.dry_run }}
           RESET_PENDING: ${{ inputs.reset_pending }}
+          FIX_URLS: ${{ inputs.fix_urls }}
           # Pri plánovanom behu je `inputs` prázdne, takže sa dosadí 0 a
           # boost je vypnutý. Zapne sa len ručným zaškrtnutím vo formulári.
           VOTE_BOOST_MIN: ${{ inputs.vote_boost && 5 || 0 }}

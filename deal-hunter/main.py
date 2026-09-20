@@ -185,6 +185,9 @@ def main() -> int:
 
     db = firestore_client.get_client()
 
+    if config.FIX_URLS:
+        firestore_client.fix_merchant_urls(db)
+
     if config.RESET_PENDING:
         firestore_client.reset_agent_pending(db)
 
