@@ -191,6 +191,9 @@ def main() -> int:
     # Najprv upraceme: čo už neplatí, dostane štítok EXSPIROVANÉ.
     firestore_client.expire_past_deals(db)
 
+    # Jednorazová pomôcka na rozbeh - pri plánovaných behoch vypnutá.
+    firestore_client.boost_existing_deals(db)
+
     seen_keys, seen_urls = firestore_client.get_existing_keys(db)
     logger.info("Známych dealov na deduplikáciu: %d", len(seen_keys) + len(seen_urls))
 

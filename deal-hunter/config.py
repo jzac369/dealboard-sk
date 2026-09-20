@@ -90,6 +90,16 @@ HTTP_MAX_RETRIES = _env_int("HTTP_MAX_RETRIES", 3)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+# Náhodný štartovací žiar (stupne) pre nové dealy.
+#
+# ZÁMERNE VYPNUTÉ (0-0). Je to jednorazová pomôcka na rozbeh stránky, aby
+# nepôsobila mŕtvo, kým sa nenazbierajú skutočné hlasy. Plánované behy ho
+# nikdy nezapínajú - workflow ho posiela len pri ručnom spustení. Trvalé
+# používanie by návštevníkom tvrdilo, že deal ohodnotili ľudia, čo by
+# nebola pravda.
+VOTE_BOOST_MIN = _env_int("VOTE_BOOST_MIN", 0)
+VOTE_BOOST_MAX = _env_int("VOTE_BOOST_MAX", 0)
+
 # Jednorazový čistý štart: zmaže neschválené návrhy od agenta a jeho
 # pamäť, potom beží normálne ďalej. Schválených dealov sa nedotkne.
 RESET_PENDING = os.environ.get("RESET_PENDING", "false").lower() == "true"

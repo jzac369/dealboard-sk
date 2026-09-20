@@ -410,3 +410,45 @@ def test_expired_deals_are_not_proposed():
         valid_until=f"{yesterday.day}.{yesterday.month}.{yesterday.year}",
     )
     assert main.is_sane(expired) is False
+
+
+# ── štartovací žiar ───────────────────────────────────────────────────
+
+def test_vote_boost_is_off_by_default():
+    """
+    Boost musi byt vypnuty, pokial ho niekto vyslovne nezapne. Je to
+    jednorazova pomocka na rozbeh stranky, nie trvaly stav - planovane
+    behy ho nikdy nesmu zapnut.
+    """
+    import importlib
+    import config
+    importlib.reload(config)
+    assert config.VOTE_BOOST_MIN == 0
+    assert config.VOTE_BOOST_MAX == 0
+
+    import firestore_client
+    assert all(firestore_client._random_boost() == 0 for _ in range(20))
+
+
+def test_vote_boost_stays_in_range_when_enabled():
+    import config
+    import firestore_client
+
+    original = (config.VOTE_BOOST_MIN, config.VOTE_BOOST_MAX)
+    config.VOTE_BOOST_MIN, config.VOTE_BOOST_MAX = 5, 25
+    try:
+        values = [firestore_client._random_boost() for _ in range(200)]
+        assert all(5 <= v <= 25 for v in values)
+        assert len(set(values)) > 5, "boost musi byt naozaj nahodny"
+    finally:
+        config.VOTE_BOOST_MIN, config.VOTE_BOOST_MAX = original
+
+
+def test_new_deals_have_no_votes_in_the_document():
+    # Model sam o sebe nikdy nepridava hlasy - robi to az zapis podla configu.
+    from models import DealCandidate
+    doc = DealCandidate(
+        title="Test", deal_price=5.0, explicit_discount_percent=30,
+        url="https://x.sk", source="s",
+    ).to_firestore_dict()
+    assert doc["votes"] == 0
