@@ -210,6 +210,16 @@ class DealCandidate:
         return bool(iso and iso < date.today().isoformat())
 
     @property
+    def product_key(self) -> str:
+        """
+        Kľúč produktu BEZ ceny. Dedupe kľúč cenu obsahuje, takže ten istý
+        tovar má pri každej zmene ceny iný - história by sa nikdy
+        nespojila. Na sledovanie cien treba kľúč, ktorý ostane rovnaký.
+        """
+        title_key = re.sub(r"[^a-z0-9]+", "", _strip_diacritics(self.title))[:60]
+        return f"{_strip_diacritics(self.store)}|{title_key}"
+
+    @property
     def dedupe_key(self) -> str:
         """
         Kľúč na rozpoznanie duplicity. Nie URL - ten istý produkt má na rôznych
@@ -267,6 +277,7 @@ class DealCandidate:
             # nezverejňujeme ho.
             "sourceUrl": self.url,
             "dedupeKey": self.dedupe_key,
+            "productKey": self.product_key,
             "foundAt": self.found_at,
             "validUntil": self.valid_until,
             # ISO tvar sa dá porovnávať aj dotazovať - podľa neho beží

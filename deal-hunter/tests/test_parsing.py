@@ -627,3 +627,95 @@ def test_summary_gets_a_count_not_the_whole_list():
     assert isinstance(captured["count"], int)
     # Kazdy deal musi ist ako samostatna sprava s tlacidlami.
     assert captured["sent"] == ["id1", "id2"]
+
+
+# ── historia cien a falosne zlavy ─────────────────────────────────────
+
+def test_product_key_ignores_price():
+    """
+    Dedupe kluc obsahuje cenu, takze ten isty tovar ma pri kazdej zmene
+    ceny iny. Na sledovanie cien treba kluc, ktory ostane rovnaky.
+    """
+    from models import DealCandidate
+    common = dict(url='u', source='s', store='Jysk', title='Uterák STIDSVIG')
+    a = DealCandidate(deal_price=6.0, explicit_discount_percent=60, **common)
+    b = DealCandidate(deal_price=8.5, explicit_discount_percent=40, **common)
+    assert a.dedupe_key != b.dedupe_key
+    assert a.product_key == b.product_key
+
+
+def test_price_point_overwrites_same_day():
+    # Tri behy denne nesmu vyrobit tri zaznamy za jeden den.
+    from datetime import date
+    import price_history as ph
+    h = ph.append_price_point([], 10.0)
+    h = ph.append_price_point(h, 9.0)
+    assert len(h) == 1
+    assert h[0]['price'] == 9.0
+    assert h[0]['date'] == date.today().isoformat()
+
+
+def test_history_is_capped():
+    import price_history as ph
+    h = [{'date': f'2026-01-{i:02d}', 'price': float(i)} for i in range(1, 29)]
+    out = ph.append_price_point(h, 99.0)
+    assert len(out) == ph.MAX_HISTORY_POINTS
+    assert out[-1]['price'] == 99.0        # dnesny zaznam sa zachova
+
+
+def test_fake_discount_detected_when_original_is_inflated():
+    import price_history as ph
+    # Produkt sme nikdy nevideli drahsi nez 20 EUR, predajca tvrdi 40 EUR.
+    history = [{'date': '2026-08-01', 'price': 20.0}, {'date': '2026-08-15', 'price': 19.5}]
+    fake, reason = ph.looks_like_fake_discount(history, claimed_original=40.0, current_price=20.0)
+    assert fake is True
+    assert '40.00' in reason
+
+
+def test_fake_discount_detected_when_sale_price_is_above_normal():
+    import price_history as ph
+    history = [{'date': '2026-08-01', 'price': 10.0}]
+    fake, reason = ph.looks_like_fake_discount(history, claimed_original=30.0, current_price=15.0)
+    assert fake is True
+
+
+def test_no_accusation_without_history():
+    """Bez dokazov nic nezahadzujeme - obvinovat naslepo je horsie nez mlcat."""
+    import price_history as ph
+    assert ph.looks_like_fake_discount(None, 100.0, 10.0) == (False, '')
+    assert ph.looks_like_fake_discount([], 100.0, 10.0) == (False, '')
+
+
+def test_genuine_discount_passes():
+    import price_history as ph
+    # Produkt uz stal 40 EUR, teraz je za 20 - to je skutocna zlava.
+    history = [{'date': '2026-08-01', 'price': 40.0}, {'date': '2026-08-20', 'price': 38.0}]
+    fake, _ = ph.looks_like_fake_discount(history, claimed_original=40.0, current_price=20.0)
+    assert fake is False
+
+
+def test_real_low_detection():
+    import price_history as ph
+    history = [{'date': '2026-08-01', 'price': 30.0}, {'date': '2026-08-20', 'price': 25.0}]
+    assert ph.is_real_low(history, 20.0) is True
+    assert ph.is_real_low(history, 27.0) is False
+    assert ph.is_real_low([], 5.0) is False   # bez historie sa neda tvrdit nic
+
+
+def test_fake_deals_are_dropped_not_published():
+    import main
+    from models import DealCandidate
+
+    genuine = DealCandidate(title='Poctivy', deal_price=20.0, original_price=40.0,
+                            url='https://x.sk/a', source='s', store='Jysk')
+    fake = DealCandidate(title='Nafuknuty', deal_price=20.0, original_price=40.0,
+                         url='https://x.sk/b', source='s', store='OBI')
+
+    history = {fake.product_key: [{'date': '2026-08-01', 'price': 20.0}]}
+    docs = main.enrich_with_price_history([genuine, fake], history)
+
+    titles = [d['title'] for d in docs]
+    assert 'Poctivy' in titles
+    assert 'Nafuknuty' not in titles
+    # Poctivemu dealu sa historia doplni.
+    assert docs[0]['priceHistory'][-1]['price'] == 20.0

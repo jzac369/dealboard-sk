@@ -20,6 +20,7 @@ import sys
 from collections import defaultdict
 
 import config
+import price_history
 from models import DealCandidate, guess_category
 from scrapers import AVAILABLE_SCRAPERS
 
@@ -158,6 +159,38 @@ def log_preview(deals: list[DealCandidate]) -> None:
         )
 
 
+def enrich_with_price_history(
+    selected: list[DealCandidate], history: dict[str, list]
+) -> list[dict]:
+    """
+    Doplní dealom históriu cien a vyhodí tie, pri ktorých je „pôvodná
+    cena" zjavne nafúknutá.
+
+    Falošnú zľavu zahadzujeme, nielen označujeme: deal stránka, ktorá
+    zverejní vymyslenú zľavu ako trhák, klame vlastných čitateľov.
+    Bez histórie sa nič nezahadzuje - obviňovať bez dôkazu je horšie
+    než mlčať.
+    """
+    documents: list[dict] = []
+
+    for deal in selected:
+        past = history.get(deal.product_key)
+
+        fake, reason = price_history.looks_like_fake_discount(
+            past, deal.effective_original_price, deal.deal_price
+        )
+        if fake:
+            logger.warning("Vynechávam '%s': %s", deal.title[:45], reason)
+            continue
+
+        document = deal.to_firestore_dict()
+        document["priceHistory"] = price_history.append_price_point(past, deal.deal_price)
+        document["isRealLow"] = price_history.is_real_low(past, deal.deal_price)
+        documents.append(document)
+
+    return documents
+
+
 def main() -> int:
     logger.info("=== Deal Hunter — začiatok behu ===")
     logger.info("Zapnuté zdroje: %s", ", ".join(config.ENABLED_SCRAPERS))
@@ -190,6 +223,9 @@ def main() -> int:
     # Najprv upraceme: čo už neplatí, dostane štítok EXSPIROVANÉ.
     firestore_client.expire_past_deals(db)
 
+    # Akcie stiahnuté skôr, než mali skončiť - dátum ich nezachytí.
+    firestore_client.expire_dead_deals(db)
+
     # Jednorazová pomôcka na rozbeh - pri plánovaných behoch vypnutá.
     firestore_client.boost_existing_deals(db)
 
@@ -206,9 +242,16 @@ def main() -> int:
         logger.info("=== Koniec. Nič nové na pridanie. ===")
         return 0
 
-    written = firestore_client.write_pending_deals(
-        db, [d.to_firestore_dict() for d in selected]
+    history = firestore_client.load_price_history(
+        db, [d.product_key for d in selected]
     )
+    logger.info("Produktov so známou históriou cien: %d", len(history))
+
+    documents = enrich_with_price_history(selected, history)
+    if len(documents) < len(selected):
+        logger.info("Vynechaných pre podozrivú zľavu: %d", len(selected) - len(documents))
+
+    written = firestore_client.write_pending_deals(db, documents)
     notify_telegram(written)
 
     logger.info("=== Koniec. Zapísaných %d návrhov, čakajú na schválenie. ===", len(written))

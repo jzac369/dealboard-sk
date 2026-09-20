@@ -121,3 +121,58 @@ def get(url: str, *, check_robots: bool = True) -> str | None:
 
     logger.error("%s: nepodarilo sa stiahnuť ani na %d. pokus", url, config.HTTP_MAX_RETRIES)
     return None
+
+
+def is_reachable(url: str, detect_soft_404: bool = False) -> bool:
+    """
+    Overí, či odkaz vedie niekam živú. Používa sa pred zverejnením dealu
+    a pri kontrole starších dealov.
+
+    Pozor na interpretáciu: mnohé e-shopy blokujú automatické požiadavky
+    a vrátia 403 aj na stránku, ktorá človeku v prehliadači funguje bez
+    problému. Takú odpoveď preto NEPOVAŽUJEME za mŕtvy odkaz — inak by
+    sme vyhadzovali platné dealy. Za mŕtve berieme len 404 a 410, teda
+    jednoznačné "toto tu nie je".
+
+    `detect_soft_404` rieši weby, ktoré zrušenú stránku nepošlú ako 404,
+    ale presmerujú na zoznam kategórie s kódom 200. Presne to robí
+    zlacnene.sk pri skončenej akcii. Keď je zapnuté, za mŕtvy sa berie aj
+    odkaz, ktorý skončil na inej ceste, než sme pýtali.
+    """
+    from urllib.parse import urlparse
+
+    if not url or not url.startswith("http"):
+        return False
+
+    headers = {"User-Agent": config.USER_AGENT, "Accept": "*/*"}
+    domain = _domain_of(url)
+
+    for method in ("head", "get"):
+        _respect_crawl_delay(domain)
+        try:
+            response = requests.request(
+                method, url, headers=headers,
+                timeout=config.REQUEST_TIMEOUT_SECONDS, allow_redirects=True,
+            )
+        except requests.RequestException as e:
+            logger.debug("%s: %s zlyhalo (%s)", url, method, e)
+            continue
+
+        if response.status_code in (404, 410):
+            return False
+
+        if detect_soft_404 and response.url:
+            wanted = urlparse(url).path.rstrip("/").lower()
+            landed = urlparse(response.url).path.rstrip("/").lower()
+            if wanted and wanted != landed:
+                logger.info("Mäkká 404: %s presmerovalo na %s", url, response.url)
+                return False
+        if response.status_code < 400 or response.status_code in (401, 403, 405, 429):
+            # 405 = server nepodporuje HEAD, skúsime GET
+            if response.status_code == 405 and method == "head":
+                continue
+            return True
+
+    # Nepodarilo sa spojiť ani raz - radšej deal necháme, než ho zahodiť
+    # kvôli výpadku siete na našej strane.
+    return True
