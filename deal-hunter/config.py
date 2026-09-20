@@ -34,7 +34,9 @@ FIRESTORE_PROJECT_ID = os.environ.get("FIRESTORE_PROJECT_ID", "dealboard-e60bf")
 DEALS_COLLECTION = "deals"
 
 # Meno, pod ktorým sa návrhy zobrazia v poli "autor".
-AGENT_AUTHOR_NAME = os.environ.get("AGENT_AUTHOR_NAME", "Deal Hunter 🤖")
+# Bez emoji zámerne - stránka ich v menách autorov nepoužíva a
+# na každom systéme sa kreslia inak.
+AGENT_AUTHOR_NAME = os.environ.get("AGENT_AUTHOR_NAME", "Deal Hunter")
 
 
 # ── Výber a filtrovanie dealov ────────────────────────────────────────

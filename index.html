@@ -455,6 +455,21 @@
   // Beží bez await a chyby ticho prehltne. Keď zlyhá, návštevník musí
   // skončiť u predajcu tak či tak - meranie nikdy nesmie stáť v ceste
   // tomu, kvôli čomu sem prišiel.
+
+  // Vyhodí emoji z textu, ktorý zadal človek. Prezývky ako "Jarko(ohen)"
+  // rozbíjajú vzhľad kariet a každý systém ich kreslí inak.
+  //
+  // Extended_Pictographic pokrýva emoji naprieč verziami Unicode; k tomu
+  // variačné selektory, spojovník ZWJ a modifikátory tónu pleti, ktoré
+  // by po odstránení samotného obrázka zostali ako neviditeľný odpad.
+  window.stripEmoji = function(text) {
+    return (text || '')
+      .replace(/[\u{1F3FB}-\u{1F3FF}\u{FE0E}\u{FE0F}\u{200D}\u{20E3}]/gu, '')
+      .replace(/\p{Extended_Pictographic}/gu, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  };
+
   window.trackClick = function(dealId) {
     if (!dealId || dealId.startsWith('demo-')) return;
     try {
@@ -1636,7 +1651,7 @@
           <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
         </div>
         <div class="deal-main">
-          <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}${d.author ? ' · 👤 ' + escapeHtml(d.author) : ''}</div>
+          <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}${d.author ? ' · ' + escapeHtml(stripEmoji(d.author)) : ''}</div>
           <a class="deal-title" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
           <div class="deal-price-row">
             <span class="price-now">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</span>
@@ -1840,7 +1855,7 @@
       <div class="coupon-info">
         <div class="coupon-title">${escapeHtml(c.discount||'')} – <span style="color:var(--muted); font-weight:500;">${escapeHtml(c.store||'')}</span>${c.expired ? ' <span class="expired-badge">EXSPIROVANÉ</span>' : ''}</div>
         <div class="coupon-sub">${escapeHtml(c.description||'')}</div>
-        ${c.author ? `<div class="coupon-sub" style="margin-top:2px;">👤 ${escapeHtml(c.author)}</div>` : ''}
+        ${c.author ? `<div class="coupon-sub" style="margin-top:2px;">${escapeHtml(stripEmoji(c.author))}</div>` : ''}
         ${expiry}
       </div>
       <div class="coupon-vote-pill">
@@ -1947,7 +1962,7 @@
   window.closeCouponModal = () => document.getElementById('coupon-modal').classList.remove('open');
 
   window.handleCouponSubmit = async function() {
-    const author   = document.getElementById('cp-author').value.trim();
+    const author   = window.stripEmoji(document.getElementById('cp-author').value);
     const code     = document.getElementById('cp-code').value.trim().toUpperCase();
     const store    = document.getElementById('cp-store').value.trim();
     const discount = document.getElementById('cp-discount').value.trim();
@@ -2013,7 +2028,7 @@
       <div class="deal-meta" style="margin-top:0;">
         <span class="tag-store">${d.store||''}</span>
         <span class="tag-cat">${d.category||''}</span>
-        ${d.author ? `<span class="tag-cat">👤 ${escapeHtml(d.author)}</span>` : ''}
+        ${d.author ? `<span class="tag-cat">${escapeHtml(stripEmoji(d.author))}</span>` : ''}
         <span class="deal-age">${timeAgo(d.timestamp)}</span>
       </div>
       <h2 style="font-size:1.25rem; margin-top:10px; color:var(--ink);">${escapeHtml(d.title||'')}</h2>
@@ -2081,7 +2096,7 @@
   });
 
   window.handleSubmit = async function() {
-    const author = document.getElementById('f-author').value.trim();
+    const author = window.stripEmoji(document.getElementById('f-author').value);
     const title = document.getElementById('f-title').value.trim();
     const store = document.getElementById('f-store').value.trim();
     const deal  = parseFloat(document.getElementById('f-deal').value);
