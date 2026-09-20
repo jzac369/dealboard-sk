@@ -56,9 +56,13 @@ CATEGORY_MAP: dict[str, str] = {
     "naradie": "Dom & Záhrada",
     "zahradna-technika": "Dom & Záhrada",
     "stavebne-materialy": "Dom & Záhrada",
-    # elektro
-    "ostatna-elektronika": "Elektronika",
-    "chladnicky-mraznicky": "Elektronika",
+    # POZNÁMKA K ELEKTRONIKE
+    # Kategórie mobily, pc-tablety, tv-video, foto, audio, cd-dvd,
+    # ostatna-elektronika ani chladnicky-mraznicky tu zámerne NIE SÚ.
+    # Všetky sú prázdne a vracajú odporúčaný blok z inej kategórie -
+    # do "Elektroniky" by sa tak dostal vysávač alebo nástenné hodiny.
+    # Zdroj je postavený na letákoch potravinových a nábytkárskych
+    # reťazcov; spotrebná elektronika v nich jednoducho nie je.
     # ostatné
     "knihy-papiernictvo": "Iné",
     "hracky": "Hračky",
@@ -68,8 +72,26 @@ CATEGORY_MAP: dict[str, str] = {
     "oblecenie-damske": "Móda",
     "oblecenie-detske": "Móda",
     "domaci-maznacikovia": "Iné",
+    # drogéria a domácnosť
+    "cistiace-prostriedky": "Iné",
+    "pracie-prostriedky": "Iné",
+    "umyvanie-riadu": "Iné",
+    "toaletny-papier-vreckovky": "Iné",
+    "ostatna-drogeria": "Iné",
+    "toaletne-vody-a-parfumy": "Iné",
+    "detska-vyziva": "Iné",
+    "sezona": "Iné",
+    "okna-dvere": "Dom & Záhrada",
+    "kempovanie": "Šport",
     # potraviny
     "maso": "Jedlo & Nápoje",
+    "pecivo": "Jedlo & Nápoje",
+    "mrazeny-tovar": "Jedlo & Nápoje",
+    "udeniny-lahodky": "Jedlo & Nápoje",
+    "teple-napoje": "Jedlo & Nápoje",
+    "dochucovadla": "Jedlo & Nápoje",
+    "ostatne-potraviny": "Jedlo & Nápoje",
+    "ostatne-chladene": "Jedlo & Nápoje",
     "mliecne-vyrobky": "Jedlo & Nápoje",
     "ovocie": "Jedlo & Nápoje",
     "zelenina": "Jedlo & Nápoje",
@@ -133,8 +155,8 @@ class ZlacneneScraper(BaseScraper):
         Prejde jednotlivé kategórie. Vďaka tomu kategóriu poznáme (nehádame)
         a na stránku sa dostane aj nepotravinový tovar.
         """
-        candidates: list[DealCandidate] = []
         slugs = config.ZLACNENE_CATEGORIES or list(CATEGORY_MAP)
+        per_category: dict[str, list[DealCandidate]] = {}
 
         for slug in slugs:
             site_category = CATEGORY_MAP.get(slug)
@@ -148,7 +170,43 @@ class ZlacneneScraper(BaseScraper):
 
             found = self.parse_listing(html, category_hint=site_category)
             logger.info("%s: kategória %s -> %d kandidátov", self.source_name, slug, len(found))
-            candidates.extend(found)
+            per_category[slug] = found
+
+        return self._drop_fallback_blocks(per_category)
+
+    @staticmethod
+    def _drop_fallback_blocks(
+        per_category: dict[str, list[DealCandidate]]
+    ) -> list[DealCandidate]:
+        """
+        Zahodí kategórie, ktoré v skutočnosti nič neobsahujú.
+
+        Prázdna kategória na zlacnene.sk nevráti prázdny zoznam, ale
+        odporúčaný blok s tovarom odinakiaľ — a ten je pre všetky prázdne
+        kategórie rovnaký. Bez tejto kontroly by sa do "Elektroniky"
+        dostal vysávač len preto, že kategória `foto` je prázdna.
+
+        Rozoznáme to podľa toho, že dve rôzne kategórie vrátili presne
+        ten istý zoznam položiek. Dva naozaj rôzne úseky letáku sa takto
+        zhodovať nemôžu.
+        """
+        signatures: dict[tuple, list[str]] = {}
+        for slug, items in per_category.items():
+            if not items:
+                continue
+            signature = tuple(sorted((c.title, c.deal_price) for c in items))
+            signatures.setdefault(signature, []).append(slug)
+
+        candidates: list[DealCandidate] = []
+        for signature, slugs_with_it in signatures.items():
+            if len(slugs_with_it) > 1:
+                logger.warning(
+                    "Kategórie %s vrátili identický obsah — sú prázdne a "
+                    "zobrazujú odporúčaný blok. Vynechávam ich.",
+                    ", ".join(sorted(slugs_with_it)),
+                )
+                continue
+            candidates.extend(per_category[slugs_with_it[0]])
 
         return candidates
 

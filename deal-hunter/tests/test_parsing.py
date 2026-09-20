@@ -719,3 +719,57 @@ def test_fake_deals_are_dropped_not_published():
     assert 'Nafuknuty' not in titles
     # Poctivemu dealu sa historia doplni.
     assert docs[0]['priceHistory'][-1]['price'] == 20.0
+
+
+# ── prazdne kategorie ─────────────────────────────────────────────────
+
+def _cand(title, price):
+    from models import DealCandidate
+    return DealCandidate(title=title, deal_price=price, url='u', source='s',
+                         store='x', explicit_discount_percent=30)
+
+
+def test_identical_categories_are_dropped_as_empty():
+    """
+    Prazdna kategoria na zlacnene.sk nevrati prazdny zoznam, ale
+    odporucany blok s tovarom odinakial - a ten je pre vsetky prazdne
+    kategorie rovnaky. Bez tejto kontroly by sa do 'Elektroniky' dostal
+    vysavac len preto, ze kategoria 'foto' je prazdna.
+    """
+    from scrapers.zlacnene import ZlacneneScraper
+
+    fallback = [_cand('Vysávač', 157.61), _cand('Nástenné hodiny', 7.49)]
+    data = {
+        'naradie': [_cand('Kompresor', 89.99)],
+        'foto': list(fallback),
+        'audio': list(fallback),
+        'hracky': [_cand('Lego', 19.9)],
+    }
+    out = ZlacneneScraper._drop_fallback_blocks(data)
+    titles = sorted(c.title for c in out)
+    assert titles == ['Kompresor', 'Lego']
+
+
+def test_unique_categories_are_all_kept():
+    from scrapers.zlacnene import ZlacneneScraper
+    data = {'a': [_cand('X', 1.0)], 'b': [_cand('Y', 2.0)]}
+    assert len(ZlacneneScraper._drop_fallback_blocks(data)) == 2
+
+
+def test_empty_category_lists_are_harmless():
+    from scrapers.zlacnene import ZlacneneScraper
+    data = {'a': [], 'b': [], 'c': [_cand('X', 1.0)]}
+    assert len(ZlacneneScraper._drop_fallback_blocks(data)) == 1
+
+
+def test_no_electronics_categories_are_mapped():
+    """
+    Zdroj je postaveny na letakoch potravinovych a nabytkarskych
+    retazcov. Elektronicke kategorie su prazdne, takze ziadna nesmie
+    byt namapovana - inak by nam do Elektroniky tiekol fallback blok.
+    """
+    from scrapers.zlacnene import CATEGORY_MAP
+    assert 'Elektronika' not in CATEGORY_MAP.values()
+    for slug in ('foto', 'audio', 'cd-dvd', 'mobily', 'tv-video',
+                 'pc-tablety', 'ostatna-elektronika', 'lieky'):
+        assert slug not in CATEGORY_MAP, f"{slug} je prazdna kategoria"
