@@ -7,7 +7,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, orderBy, setDoc, getDoc }
+  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, orderBy, limit, setDoc, getDoc, addDoc, getDocs, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -48,6 +48,9 @@
       startListeningCoupons();
       startListeningSettings();
       startListeningVisits();
+      loadMerchants();
+      loadAuditLog();
+      loadClicks();
     } else {
       console.log('Auth debug: no admin user. user =', user, 'isAnonymous =', user && user.isAnonymous);
       loginView.style.display = 'flex';
@@ -273,28 +276,45 @@
 
   window.doLogout = function() { signOut(auth); };
 
-  window.approveDeal = async function(id) {
-    await updateDoc(doc(db, "deals", id), { status: 'approved' });
-  };
+  // ── Záznam zmien ──────────────────────────────────────────────────
+  // Zapisuje, kto a kedy zmenil stav dealu. Doteraz sa nedalo dohľadať
+  // nič - ak deal zmizol zo stránky, nebolo ako zistiť prečo.
+  //
+  // Zlyhanie zápisu do denníka NESMIE zhodiť samotnú zmenu stavu: keď
+  // ešte nie sú nasadené Firestore pravidlá pre kolekciu audit_log,
+  // admin panel musí fungovať ďalej.
+  async function logChange(dealId, action, detail) {
+    try {
+      await addDoc(collection(db, "audit_log"), {
+        dealId,
+        action,
+        detail: detail || null,
+        by: auth.currentUser?.email || 'neznámy',
+        timestamp: serverTimestamp()
+      });
+    } catch (e) {
+      console.warn('Záznam zmeny sa nepodarilo uložiť (chýbajú pravidlá pre audit_log?):', e);
+    }
+  }
 
-  window.rejectDeal = async function(id) {
-    await updateDoc(doc(db, "deals", id), { status: 'rejected' });
-  };
+  async function setDealStatus(id, status, title) {
+    await updateDoc(doc(db, "deals", id), { status });
+    await logChange(id, status, title || null);
+  }
 
-  window.archiveDeal = async function(id) {
-    await updateDoc(doc(db, "deals", id), { status: 'archived' });
-  };
-
-  window.restoreDeal = async function(id) {
-    await updateDoc(doc(db, "deals", id), { status: 'pending' });
-  };
+  window.approveDeal = async function(id) { await setDealStatus(id, 'approved'); };
+  window.rejectDeal  = async function(id) { await setDealStatus(id, 'rejected'); };
+  window.archiveDeal = async function(id) { await setDealStatus(id, 'archived'); };
+  window.restoreDeal = async function(id) { await setDealStatus(id, 'pending');  };
 
   window.toggleExpiredDeal = async function(id, expired) {
     await updateDoc(doc(db, "deals", id), { expired });
+    await logChange(id, expired ? 'expired' : 'unexpired');
   };
 
   window.deleteDeal = async function(id) {
     if (!confirm('Naozaj natrvalo vymazať tento deal? Toto sa nedá vrátiť späť (skús Archivovať, ak chceš zachovať možnosť obnovy).')) return;
+    await logChange(id, 'deleted');   // najprv záznam, potom mazanie
     await deleteDoc(doc(db, "deals", id));
   };
 
@@ -617,7 +637,7 @@
         ${thumb}
         <div class="row-info">
           <div class="row-title"><strong>${escapeHtml(d.title||'')}</strong> ${statusBadge} ${expiredBadge}</div>
-          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · ${(d.dealPrice||0).toFixed(2)} € · 👤 ${escapeHtml(d.author||'neznámy')}</div>
+          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · 🖱 ${(window.dealClicks||{})[d.id] || 0} preklikov · ${(d.dealPrice||0).toFixed(2)} € · 👤 ${escapeHtml(d.author||'neznámy')}</div>
         </div>
         <div class="row-actions">
           ${d.status === 'pending' ? `
@@ -669,6 +689,120 @@
     const el = document.getElementById(`edit-${id}`);
     el.style.display = el.style.display === 'block' ? 'none' : 'block';
   };
+
+
+  // ── Predajcovia ─────────────────────────────────────────────────────
+  // Zoznam zabudovaný v agentovi je len východiskový. Tu sa dá prepísať
+  // bez zásahu do kódu a bez nasadenia.
+  window.saveMerchant = async function() {
+    const name = document.getElementById('m-name').value.trim();
+    const searchUrl = document.getElementById('m-search').value.trim();
+    const pageUrl = document.getElementById('m-page').value.trim();
+
+    if (!name) { alert('Zadaj názov obchodu.'); return; }
+    if (!searchUrl && !pageUrl) { alert('Vyplň aspoň jednu z adries.'); return; }
+    if (searchUrl && !searchUrl.includes('{q}')) {
+      alert('URL vyhľadávania musí obsahovať {q} — tam sa doplní názov produktu.');
+      return;
+    }
+    for (const u of [searchUrl, pageUrl].filter(Boolean)) {
+      if (!/^https?:\/\//i.test(u)) { alert('Adresa musí začínať http:// alebo https://'); return; }
+    }
+
+    // Kľúčom je názov bez diakritiky a medzier - rovnako ako ho normalizuje agent.
+    const key = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+    try {
+      await setDoc(doc(db, "merchants", key), {
+        name, searchUrl: searchUrl || null, pageUrl: pageUrl || null,
+        updatedAt: serverTimestamp()
+      });
+      ['m-name','m-search','m-page'].forEach(id => document.getElementById(id).value = '');
+      loadMerchants();
+    } catch (e) {
+      alert('Nepodarilo sa uložiť. Chýbajú Firestore pravidlá pre kolekciu merchants? ' + e.message);
+    }
+  };
+
+  window.deleteMerchant = async function(key) {
+    if (!confirm('Odstrániť tohto predajcu? Agent sa vráti k zabudovanému zoznamu.')) return;
+    try { await deleteDoc(doc(db, "merchants", key)); loadMerchants(); }
+    catch (e) { alert('Nepodarilo sa odstrániť: ' + e.message); }
+  };
+
+  // ── Prekliky ────────────────────────────────────────────────────────
+  // Koľkokrát návštevníci klikli na "Zobraziť deal". Návštevnosť stránky
+  // o kvalite konkrétneho dealu nepovie nič - toto áno.
+  window.dealClicks = {};
+
+  async function loadClicks() {
+    try {
+      const snap = await getDocs(collection(db, "deal_clicks"));
+      const counts = {};
+      snap.forEach(d => { counts[d.id] = (d.data() || {}).count || 0; });
+      window.dealClicks = counts;
+      render();   // prekreslí zoznam dealov aj s načítanými preklikmi
+    } catch (e) {
+      console.warn('Prekliky sa nepodarilo načítať (chýbajú pravidlá pre deal_clicks?):', e);
+    }
+  }
+
+  async function loadMerchants() {
+    const el = document.getElementById('merchants-list');
+    if (!el) return;
+    try {
+      const snap = await getDocs(collection(db, "merchants"));
+      if (snap.empty) {
+        el.innerHTML = '<div class="empty" style="font-size:.85rem;">Zatiaľ žiadny vlastný predajca — agent používa zabudovaný zoznam.</div>';
+        return;
+      }
+      el.innerHTML = snap.docs.map(d => {
+        const m = d.data();
+        const target = m.searchUrl || m.pageUrl || '';
+        return `<div class="row">
+          <div class="row-main">
+            <div class="row-title"><strong>${escapeHtml(m.name||d.id)}</strong></div>
+            <div class="row-sub">${escapeHtml(target)}</div>
+          </div>
+          <div class="row-actions">
+            <button class="btn btn-delete" onclick="deleteMerchant('${escapeAttr(d.id)}')">🗑 Odstrániť</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      el.innerHTML = '<div class="empty" style="font-size:.85rem;">Zoznam sa nepodarilo načítať — pravdepodobne chýbajú Firestore pravidlá pre kolekciu <code>merchants</code>.</div>';
+    }
+  }
+
+  // ── Záznam zmien ────────────────────────────────────────────────────
+  async function loadAuditLog() {
+    const el = document.getElementById('audit-list');
+    if (!el) return;
+    const NAZVY = { approved:'schválil', rejected:'zamietol', archived:'archivoval',
+                    pending:'vrátil na schválenie', expired:'označil exspirované',
+                    unexpired:'zrušil exspiráciu', deleted:'vymazal' };
+    try {
+      const qy = query(collection(db, "audit_log"), orderBy("timestamp", "desc"), limit(50));
+      const snap = await getDocs(qy);
+      if (snap.empty) {
+        el.innerHTML = '<div class="empty" style="font-size:.85rem;">Zatiaľ žiadne zaznamenané zmeny.</div>';
+        return;
+      }
+      el.innerHTML = snap.docs.map(d => {
+        const a = d.data();
+        const when = a.timestamp?.seconds
+          ? new Date(a.timestamp.seconds * 1000).toLocaleString('sk-SK')
+          : '';
+        return `<div class="row">
+          <div class="row-main">
+            <div class="row-title">${escapeHtml(a.by||'neznámy')} <strong>${escapeHtml(NAZVY[a.action] || a.action || '')}</strong> deal</div>
+            <div class="row-sub">${escapeHtml(when)} · ${escapeHtml(a.dealId||'')}</div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      el.innerHTML = '<div class="empty" style="font-size:.85rem;">Záznam sa nepodarilo načítať — pravdepodobne chýbajú Firestore pravidlá pre kolekciu <code>audit_log</code>.</div>';
+    }
+  }
 
   function escapeHtml(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -927,6 +1061,34 @@
     </section>
 
     <!-- ── Sekcia: Návštevnosť ────────────────────────────────────────── -->
+
+    <!-- ── Predajcovia ─────────────────────────────────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">🏬 Predajcovia a ich odkazy</h2>
+      <p style="font-size:.85rem; color:var(--muted); margin:0 0 12px;">
+        Kam má viesť odkaz pri deale z daného obchodu. Záznam odtiaľto má prednosť
+        pred zoznamom zabudovaným v agentovi. Ak vyplníš <strong>URL vyhľadávania</strong>,
+        použije sa tá a <code>{q}</code> sa nahradí názvom produktu. Inak sa použije
+        <strong>URL stránky</strong>.
+      </p>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+        <input id="m-name" placeholder="Obchod (napr. BILLA)" style="flex:1; min-width:150px;">
+        <input id="m-search" placeholder="URL vyhľadávania s {q}" style="flex:2; min-width:220px;">
+        <input id="m-page" placeholder="alebo URL stránky" style="flex:2; min-width:200px;">
+        <button class="btn btn-approve" onclick="saveMerchant()">Uložiť</button>
+      </div>
+      <div id="merchants-list"></div>
+    </section>
+
+    <!-- ── Záznam zmien ────────────────────────────────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">🕘 Záznam zmien</h2>
+      <p style="font-size:.85rem; color:var(--muted); margin:0 0 12px;">
+        Posledných 50 zmien stavu dealov — kto a kedy.
+      </p>
+      <div id="audit-list"></div>
+    </section>
+
     <section class="admin-section">
       <h2 class="section-title">📊 Návštevnosť</h2>
       <div class="visits-stats-row">

@@ -214,6 +214,11 @@ def main() -> int:
 
     db = firestore_client.get_client()
 
+    # Predajcovia spravovaní z admin panelu majú prednosť pred tabuľkou
+    # v kóde. Načítame ich skôr, než začneme skladať odkazy.
+    import merchant_links
+    merchant_links.load_overrides(db)
+
     if config.FIX_URLS:
         firestore_client.fix_merchant_urls(db)
 

@@ -261,7 +261,7 @@
   // Porovnávanie bez ohľadu na diakritiku: "uterak" musí nájsť "Uterák".
   // NFD rozloží písmeno na základ + dĺžeň/mäkčeň, ten potom zahodíme.
   window.normalizeText = function(text) {
-    return (text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return (text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   };
 
   window.performDealsSearch = async function() {
@@ -444,6 +444,26 @@
   function todayStr() {
     return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" v UTC
   }
+
+  // Započíta preklik na predajcu. Meriame, ktoré dealy ľudí naozaj
+  // zaujmú - samotná návštevnosť stránky o tom nepovie nič.
+  //
+  // Musí byť v tomto bloku: druhý <script> je klasický a nevidí importy
+  // z modulu, takže by k databáze nemal ako pristúpiť. Na window ho
+  // vystavujeme preto, aby ho vedeli zavolať onclick atribúty kariet.
+  //
+  // Beží bez await a chyby ticho prehltne. Keď zlyhá, návštevník musí
+  // skončiť u predajcu tak či tak - meranie nikdy nesmie stáť v ceste
+  // tomu, kvôli čomu sem prišiel.
+  window.trackClick = function(dealId) {
+    if (!dealId || dealId.startsWith('demo-')) return;
+    try {
+      setDoc(doc(db, "deal_clicks", dealId),
+             { count: increment(1), lastClick: serverTimestamp() },
+             { merge: true })
+        .catch(() => { /* chýbajúce pravidlá alebo offline - nevadí */ });
+    } catch (e) { /* ticho */ }
+  };
 
   window.vote = async (id, delta) => {
     if (id.startsWith("demo-")) return;
@@ -1601,16 +1621,16 @@
         </div>
         <div class="deal-main">
           <div class="deal-meta"><span class="tag-store">${d.store||''}</span> · ${d.category||''}${d.author ? ' · 👤 ' + escapeHtml(d.author) : ''}</div>
-          <a class="deal-title" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(d.title||'')}</a>
+          <a class="deal-title" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
           <div class="deal-price-row">
             <span class="price-now">${(d.dealPrice||0).toFixed(2)} ${d.currency||'€'}</span>
             ${orig}
             ${badge}
             ${d.expired ? '<span class="expired-badge">EXSPIROVANÉ</span>' : ''}
           </div>
-          <a class="btn-go btn-go-mobile" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
+          <a class="btn-go btn-go-mobile" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">Zobraziť deal →</a>
         </div>
-        <a class="btn-go btn-go-desktop" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Zobraziť deal →</a>
+        <a class="btn-go btn-go-desktop" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">Zobraziť deal →</a>
       </div>
       <div class="deal-footer" onclick="event.stopPropagation()">
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
@@ -1840,7 +1860,7 @@
   // Rovnaké pravidlo ako slugify() v generate_deal_pages.py - obe musia
   // vyrobiť tú istú adresu, inak by zdieľaný odkaz viedol na 404.
   function slugify(text) {
-    const base = (text || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const base = (text || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     return base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/^-+|-+$/g, '') || 'deal';
   }
 
@@ -1993,7 +2013,7 @@
         <button class="vote-btn up" onclick="vote('${d.id}', 1)" title="Dobrý deal">▲</button>
       </div>
       <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
-        <a class="btn-go" href="${safeUrl(d.url)}" target="_blank" rel="noopener">Zobraziť deal →</a>
+        <a class="btn-go" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="trackClick('${d.id}')">Zobraziť deal →</a>
         <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;"
            style="display:flex; align-items:center; gap:5px; color:var(--muted); text-decoration:none; font-size:.85rem; padding:9px 4px;">📤 Zdieľať</a>
       </div>

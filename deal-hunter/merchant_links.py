@@ -85,13 +85,13 @@ def build_merchant_url(store: str, title: str, fallback: str) -> str:
     nepoznáme. Hádať doménu podľa mena nechceme — trafili by sme cudziu
     firmu a poslali návštevníka inam, než si myslí.
     """
-    search_template = _match(store, VYHLADAVANIE)
+    search_template = _match(store, _overrides_search) or _match(store, VYHLADAVANIE)
     if search_template:
         # safe="" zakóduje aj lomky. Bez toho by názov typu
         # "TC-AC 190/24/8" rozbil cestu v URL (napr. u OBI).
         return search_template.format(q=quote(_clean_title(title), safe=""))
 
-    merchant_page = _match(store, STRANKA_PREDAJCU)
+    merchant_page = _match(store, _overrides_page) or _match(store, STRANKA_PREDAJCU)
     if merchant_page:
         return merchant_page
 
@@ -120,3 +120,43 @@ def _clean_title(title: str) -> str:
     # server neprijme a vráti 404.
     cleaned = cleaned.replace("/", " ")
     return " ".join(cleaned.split())[:60].strip(" ,-")
+
+
+# ── predajcovia spravovaní z admin panelu ─────────────────────────────
+# Tabuľky vyššie sú východiskové a sú v kóde. Cez admin panel sa dajú
+# dopĺňať a prepisovať bez toho, aby som musel meniť kód a nasadzovať.
+
+_overrides_search: dict[str, str] = {}
+_overrides_page: dict[str, str] = {}
+
+
+def load_overrides(db) -> int:
+    """
+    Načíta predajcov z kolekcie `merchants`. Záznam z admin panelu má
+    prednosť pred tabuľkou v kóde — inak by sa tvoja úprava po každom
+    nasadení stratila.
+
+    Keď kolekcia neexistuje alebo sa nedá prečítať, ticho pokračujeme
+    s tabuľkami v kóde. Chýbajúci prepis nie je dôvod zhodiť beh.
+    """
+    _overrides_search.clear()
+    _overrides_page.clear()
+
+    try:
+        for doc in db.collection("merchants").stream():
+            data = doc.to_dict() or {}
+            key = _normalise(data.get("name") or doc.id)
+            if not key:
+                continue
+            if data.get("searchUrl"):
+                _overrides_search[key] = data["searchUrl"]
+            elif data.get("pageUrl"):
+                _overrides_page[key] = data["pageUrl"]
+    except Exception as e:
+        logger.warning("Predajcovia z admin panelu sa nenačítali: %s", e)
+        return 0
+
+    count = len(_overrides_search) + len(_overrides_page)
+    if count:
+        logger.info("Načítaných %d predajcov z admin panelu", count)
+    return count
