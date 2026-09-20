@@ -24,6 +24,10 @@ on:
         description: "Jednorazovo: dať dealom bez hlasov štartovací žiar 5-25 stupňov"
         type: boolean
         default: false
+      feed_diagnostics:
+        description: "Len vypísať štruktúru feedov (nič sa nezapíše)"
+        type: boolean
+        default: false
       fix_urls:
         description: "Jednorazovo: prepísať staré odkazy zo zdroja na predajcu"
         type: boolean
@@ -97,6 +101,8 @@ jobs:
           # Affiliate feedy (Dognet) — nastav ako repository secret.
           # Bez neho beží len zlacnene.sk, čo je v poriadku.
           FEED_URLS: ${{ secrets.FEED_URLS }}
+          AFFILIATE_LINK_TEMPLATE: ${{ secrets.AFFILIATE_LINK_TEMPLATE }}
+          FEED_DIAGNOSTICS: ${{ inputs.feed_diagnostics }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 

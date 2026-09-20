@@ -21,6 +21,7 @@ from collections import defaultdict
 
 import config
 import price_history
+import price_watch
 from models import DealCandidate, guess_category
 from scrapers import AVAILABLE_SCRAPERS
 
@@ -159,6 +160,53 @@ def log_preview(deals: list[DealCandidate]) -> None:
         )
 
 
+def resolve_feed_prices(
+    candidates: list[DealCandidate], db
+) -> list[DealCandidate]:
+    """
+    Rozhodne o položkách z feedov, ktoré neuvádzajú pôvodnú cenu.
+
+    Zverejní sa len tá, ktorej cena spadla pod doteraz najnižšiu videnú.
+    Ako "pôvodnú cenu" ukážeme to minimum — je to tvrdenie doložené
+    vlastným meraním, na rozdiel od "bežnej ceny", ktorú si predajca
+    určuje sám.
+
+    Prvé dni feed nevydá nič, kým sa nenazbierajú dáta. To je zámer, nie
+    porucha.
+    """
+    watched = [c for c in candidates if c.direct_url and c.original_price is None]
+    if not watched:
+        return candidates
+
+    known = price_watch.load(db, [c.product_key for c in watched])
+
+    passed: list[DealCandidate] = []
+    updates: dict[str, dict] = {}
+    novych = 0
+
+    for candidate in watched:
+        publish, reference, record = price_watch.evaluate(
+            candidate.product_key, candidate.deal_price, known,
+            config.FEED_MIN_DROP_PERCENT,
+        )
+        updates[candidate.product_key] = record
+        if candidate.product_key not in known:
+            novych += 1
+        if publish and reference:
+            candidate.original_price = reference
+            passed.append(candidate)
+
+    price_watch.save(db, updates)
+    logger.info(
+        "Feedy: sledovaných %d položiek (%d nových), prepad ceny má %d",
+        len(watched), novych, len(passed),
+    )
+
+    # Ostatné kandidátov necháme tak - tie majú pôvodnú cenu od zdroja.
+    rest = [c for c in candidates if not (c.direct_url and c.original_price is None)]
+    return rest + passed
+
+
 def enrich_with_price_history(
     selected: list[DealCandidate], history: dict[str, list]
 ) -> list[dict]:
@@ -191,12 +239,49 @@ def enrich_with_price_history(
     return documents
 
 
+def run_feed_diagnostics() -> int:
+    """
+    Vypíše štruktúru nastavených feedov a skončí. Slúži na doladenie
+    parsera na konkrétnu sieť bez toho, aby sa čokoľvek zapisovalo.
+
+    Adresa feedu obsahuje partnerské ID, takže sa do logu nikdy nedostane
+    - hlásime len doménu a názvy parametrov, nikdy ich hodnoty.
+    """
+    import json
+    import http_client
+    from scrapers.feeds import describe_feed
+
+    if not config.FEED_URLS:
+        logger.error("FEED_URLS nie je nastavené - niet čo diagnostikovať.")
+        return 1
+
+    for index, url in enumerate(config.FEED_URLS, 1):
+        logger.info("=== Feed %d z %d ===", index, len(config.FEED_URLS))
+        xml_text = http_client.get(url, check_robots=False)
+        if not xml_text:
+            logger.error("Feed sa nepodarilo stiahnuť.")
+            continue
+        popis = describe_feed(xml_text)
+        logger.info("%s", json.dumps(popis, ensure_ascii=False, indent=2))
+
+    return 0
+
+
 def main() -> int:
     logger.info("=== Deal Hunter — začiatok behu ===")
     logger.info("Zapnuté zdroje: %s", ", ".join(config.ENABLED_SCRAPERS))
 
+    if config.FEED_DIAGNOSTICS:
+        return run_feed_diagnostics()
+
     raw = run_scrapers()
     logger.info("Spolu nájdených: %d", len(raw))
+
+    # Položky z feedov bez pôvodnej ceny musia najprv prejsť sledovaním,
+    # inak by ich is_sane zahodil pre nulovú zľavu.
+    if not config.DRY_RUN:
+        import firestore_client as _fc
+        raw = resolve_feed_prices(raw, _fc.get_client())
 
     sane = [c for c in raw if is_sane(c)]
     logger.info("Po filtrovaní (zľava >= %.0f %%): %d", config.MIN_DISCOUNT_PERCENT, len(sane))

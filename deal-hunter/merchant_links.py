@@ -160,3 +160,37 @@ def load_overrides(db) -> int:
     if count:
         logger.info("Načítaných %d predajcov z admin panelu", count)
     return count
+
+
+# ── affiliate tracking ────────────────────────────────────────────────
+
+# Parametre, podľa ktorých spoznáme, že odkaz už tracking nesie.
+_TRACKING_PARAMS = {"a_aid", "a_bid", "a_cid", "aff", "affid", "pid", "clickref", "utm_source"}
+
+
+def add_affiliate_tracking(url: str) -> str:
+    """
+    Obalí odkaz partnerskou šablónou, ak ju máme nastavenú a odkaz ešte
+    tracking neobsahuje.
+
+    Prečo to vôbec riešime: časť sietí dáva vo feede obyčajné adresy
+    e-shopu. Bez obalenia by dealy fungovali, ale nezarobili by nič — a
+    to je jediný dôvod, prečo sa affiliate feedy vôbec zapájajú.
+
+    Šablóna sa nastavuje cez premennú AFFILIATE_LINK_TEMPLATE a musí
+    obsahovať {url}. Do repozitára nepatrí, je v nej partnerské ID.
+    """
+    import config
+    from urllib.parse import parse_qs, quote, urlparse
+
+    if not url or not url.startswith("http"):
+        return url
+
+    template = getattr(config, "AFFILIATE_LINK_TEMPLATE", "")
+    if not template or "{url}" not in template:
+        return url
+
+    if _TRACKING_PARAMS & set(parse_qs(urlparse(url).query)):
+        return url   # už otagované sieťou, druhýkrát by to tracking rozbilo
+
+    return template.replace("{url}", quote(url, safe=""))

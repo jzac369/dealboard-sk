@@ -19,7 +19,7 @@ import re
 import unicodedata
 
 from descriptions import build_description
-from merchant_links import build_merchant_url
+from merchant_links import add_affiliate_tracking, build_merchant_url
 
 # Kategórie presne tak, ako ich ponúka formulár na henkukaj.sk (index.html).
 VALID_CATEGORIES = [
@@ -167,6 +167,10 @@ class DealCandidate:
     description: str = ""
     category_hint: Optional[str] = None
     valid_until: Optional[str] = None  # dátum platnosti, ak ho zdroj pozná
+    # True, keď zdroj dáva odkaz priamo na produkt (affiliate feedy).
+    # Taký odkaz sa nesmie prepísať na vyhľadávanie u predajcu — bol by
+    # to krok späť a pri affiliate odkaze by sa stratil aj tracking.
+    direct_url: bool = False
     currency: str = "€"
     found_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
@@ -208,6 +212,17 @@ class DealCandidate:
         """True, ak akcia skončila skôr, než sme ju stihli navrhnúť."""
         iso = self.valid_until_iso
         return bool(iso and iso < date.today().isoformat())
+
+    @property
+    def publishable_url(self) -> str:
+        """
+        Odkaz, ktorý sa zverejní. Pri priamom odkaze na produkt sa zachová
+        (len sa prípadne doplní affiliate tracking), inak sa zostaví
+        odkaz k predajcovi.
+        """
+        if self.direct_url:
+            return add_affiliate_tracking(self.url)
+        return build_merchant_url(self.store, self.title, self.url)
 
     @property
     def product_key(self) -> str:
@@ -263,7 +278,7 @@ class DealCandidate:
             "discountPercent": round(self.discount_percent),
             "currency": self.currency,
             # Odkaz mieri k predajcovi, nie na sprostredkovateľa.
-            "url": build_merchant_url(self.store, self.title, self.url),
+            "url": self.publishable_url,
             "imageUrl": self.image_url,
             "description": description[:1000],
             "votes": 0,

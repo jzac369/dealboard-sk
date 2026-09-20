@@ -106,22 +106,26 @@ class FeedsScraper(BaseScraper):
     def _parse_google_item(self, item: ET.Element) -> Optional[DealCandidate]:
         title = _first(item, f"{_G_NS}title", "title")
         url = _first(item, f"{_G_NS}link", "link")
-        # Bežná cena a akciová cena. Bez akciovej ceny nemáme zľavu,
-        # a bez zľavy to na deal stránku nepatrí.
+        # Bežná a akciová cena. Keď akciová chýba, položku nezahadzujeme -
+        # rozhodne o nej sledovanie cien (price_watch).
         regular = parse_price(_first(item, f"{_G_NS}price", "price"))
         sale = parse_price(_first(item, f"{_G_NS}sale_price", "sale_price"))
 
-        if not title or not url or regular is None or sale is None:
+        if not title or not url:
             return None
-        if sale >= regular:
+        # Bez akciovej ceny berieme bežnú a necháme rozhodnúť sledovanie cien.
+        price = sale if sale is not None else regular
+        if price is None:
             return None
+        original = regular if (sale is not None and regular and sale < regular) else None
 
         return DealCandidate(
             title=title,
-            deal_price=sale,
-            original_price=regular,
+            deal_price=price,
+            original_price=original,
             url=url,
             source=self.source_name,
+            direct_url=True,   # feed dáva odkaz rovno na produkt
             store=_first(item, f"{_G_NS}brand", "brand") or "",
             image_url=_first(item, f"{_G_NS}image_link", "image_link"),
             description=_first(item, f"{_G_NS}description", "description") or "",
@@ -135,12 +139,14 @@ class FeedsScraper(BaseScraper):
         if not title or not url or price is None:
             return None
 
-        # Heureka formát bežnú cenu štandardne neuvádza. Niektorí partneri
-        # ju posielajú ako vlastný tag — ak chýba, zľavu nevieme určiť
-        # a položku preskočíme, aby sa na stránku nedostala "zľava 0 %".
+        # Heureka formát bežnú cenu štandardne neuvádza. Ak ju partner
+        # posiela vo vlastnom tagu, použijeme ju. Ak nie, položku
+        # NEZAHADZUJEME - pošleme ju na sledovanie ceny (price_watch)
+        # a zverejní sa, keď cena reálne spadne. Zahadzovanie by pri
+        # feedoch znamenalo, že neprejde takmer nič.
         original = parse_price(_first(item, "PRICE_BEFORE_DISCOUNT", "STANDARD_PRICE", "LIST_PRICE"))
-        if original is None or original <= price:
-            return None
+        if original is not None and original <= price:
+            original = None
 
         return DealCandidate(
             title=title,
@@ -148,7 +154,63 @@ class FeedsScraper(BaseScraper):
             original_price=original,
             url=url,
             source=self.source_name,
+            direct_url=True,   # feed dáva odkaz rovno na produkt
             store=_first(item, "MANUFACTURER") or "",
             image_url=_first(item, "IMGURL"),
             description=_first(item, "DESCRIPTION") or "",
         )
+
+
+# ── diagnostika ───────────────────────────────────────────────────────
+
+def describe_feed(xml_text: str) -> dict:
+    """
+    Popíše štruktúru feedu BEZ toho, aby prezradila čokoľvek citlivé.
+
+    Slúži na doladenie parsera na konkrétnu sieť: adresa feedu obsahuje
+    partnerské ID, takže sa nikdy nesmie dostať do logu. Preto z odkazov
+    hlásime len doménu a NÁZVY parametrov, nikdy ich hodnoty.
+    """
+    import xml.etree.ElementTree as ET
+    from collections import Counter
+    from urllib.parse import urlparse, parse_qs
+
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as e:
+        return {"chyba": f"neplatné XML: {e}"}
+
+    shop_items = root.findall(".//SHOPITEM")
+    items = shop_items or root.findall(".//item")
+    fmt = "Heureka (SHOPITEM)" if shop_items else "Google/RSS (item)"
+
+    tags = Counter()
+    hosts = Counter()
+    params = Counter()
+    s_price = s_orig = 0
+
+    for item in items[:400]:
+        for child in item:
+            name = child.tag.split("}")[-1]
+            tags[name] += 1
+            if name in ("PRICE_VAT", "PRICE", "price", "sale_price"):
+                s_price += 1
+            if name in ("PRICE_BEFORE_DISCOUNT", "STANDARD_PRICE", "LIST_PRICE"):
+                s_orig += 1
+            if name in ("URL", "link", "LINK") and (child.text or "").startswith("http"):
+                parsed = urlparse(child.text.strip())
+                hosts[parsed.netloc] += 1
+                for key in parse_qs(parsed.query):
+                    params[key] += 1
+
+    tracking = {"a_aid", "a_bid", "a_cid", "utm_source", "utm_medium", "aff", "affid", "pid", "clickref"}
+    return {
+        "format": fmt,
+        "poloziek_celkom": len(items),
+        "najcastejsie_tagy": [t for t, _ in tags.most_common(14)],
+        "ma_aktualnu_cenu": s_price > 0,
+        "ma_povodnu_cenu": s_orig > 0,
+        "domeny_odkazov": [h for h, _ in hosts.most_common(4)],
+        "parametre_v_odkazoch": sorted(params),
+        "odkazy_vyzeraju_otagovane": bool(tracking & set(params)),
+    }

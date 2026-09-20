@@ -71,6 +71,20 @@ ZLACNENE_CATEGORIES = _env_list("ZLACNENE_CATEGORIES")
 # Affiliate produktové feedy (Dognet a pod.) — URL oddelené čiarkami.
 # Napr: FEED_URLS="https://partner1.sk/feed.xml,https://partner2.sk/heureka.xml"
 FEED_URLS = _env_list("FEED_URLS")
+# Šablóna partnerského odkazu, napr.
+#   AFFILIATE_LINK_TEMPLATE="https://go.dognet.sk/?a_aid=TVOJE_ID&desturl={url}"
+# Použije sa len na odkazy z feedov, ktoré tracking ešte nemajú.
+# Patrí do secrets - je v nej tvoje partnerské ID.
+AFFILIATE_LINK_TEMPLATE = os.environ.get("AFFILIATE_LINK_TEMPLATE", "")
+
+# O koľko % musí cena spadnúť pod doteraz najnižšiu videnú, aby sa
+# položka z feedu zverejnila. Feedy pôvodnú cenu neuvádzajú, takže
+# zľavu určujeme vlastným meraním, nie tvrdením predajcu.
+FEED_MIN_DROP_PERCENT = _env_float("FEED_MIN_DROP_PERCENT", 20)
+
+# Vypíše štruktúru feedov do logu (bez citlivých údajov) a skončí.
+FEED_DIAGNOSTICS = os.environ.get("FEED_DIAGNOSTICS", "false").lower() == "true"
+
 # Koľko položiek maximálne načítať z jedného feedu (feedy bývajú obrovské).
 FEED_MAX_ITEMS = _env_int("FEED_MAX_ITEMS", 5000)
 

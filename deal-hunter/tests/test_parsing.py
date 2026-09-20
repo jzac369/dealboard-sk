@@ -244,10 +244,12 @@ def test_google_feed_parsing():
     from scrapers.feeds import FeedsScraper
 
     candidates = FeedsScraper().parse_feed(GOOGLE_FEED)
-    # Položka bez akciovej ceny a položka s nezmyselnou cenou sa zahadzujú.
-    assert len(candidates) == 1
+    # Polozky bez akciovej ceny sa uz NEZAHADZUJU - feedy povodnu cenu
+    # spravidla neuvadzaju a zahadzovanie by znamenalo, ze neprejde nic.
+    # Rozhodne o nich az sledovanie cien (price_watch).
+    assert len(candidates) == 3
 
-    deal = candidates[0]
+    deal = next(c for c in candidates if c.title == 'Notebook Lenovo IdeaPad')
     assert deal.title == "Notebook Lenovo IdeaPad"
     assert deal.deal_price == 599.0
     assert deal.original_price == 899.0
@@ -260,10 +262,17 @@ def test_heureka_feed_parsing():
     from scrapers.feeds import FeedsScraper
 
     candidates = FeedsScraper().parse_feed(HEUREKA_FEED)
-    assert len(candidates) == 1
-    assert candidates[0].title == "Kavovar DeLonghi"
-    assert candidates[0].deal_price == 199.0
-    assert candidates[0].store == "DeLonghi"
+    assert len(candidates) == 2
+
+    kavovar = next(c for c in candidates if c.title == "Kavovar DeLonghi")
+    assert kavovar.deal_price == 199.0
+    assert kavovar.original_price == 349.0
+    assert kavovar.store == "DeLonghi"
+
+    # Polozka bez povodnej ceny prejde, ale zlavu zatial nema.
+    bez = next(c for c in candidates if c.title == "Bez povodnej ceny")
+    assert bez.original_price is None
+    assert bez.discount_percent == 0.0
 
 
 def test_broken_feed_returns_empty_not_crash():
@@ -773,3 +782,108 @@ def test_no_electronics_categories_are_mapped():
     for slug in ('foto', 'audio', 'cd-dvd', 'mobily', 'tv-video',
                  'pc-tablety', 'ostatna-elektronika', 'lieky'):
         assert slug not in CATEGORY_MAP, f"{slug} je prazdna kategoria"
+
+
+# ── affiliate feedy: sledovanie cien, tracking, diagnostika ───────────
+
+def test_feed_url_is_not_rewritten_to_a_search_page():
+    """
+    Feed dava odkaz priamo na produkt. Prepisat ho na vyhladavanie u
+    predajcu by bol krok spat a pri affiliate odkaze by sa stratil aj
+    tracking.
+    """
+    from models import DealCandidate
+    deal = DealCandidate(
+        title='Notebook Lenovo', deal_price=599.0, original_price=899.0,
+        url='https://partner.sk/p/1?a_aid=xyz', source='affiliate-feed',
+        store='Jysk',            # zamerne obchod, ktory JE v tabulke
+        direct_url=True,
+    )
+    assert deal.to_firestore_dict()['url'] == 'https://partner.sk/p/1?a_aid=xyz'
+
+
+def test_affiliate_template_wraps_untracked_links_only():
+    import config
+    from merchant_links import add_affiliate_tracking
+
+    original = config.AFFILIATE_LINK_TEMPLATE
+    config.AFFILIATE_LINK_TEMPLATE = 'https://go.dognet.sk/?a_aid=ID&desturl={url}'
+    try:
+        # Neotagovany odkaz sa obali.
+        out = add_affiliate_tracking('https://alza.sk/p/1')
+        assert out.startswith('https://go.dognet.sk/?a_aid=ID&desturl=')
+        assert 'alza.sk' in out
+
+        # Uz otagovany sa necha tak - druhe obalenie by tracking rozbilo.
+        tagged = 'https://alza.sk/p/1?a_aid=xyz'
+        assert add_affiliate_tracking(tagged) == tagged
+    finally:
+        config.AFFILIATE_LINK_TEMPLATE = original
+
+
+def test_no_template_means_no_change():
+    import config
+    from merchant_links import add_affiliate_tracking
+    original = config.AFFILIATE_LINK_TEMPLATE
+    config.AFFILIATE_LINK_TEMPLATE = ''
+    try:
+        assert add_affiliate_tracking('https://alza.sk/p/1') == 'https://alza.sk/p/1'
+    finally:
+        config.AFFILIATE_LINK_TEMPLATE = original
+
+
+def test_price_watch_needs_history_before_publishing():
+    import price_watch as pw
+    # Prvykrat videny produkt sa nezverejni - nie je s cim porovnavat.
+    publish, ref, record = pw.evaluate('k', 100.0, {}, 20)
+    assert publish is False and ref is None
+    assert record['min'] == 100.0
+
+
+def test_price_watch_publishes_on_real_drop():
+    import price_watch as pw
+    known = {'k': {'min': 100.0, 'last': 100.0, 'updated': '2026-09-01'}}
+    publish, ref, record = pw.evaluate('k', 70.0, known, 20)
+    assert publish is True
+    assert ref == 100.0          # ako povodnu cenu ukazeme nase minimum
+    assert record['min'] == 70.0
+
+
+def test_price_watch_ignores_small_drop():
+    import price_watch as pw
+    known = {'k': {'min': 100.0, 'last': 100.0, 'updated': '2026-09-01'}}
+    publish, ref, _ = pw.evaluate('k', 95.0, known, 20)
+    assert publish is False and ref is None
+
+
+def test_price_watch_ignores_increase():
+    import price_watch as pw
+    known = {'k': {'min': 50.0, 'last': 50.0, 'updated': '2026-09-01'}}
+    publish, _, record = pw.evaluate('k', 80.0, known, 20)
+    assert publish is False
+    assert record['min'] == 50.0     # minimum sa nesmie zvysit
+
+
+def test_products_spread_across_buckets():
+    import price_watch as pw
+    buckets = {pw.bucket_of(f'obchod|produkt{i}') for i in range(400)}
+    # Rozdelenie musi byt rovnomerne, inak by jedno vedierko prerastlo limit.
+    assert len(buckets) == pw.BUCKET_COUNT
+
+
+def test_diagnostics_never_leak_the_affiliate_id():
+    """
+    Adresa feedu aj odkazy v nom obsahuju partnerske ID. Diagnostika
+    hlasi len NAZVY parametrov, nikdy ich hodnoty.
+    """
+    from scrapers.feeds import describe_feed
+    xml = ('<SHOP><SHOPITEM><PRODUCTNAME>A</PRODUCTNAME>'
+           '<URL>https://alza.sk/p/1?a_aid=SUPERTAJNEID&amp;a_bid=9</URL>'
+           '<PRICE_VAT>10</PRICE_VAT></SHOPITEM></SHOP>')
+    popis = describe_feed(xml)
+
+    assert 'SUPERTAJNEID' not in str(popis)
+    assert popis['odkazy_vyzeraju_otagovane'] is True
+    assert 'a_aid' in popis['parametre_v_odkazoch']
+    assert popis['ma_povodnu_cenu'] is False
+    assert popis['format'].startswith('Heureka')
