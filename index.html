@@ -428,7 +428,7 @@
     const bar = document.createElement('button');
     bar.id = 'new-deals-bar';
     bar.type = 'button';
-    bar.textContent = '🆕 Pribudol nový deal — zobraziť';
+    bar.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Pribudol nový deal — zobraziť';
     bar.onclick = () => {
       bar.remove();
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1238,9 +1238,24 @@
 /* Záložka na karte dealu */
 .deal-footer .save-btn{ text-decoration:none; font-size:1.05rem; line-height:1; }
 .deal-footer .save-btn:hover{ transform:scale(1.15); display:inline-block; }
+
+/* Ikony - vlozena SVG sada (Tabler Icons, licencia MIT).
+   Zamerne bez externeho CDN: jedna poziadavka navyse pri nacitani
+   a hlavne dalsia tretia strana, ktora by videla IP navstevnikov. */
+.ic { width: 1.05em; height: 1.05em; flex: none; vertical-align: -0.16em;
+      fill: none; stroke: currentColor; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round; }
+
+/* Farba kategorie. Nie je to ozdoba - ta ista farba sa pouziva aj na
+   karte dealu, takze kategoriu spoznas skor, nez precitas text. */
+.cat-nav button .ic { color: var(--cat-color, currentColor); }
+.cat-nav button.active .ic { color: currentColor; }
+.tag-cat.has-cat { color: var(--cat-color); border-color: var(--cat-color); }
 </style>
 </head>
 <body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
+
 
 <!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
 <div id="promo-popup-overlay" class="promo-popup-overlay" style="display:none;">
@@ -1254,9 +1269,9 @@
   <div class="header-inner">
     <a href="." class="logo-link"><img src="images/logo.png" alt="HenKukaj.sk" class="logo-img"></a>
     <div class="main-section-nav">
-      <button class="main-section-btn active" onclick="setMainSection('deals', this)">🔥 Dealy</button>
-      <button class="main-section-btn" onclick="setMainSection('coupons', this)">🎟️ Zľavové kódy</button>
-      <button class="main-section-btn" onclick="setMainSection('leaflets', this)">📰 Letáky</button>
+      <button class="main-section-btn active" onclick="setMainSection('deals', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Dealy</button>
+      <button class="main-section-btn" onclick="setMainSection('coupons', this)"><svg class="ic" aria-hidden="true"><use href="#i-ticket"></use></svg> Zľavové kódy</button>
+      <button class="main-section-btn" onclick="setMainSection('leaflets', this)"><svg class="ic" aria-hidden="true"><use href="#i-news"></use></svg> Letáky</button>
     </div>
     <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
     <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
@@ -1267,15 +1282,15 @@
 <!-- Top category nav -->
 <div class="cat-nav-wrap" id="cat-nav-wrap">
   <div class="cat-nav" id="cat-list">
-    <button class="active" onclick="setCategory('Všetky')">🏷 Všetky</button>
-    <button onclick="setCategory('Elektronika')">📱 Elektronika</button>
-    <button onclick="setCategory('Dom & Záhrada')">🏠 Dom & Záhrada</button>
-    <button onclick="setCategory('Móda')">👗 Móda</button>
-    <button onclick="setCategory('Hračky')">🧸 Hračky</button>
-    <button onclick="setCategory('Šport')">⚽ Šport</button>
-    <button onclick="setCategory('Jedlo & Nápoje')">🍕 Jedlo & Nápoje</button>
-    <button onclick="setCategory('Cestovanie')">✈️ Cestovanie</button>
-    <button onclick="setCategory('Iné')">📦 Iné</button>
+    <button class="active" data-cat="Všetky" style="--cat-color:#E8590C" onclick="setCategory('Všetky')"><svg class="ic" aria-hidden="true"><use href="#i-apps"></use></svg> Všetky</button>
+    <button class="" data-cat="Elektronika" style="--cat-color:#1C7ED6" onclick="setCategory('Elektronika')"><svg class="ic" aria-hidden="true"><use href="#i-device-mobile"></use></svg> Elektronika</button>
+    <button class="" data-cat="Dom &amp; Záhrada" style="--cat-color:#2F9E44" onclick="setCategory('Dom & Záhrada')"><svg class="ic" aria-hidden="true"><use href="#i-home"></use></svg> Dom &amp; Záhrada</button>
+    <button class="" data-cat="Móda" style="--cat-color:#C2255C" onclick="setCategory('Móda')"><svg class="ic" aria-hidden="true"><use href="#i-shirt"></use></svg> Móda</button>
+    <button class="" data-cat="Hračky" style="--cat-color:#9C36B5" onclick="setCategory('Hračky')"><svg class="ic" aria-hidden="true"><use href="#i-puzzle"></use></svg> Hračky</button>
+    <button class="" data-cat="Šport" style="--cat-color:#0CA678" onclick="setCategory('Šport')"><svg class="ic" aria-hidden="true"><use href="#i-ball-football"></use></svg> Šport</button>
+    <button class="" data-cat="Jedlo &amp; Nápoje" style="--cat-color:#E03131" onclick="setCategory('Jedlo & Nápoje')"><svg class="ic" aria-hidden="true"><use href="#i-tools-kitchen-2"></use></svg> Jedlo &amp; Nápoje</button>
+    <button class="" data-cat="Cestovanie" style="--cat-color:#1098AD" onclick="setCategory('Cestovanie')"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Cestovanie</button>
+    <button class="" data-cat="Iné" style="--cat-color:#868E96" onclick="setCategory('Iné')"><svg class="ic" aria-hidden="true"><use href="#i-dots"></use></svg> Iné</button>
   </div>
 </div>
 
@@ -1285,10 +1300,10 @@
     <div class="tabs-bar">
       <div class="sort-bar">
         <button class="sort-btn active" onclick="setSort('new', this)">🆕 Najnovšie</button>
-        <button class="sort-btn" onclick="setSort('votes', this)">🔥 Najhorúcejšie</button>
-        <button class="sort-btn" onclick="setSort('discount', this)">💸 Najväčšia zľava</button>
-        <button class="sort-btn filter-btn" id="btn-valid-only" onclick="toggleValidOnly(this)" title="Skryť akcie, ktorým vypršala platnosť">✅ Len platné</button>
-        <button class="sort-btn filter-btn" id="btn-saved-only" onclick="toggleSavedOnly(this)" title="Zobraziť len dealy, ktoré si si uložil">🔖 Uložené</button>
+        <button class="sort-btn" onclick="setSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie</button>
+        <button class="sort-btn" onclick="setSort('discount', this)"><svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg> Najväčšia zľava</button>
+        <button class="sort-btn filter-btn" id="btn-valid-only" onclick="toggleValidOnly(this)" title="Skryť akcie, ktorým vypršala platnosť"><svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg> Len platné</button>
+        <button class="sort-btn filter-btn" id="btn-saved-only" onclick="toggleSavedOnly(this)" title="Zobraziť len dealy, ktoré si si uložil"><svg class="ic" aria-hidden="true"><use href="#i-bookmark"></use></svg> Uložené</button>
       </div>
       <div class="header-search" style="max-width:220px;">
         <input type="text" id="search-input" placeholder="Hľadaj deal…" oninput="filterDeals()">
@@ -1309,8 +1324,8 @@
   <main id="coupons-main" style="display:none;">
     <div class="tabs-bar">
       <div class="sort-bar">
-        <button class="sort-btn active" onclick="setCouponSort('new', this)">🆕 Najnovšie</button>
-        <button class="sort-btn" onclick="setCouponSort('votes', this)">🔥 Najpopulárnejšie</button>
+        <button class="sort-btn active" onclick="setCouponSort('new', this)"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> Najnovšie</button>
+        <button class="sort-btn" onclick="setCouponSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najpopulárnejšie</button>
       </div>
       <div class="header-search" style="max-width:220px;">
         <input type="text" id="coupon-search-input" placeholder="Hľadaj kód…" oninput="filterCoupons()">
@@ -1324,7 +1339,7 @@
   <!-- Main: Leaflets -->
   <main id="leaflets-main" style="display:none;">
     <div class="leaflet-intro">
-      <h2>📰 Aktuálne letáky</h2>
+      <h2><svg class="ic" aria-hidden="true"><use href="#i-news"></use></svg> Aktuálne letáky</h2>
       <p>Klikni na obchod a otvoríme jeho najnovší akciový leták v novej karte. Vždy aktuálne, priamo zo stránky obchodu.</p>
     </div>
     <div class="leaflet-grid" id="leaflet-grid"></div>
@@ -1334,7 +1349,7 @@
   <aside class="sidebar">
     <div class="sidebar-spacer" aria-hidden="true"></div>
     <div class="sidebar-box" id="hottest-sidebar-box">
-      <h3>🔥 Najhorúcejšie dealy</h3>
+      <h3><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie dealy</h3>
       <div id="hottest-sidebar-list"><p style="font-size:.82rem; color:var(--muted);">Načítavam…</p></div>
     </div>
     <div class="sidebar-box">
@@ -1435,7 +1450,7 @@
 <div class="modal-overlay" id="comments-modal">
   <div class="modal">
     <div class="modal-header">
-      <h2>💬 Komentáre</h2>
+      <h2><svg class="ic" aria-hidden="true"><use href="#i-message-circle"></use></svg> Komentáre</h2>
       <button class="modal-close" onclick="closeComments()">✕</button>
     </div>
     <div class="modal-body">
@@ -1537,7 +1552,8 @@
     else window.savedDeals.add(id);
     persistSaved();
     const on = window.savedDeals.has(id);
-    btn.textContent = on ? '🔖' : '📑';
+    btn.innerHTML = `<svg class="ic" aria-hidden="true"><use href="#i-bookmark"></use></svg>`;
+    btn.classList.toggle('saved', on);
     btn.title = on ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr';
     if (window.savedOnly) renderDealsList();
   };
@@ -1634,9 +1650,9 @@
       </div>
       <div class="deal-footer" onclick="event.stopPropagation()">
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
-        <a href="#" onclick="openComments('${d.id}'); return false;">💬 ${d.comments||0}</a>
-        <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">📤 <span class="footer-label">Zdieľať</span></a>
-        <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;">${window.savedDeals.has(d.id) ? '🔖' : '📑'}</a>
+        <a href="#" onclick="openComments('${d.id}'); return false;"><svg class="ic" aria-hidden="true"><use href="#i-message-circle"></use></svg> ${d.comments||0}</a>
+        <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;"><svg class="ic" aria-hidden="true"><use href="#i-share"></use></svg> <span class="footer-label">Zdieľať</span></a>
+        <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;"><svg class="ic" aria-hidden="true"><use href="#i-bookmark"></use></svg></a>
         <span class="deal-age">${timeAgo(d.timestamp)}</span>
       </div>
     </div>`;
@@ -1646,8 +1662,9 @@
   window.setCategory = function(cat) {
     window.activeCat = cat;
     document.querySelectorAll('#cat-list button').forEach(b => {
-      const label = b.textContent.trim().replace(/^\S+\s/, '');
-      b.classList.toggle('active', label === cat);
+      // Podla data-cat, nie podla textu. Text uz emoji nema, takze
+      // odstrihnutie prveho slova by z "Dom & Záhrada" spravilo "& Záhrada".
+      b.classList.toggle('active', b.dataset.cat === cat);
     });
     const searchVal = document.getElementById('search-input').value.trim();
     if (searchVal) window.performDealsSearch(); else window.loadDealsPage(true);
