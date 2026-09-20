@@ -354,7 +354,84 @@
       window.renderDealsList();
     }
     window.refreshHottestSidebar();
+    startLiveDealWatch();
   })();
+
+
+  // ── Živé sledovanie nových dealov (bez F5) ─────────────────────────────────
+  //
+  // Nesledujeme celý zoznam, len JEDEN najnovší schválený deal. Stačí to na
+  // zistenie, že pribudol nový, a Firestore účtuje za prečítané dokumenty —
+  // listener nad celým zoznamom by stál desiatky čítaní pri každej zmene.
+  //
+  // Keď si návštevník hore, zoznam obnovíme rovno. Keď je rozčítaný nižšie,
+  // len ukážeme lištu — vytrhnúť mu obsah spod kurzora by bolo horšie
+  // než to F5, ktorého sa chceme zbaviť.
+
+  let liveUnsub = null;
+  let liveNewestMs = null;
+
+  function toMillis(timestamp) {
+    if (!timestamp) return 0;
+    if (typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+    if (timestamp.seconds) return timestamp.seconds * 1000;
+    return 0;
+  }
+
+  function startLiveDealWatch() {
+    if (liveUnsub) return;
+
+    const qy = query(
+      collection(db, 'deals'),
+      where('status', '==', 'approved'),
+      orderBy('timestamp', 'desc'),
+      limit(1)
+    );
+
+    liveUnsub = onSnapshot(qy, (snap) => {
+      if (snap.empty) return;
+      const newestMs = toMillis(snap.docs[0].data().timestamp);
+
+      // Prvý snapshot je len súčasný stav, nie novinka.
+      if (liveNewestMs === null) { liveNewestMs = newestMs; return; }
+      if (newestMs <= liveNewestMs) return;
+
+      liveNewestMs = newestMs;
+      handleNewDeal();
+    }, (e) => {
+      // Bez živého sledovania stránka funguje ďalej, len treba F5.
+      console.warn('Živé sledovanie dealov sa nepodarilo spustiť:', e);
+    });
+  }
+
+  function handleNewDeal() {
+    // Počas vyhľadávania nechávame výsledky na pokoji.
+    if (window.dealsSearchMode) { showNewDealsBar(); return; }
+
+    if (window.scrollY < 200) {
+      window.loadDealsPage(true);
+      window.refreshHottestSidebar();
+    } else {
+      showNewDealsBar();
+    }
+  }
+
+  function showNewDealsBar() {
+    if (document.getElementById('new-deals-bar')) return;
+
+    const bar = document.createElement('button');
+    bar.id = 'new-deals-bar';
+    bar.type = 'button';
+    bar.textContent = '🆕 Pribudol nový deal — zobraziť';
+    bar.onclick = () => {
+      bar.remove();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.getElementById('search-input').value = '';
+      window.loadDealsPage(true);
+      window.refreshHottestSidebar();
+    };
+    document.body.appendChild(bar);
+  }
 
 
   // ── Voting – 1 hlas na anonymné UID na deal ─────────────────────────────────
@@ -1100,6 +1177,19 @@
 
   /* ── Loading ─────────────────────────────────────────────────────────── */
   .loading { text-align: center; padding: 40px; color: var(--muted); font-size: .9rem; }
+
+/* Lišta "pribudol nový deal" - ukáže sa len keď je návštevník rozčítaný nižšie */
+#new-deals-bar{
+  position:fixed; top:14px; left:50%; transform:translateX(-50%);
+  z-index:2000; border:0; cursor:pointer;
+  background:#e63946; color:#fff; font-weight:700; font-size:14px;
+  padding:11px 20px; border-radius:999px;
+  box-shadow:0 4px 16px rgba(0,0,0,.28);
+  animation:newDealsIn .25s ease-out;
+}
+#new-deals-bar:hover{ background:#c92c39; }
+@keyframes newDealsIn{ from{ opacity:0; transform:translateX(-50%) translateY(-12px);} to{ opacity:1; transform:translateX(-50%) translateY(0);} }
+@media (prefers-reduced-motion: reduce){ #new-deals-bar{ animation:none; } }
 </style>
 </head>
 <body>
