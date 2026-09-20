@@ -212,7 +212,7 @@ def main() -> int:
     )
     notify_telegram(written)
 
-    logger.info("=== Koniec. Zapísaných %d návrhov, čakajú na schválenie. ===", written)
+    logger.info("=== Koniec. Zapísaných %d návrhov, čakajú na schválenie. ===", len(written))
     return 0
 
 

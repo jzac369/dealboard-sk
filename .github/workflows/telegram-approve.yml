@@ -1,0 +1,51 @@
+name: Telegram schvaľovanie
+
+# Telegram tlačidlá bežne obsluhuje server s verejnou adresou (webhook).
+# Taký nemáme, tak sa Telegramu pravidelne pýtame, či sa niečo stalo.
+# Dôsledok: medzi stlačením tlačidla a zmenou na stránke ubehne až ~15 min.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+# Keby sa behy nahromadili, nech nebežia dva naraz nad tou istou frontou.
+concurrency:
+  group: telegram-approve
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    defaults:
+      run:
+        working-directory: deal-hunter
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: deal-hunter/requirements.txt
+
+      - name: Inštalácia závislostí
+        run: pip install -r requirements.txt
+
+      - name: Zápis Firebase kľúča
+        run: echo "$FIREBASE_SERVICE_ACCOUNT" > firebase-credentials.json
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Vyzdvihnutie rozhodnutí
+        run: python poll_telegram.py
+        env:
+          FIRESTORE_PROJECT_ID: dealboard-e60bf
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Zmazanie kľúča
+        if: always()
+        run: rm -f firebase-credentials.json

@@ -469,3 +469,122 @@ def test_deal_valid_until_today_is_not_expired_yet():
         valid_until=f"{today.day}.{today.month}.{today.year}",
     )
     assert deal.is_already_expired is False
+
+
+# ── Telegram schvaľovanie ─────────────────────────────────────────────
+
+def _callback(sender_id, chat_id, data="a:abc123"):
+    return {
+        "id": "cb1",
+        "data": data,
+        "from": {"id": sender_id},
+        "message": {"chat": {"id": chat_id}, "message_id": 5},
+    }
+
+
+def test_only_the_configured_chat_may_decide():
+    """
+    Bot je verejne dosiahnutelny - jeho meno vie ktokolvek uhadnut.
+    Bez tejto kontroly by cudzi clovek mohol schvalovat dealy na stranke.
+    """
+    import config
+    import telegram_bot
+
+    original = config.TELEGRAM_CHAT_ID
+    config.TELEGRAM_CHAT_ID = "123456"
+    try:
+        assert telegram_bot._is_authorised(_callback(123456, 123456)) is True
+        assert telegram_bot._is_authorised(_callback(999999, 999999)) is False
+        # Cudzi odosielatel v nasom chate ani nas odosielatel v cudzom
+        # chate nesmu prejst nepovsimnuti - staci jedna zhoda s nasim ID.
+        assert telegram_bot._is_authorised(_callback(999999, 123456)) is True
+        assert telegram_bot._is_authorised({"from": {}, "message": {}}) is False
+    finally:
+        config.TELEGRAM_CHAT_ID = original
+
+
+def test_html_escaping_in_captions():
+    import telegram_bot
+    assert telegram_bot._escape("Sedačka <b>&</b>") == "Sedačka &lt;b&gt;&amp;&lt;/b&gt;"
+
+
+def test_caption_contains_the_key_facts():
+    import telegram_bot
+
+    caption = telegram_bot._format_caption({
+        "title": "Uterák STIDSVIG",
+        "dealPrice": 6.0,
+        "originalPrice": 18.18,
+        "discountPercent": 67,
+        "store": "Jysk",
+        "category": "Dom & Záhrada",
+        "validUntil": "22.9.2026",
+        "description": "Popisok.",
+        "url": "https://x.sk/a",
+    })
+    for expected in ["Uterák STIDSVIG", "6.00", "18.18", "67", "Jysk", "22.9.2026"]:
+        assert expected in caption
+    # Kategoria obsahuje '&', ktore musi byt osetrene pre HTML rezim.
+    assert "Dom &amp; Záhrada" in caption
+
+
+# ── odkazy k predajcovi ───────────────────────────────────────────────
+
+def test_link_points_to_merchant_not_the_aggregator():
+    """
+    Odkazovat na zlacnene.sk znamena posielat navstevnikov na cudzi web.
+    Odkaz musi mierit k predajcovi.
+    """
+    from models import DealCandidate
+
+    deal = DealCandidate(
+        title="Uterák STIDSVIG", deal_price=6.0, explicit_discount_percent=67,
+        url="https://www.zlacnene.sk/akcia/uterak/", source="zlacnene.sk", store="Jysk",
+    )
+    doc = deal.to_firestore_dict()
+
+    assert "zlacnene.sk" not in doc["url"]
+    assert doc["url"].startswith("https://jysk.sk/search")
+    # Povodny odkaz zostava v dokumente na dohladanie, ale nezverejnuje sa.
+    assert doc["sourceUrl"] == "https://www.zlacnene.sk/akcia/uterak/"
+
+
+def test_grocery_chain_links_to_its_own_site():
+    # BILLA nema e-shop s produktovymi strankami - odkazujeme na jej akcie.
+    from merchant_links import build_merchant_url
+    url = build_merchant_url("BILLA", "Hrozno červené 500 g", "https://zlacnene.sk/x")
+    assert url == "https://www.billa.sk/akcie"
+
+
+def test_unknown_merchant_keeps_the_fallback():
+    # Hadat domenu podla mena by poslalo navstevnika k cudzej firme.
+    from merchant_links import build_merchant_url
+    fallback = "https://zlacnene.sk/x"
+    assert build_merchant_url("Uplne neznamy obchod", "Nieco", fallback) == fallback
+
+
+def test_partial_store_name_is_matched():
+    from merchant_links import build_merchant_url
+    url = build_merchant_url("SCONTO nábytok", "Nástenné hodiny", "x")
+    assert url.startswith("https://www.sconto.sk/hledani")
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("16: Vintage koberec Apollo", "Vintage koberec Apollo"),
+        ("Športová taška »Attacanto«", "Športová taška Attacanto"),
+        ("Hrozno červené bezkôstkové 500 g/1 bal.", "Hrozno červené bezkôstkové"),
+        ("EINHELL KOMPRESOR TC-AC 190/24/8 I OF", "EINHELL KOMPRESOR TC-AC 190 24 8 I OF"),
+    ],
+)
+def test_title_is_cleaned_for_search(raw, expected):
+    from merchant_links import _clean_title
+    assert _clean_title(raw) == expected
+
+
+def test_search_url_encodes_slashes():
+    # Nezakodovana lomka by rozbila cestu v URL a OBI vrati 404.
+    from merchant_links import build_merchant_url
+    url = build_merchant_url("OBI", "KOMPRESOR TC-AC 190/24/8", "x")
+    assert "/24/" not in url.replace("/search/", "")

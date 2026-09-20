@@ -97,18 +97,24 @@ def get_existing_keys(db: firestore.Client) -> tuple[set[str], set[str]]:
     return keys, urls
 
 
-def write_pending_deals(db: firestore.Client, deals: list[dict]) -> int:
+def write_pending_deals(
+    db: firestore.Client, deals: list[dict]
+) -> list[tuple[str, dict]]:
     """
     Zapíše návrhy do kolekcie deals so statusom pending a zároveň si ich
     kľúče poznačí do pamäte agenta. Oboje v jednej dávke, takže buď
     prejde všetko, alebo nič — pamäť sa nikdy nerozíde so skutočnosťou.
+
+    Vracia dvojice (id dokumentu, deal). ID treba na Telegram tlačidlá —
+    bez neho by sa nedalo povedať, o ktorom deale sa rozhoduje.
     """
     if not deals:
-        return 0
+        return []
 
     batch = db.batch()
     collection = db.collection(config.DEALS_COLLECTION)
 
+    written: list[tuple[str, dict]] = []
     new_keys: list[str] = []
     for deal in deals:
         document = dict(deal)
@@ -116,7 +122,10 @@ def write_pending_deals(db: firestore.Client, deals: list[dict]) -> int:
         document["timestamp"] = firestore.SERVER_TIMESTAMP
         document["author"] = config.AGENT_AUTHOR_NAME
         document["votes"] = _random_boost()
-        batch.set(collection.document(), document)
+
+        doc_ref = collection.document()
+        batch.set(doc_ref, document)
+        written.append((doc_ref.id, document))
         if document.get("dedupeKey"):
             new_keys.append(document["dedupeKey"])
 
@@ -124,7 +133,7 @@ def write_pending_deals(db: firestore.Client, deals: list[dict]) -> int:
 
     batch.commit()
     logger.info("Zapísaných %d návrhov do kolekcie '%s'", len(deals), config.DEALS_COLLECTION)
-    return len(deals)
+    return written
 
 
 def _remember_keys(db: firestore.Client, batch, new_keys: list[str]) -> None:
