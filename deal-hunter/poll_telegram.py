@@ -50,7 +50,17 @@ def main() -> int:
                     json.dumps(telegram_bot.diagnose(db), ensure_ascii=False, indent=2))
         return 0
 
-    run_seconds = int(os.environ.get("POLL_SECONDS", DEFAULT_RUN_SECONDS))
+    # POLL_SECONDS chodí z workflowu ako ${{ inputs.seconds }}. Pri
+    # spustení cronom nie je žiadny vstup a premenná príde PRÁZDNA, nie
+    # nenastavená - int("") by celý beh zhodil skôr, než čokoľvek spraví.
+    # Preto sa na chýbajúcu hodnotu nespoliehame a prázdnu aj nezmysel
+    # berieme ako "použi predvolené".
+    raw_seconds = (os.environ.get("POLL_SECONDS") or "").strip()
+    try:
+        run_seconds = int(raw_seconds) if raw_seconds else DEFAULT_RUN_SECONDS
+    except ValueError:
+        logger.warning("POLL_SECONDS nie je číslo, používam %d s.", DEFAULT_RUN_SECONDS)
+        run_seconds = DEFAULT_RUN_SECONDS
 
     if run_seconds <= 0:
         handled = telegram_bot.process_updates(db)
