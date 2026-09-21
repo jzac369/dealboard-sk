@@ -482,3 +482,42 @@ def boost_coupons(db: firestore.Client) -> int:
     else:
         logger.info("Žiadne kódy na boost (prezretých %d).", len(docs))
     return count
+
+
+FOOD_PRICES_DOC = "food_prices/current"
+
+
+def refresh_food_prices(db: firestore.Client) -> bool:
+    """
+    Raz denne obnoví prehľad cien základných potravín.
+
+    Ceny v porovnávači sa menia raz za deň, takže pri troch behoch denne
+    by sťahovanie pri každom bolo len zbytočné zaťaženie cudzieho servera.
+    """
+    import food_prices
+
+    today = date.today().isoformat()
+    ref = db.document(FOOD_PRICES_DOC)
+
+    try:
+        snapshot = ref.get()
+        if snapshot.exists and (snapshot.to_dict() or {}).get("fetchedAt") == today:
+            logger.info("Ceny potravín sú už dnešné, sťahovanie preskakujem.")
+            return False
+    except Exception as e:
+        logger.warning("Stav cien potravín sa nepodarilo prečítať: %s", e)
+
+    data = food_prices.build_snapshot()
+    if not data:
+        # Radšej necháme včerajšie ceny než prázdnu sekciu.
+        return False
+
+    try:
+        ref.set(data)
+    except Exception as e:
+        logger.error("Ceny potravín sa nepodarilo uložiť: %s", e)
+        return False
+
+    logger.info("Ceny potravín obnovené (%d položiek, zber %s).",
+                len(data["items"]), data["reportDate"])
+    return True

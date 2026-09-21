@@ -268,3 +268,38 @@ def _apply_decision(db, callback: dict) -> bool:
         }]]},
     })
     return True
+
+
+def diagnose(db) -> dict:
+    """
+    Zistí, prečo sa stlačenia tlačidiel nespracúvajú.
+
+    Vracia stav bez akýchkoľvek tajných údajov - token ani chat ID sa
+    do výstupu nedostanú.
+    """
+    info: dict = {"nastavene": is_configured()}
+    if not is_configured():
+        return info
+
+    me = _call("getMe", {})
+    info["bot"] = (me or {}).get("username", "?")
+
+    # Webhook a getUpdates sa navzájom vylučujú. Keď je nastavený
+    # webhook, getUpdates vracia chybu alebo ticho nič.
+    hook = _call("getWebhookInfo", {})
+    if hook is not None:
+        info["webhook_url"] = hook.get("url") or "(žiadny)"
+        info["cakajucich_podla_telegramu"] = hook.get("pending_update_count")
+
+    info["ulozeny_offset"] = _load_offset(db)
+
+    # Bez offsetu uvidíme všetko, čo Telegram ešte drží.
+    raw = _call("getUpdates", {"timeout": 0, "limit": 100})
+    if raw is None:
+        info["getUpdates"] = "zlyhalo"
+    else:
+        info["dostupnych_updatov"] = len(raw)
+        info["typy"] = sorted({k for u in raw for k in u if k != "update_id"})
+        ids = [u.get("update_id") for u in raw]
+        info["rozsah_id"] = [min(ids), max(ids)] if ids else None
+    return info

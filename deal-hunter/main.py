@@ -313,6 +313,9 @@ def main() -> int:
     # Najprv upraceme: čo už neplatí, dostane štítok EXSPIROVANÉ.
     firestore_client.expire_past_deals(db)
 
+    # Ceny základných potravín z národného porovnávača (raz denne).
+    firestore_client.refresh_food_prices(db)
+
     # Akcie stiahnuté skôr, než mali skončiť - dátum ich nezachytí.
     firestore_client.expire_dead_deals(db)
 

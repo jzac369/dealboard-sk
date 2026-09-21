@@ -1483,6 +1483,7 @@
     <div class="main-section-nav">
       <button class="main-section-btn active" onclick="setMainSection('deals', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Dealy</button>
       <button class="main-section-btn" onclick="setMainSection('coupons', this)"><svg class="ic" aria-hidden="true"><use href="#i-ticket"></use></svg> Zľavové kódy</button>
+      <button class="main-section-btn" onclick="setMainSection('food', this)"><svg class="ic" aria-hidden="true"><use href="#i-basket"></use></svg> Najlacnejšie potraviny</button>
       <button class="main-section-btn" onclick="setMainSection('leaflets', this)"><svg class="ic" aria-hidden="true"><use href="#i-news"></use></svg> Letáky</button>
     </div>
     <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
@@ -1549,6 +1550,15 @@
   </main>
 
   <!-- Main: Leaflets -->
+  <main id="food-main" style="display:none;">
+    <div class="leaflet-intro">
+      <h2><svg class="ic" aria-hidden="true"><use href="#i-basket"></use></svg> Najlacnejšie potraviny</h2>
+      <p>Dnešné ceny základných potravín podľa reťazcov. Dáta pochádzajú z národného porovnávača
+         <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">cenyslovensko.sk</a>.</p>
+    </div>
+    <div id="food-body"><div class="loading">Načítavam ceny…</div></div>
+  </main>
+
   <main id="leaflets-main" style="display:none;">
     <div class="leaflet-intro">
       <h2><svg class="ic" aria-hidden="true"><use href="#i-news"></use></svg> Aktuálne letáky</h2>
@@ -2011,10 +2021,12 @@
     document.getElementById('deals-main').style.display = section === 'deals' ? 'block' : 'none';
     document.getElementById('coupons-main').style.display = section === 'coupons' ? 'block' : 'none';
     document.getElementById('leaflets-main').style.display = section === 'leaflets' ? 'block' : 'none';
+    document.getElementById('food-main').style.display = section === 'food' ? 'block' : 'none';
+    if (section === 'food') loadFoodPrices();
     document.getElementById('cat-nav-wrap').style.display = section === 'deals' ? 'block' : 'none';
     document.getElementById('btn-add-deal').style.display = section === 'deals' ? 'inline-block' : 'none';
     document.getElementById('btn-add-coupon').style.display = section === 'coupons' ? 'inline-block' : 'none';
-    document.getElementById('btn-add-placeholder').style.display = section === 'leaflets' ? 'inline-block' : 'none';
+    document.getElementById('btn-add-placeholder').style.display = (section === 'leaflets' || section === 'food') ? 'inline-block' : 'none';
   };
 
   // ── Letáky ────────────────────────────────────────────────────────────────

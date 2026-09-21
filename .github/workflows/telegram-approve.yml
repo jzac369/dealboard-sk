@@ -6,7 +6,12 @@ name: Telegram schvaľovanie
 on:
   schedule:
     - cron: "*/15 * * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      diag:
+        description: "Len diagnostika - zistí, prečo sa stlačenia nespracúvajú"
+        type: boolean
+        default: false
 
 # Keby sa behy nahromadili, nech nebežia dva naraz nad tou istou frontou.
 concurrency:
@@ -50,6 +55,7 @@ jobs:
           FIRESTORE_PROJECT_ID: dealboard-e60bf
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_DIAG: ${{ inputs.diag }}
 
       - name: Zmazanie kľúča
         if: always()

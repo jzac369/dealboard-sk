@@ -8,6 +8,7 @@ Spustenie ručne:  python poll_telegram.py
 """
 
 import logging
+import os
 import sys
 
 logging.basicConfig(
@@ -27,6 +28,14 @@ def main() -> int:
     import firestore_client
 
     db = firestore_client.get_client()
+
+    if os.environ.get("TELEGRAM_DIAG", "").lower() == "true":
+        import json
+        logger.info("DIAGNOSTIKA:
+%s",
+                    json.dumps(telegram_bot.diagnose(db), ensure_ascii=False, indent=2))
+        return 0
+
     handled = telegram_bot.process_updates(db)
 
     if handled:
