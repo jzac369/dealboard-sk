@@ -17,14 +17,14 @@
 <meta property="og:title" content="HenKukaj.sk – Najlepšie zľavy zo SK/CZ e-shopov">
 <meta property="og:description" content="Komunitná stránka so zľavami z overených slovenských a českých e-shopov. Hlasuj za najlepšie dealy, sleduj aktuálne akciové letáky a ušetri na nákupoch.">
 <meta property="og:url" content="https://henkukaj.sk/">
-<meta property="og:image" content="https://henkukaj.sk/images/logo.png">
+<meta property="og:image" content="https://henkukaj.sk/images/og-logo.png">
 <meta property="og:locale" content="sk_SK">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="HenKukaj.sk – Najlepšie zľavy zo SK/CZ e-shopov">
 <meta name="twitter:description" content="Komunitná stránka so zľavami z overených slovenských a českých e-shopov. Hlasuj za najlepšie dealy a ušetri na nákupoch.">
-<meta name="twitter:image" content="https://henkukaj.sk/images/logo.png">
+<meta name="twitter:image" content="https://henkukaj.sk/images/og-logo.png">
 
 <!-- Firebase -->
 <script type="module">
@@ -1456,6 +1456,13 @@
 
 .how-list { display: flex; flex-direction: column; gap: 6px; }
 .how-list span { display: flex; align-items: center; gap: 7px; }
+
+/* Okienko s kódom má pevnú šírku, aby názvy kupónov začínali na tej
+   istej zvislici. Predtým sa šírka riadila dĺžkou kódu, takže
+   "10%CREDIT" a "QWE2" posúvali text vedľa seba o desiatky pixelov. */
+.coupon-code-box { width: 210px; flex: none; justify-content: space-between; }
+.coupon-code-box code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) { .coupon-code-box { width: 100%; } }
 </style>
 </head>
 <body>
