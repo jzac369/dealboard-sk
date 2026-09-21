@@ -176,6 +176,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Ceny základných potravín z národného porovnávača.
+    // Číta ich ktokoľvek (je to obsah stránky), zapisuje len agent
+    // cez service account.
+    match /food_prices/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Kolekcie agent_state a price_watch tu zámerne nie sú.
     // Zapisuje do nich výhradne agent cez service account, ktorý
     // pravidlá obchádza. Čokoľvek bez vlastného pravidla je pre
