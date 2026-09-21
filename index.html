@@ -1453,6 +1453,9 @@
   .coupon-card .vote-seg { order: 4; }
   .coupon-go { order: 5; margin-left: auto; }
 }
+
+.how-list { display: flex; flex-direction: column; gap: 6px; }
+.how-list span { display: flex; align-items: center; gap: 7px; }
 </style>
 </head>
 <body>
@@ -1560,7 +1563,11 @@
     </div>
     <div class="sidebar-box">
       <h3>Ako to funguje</h3>
-      <p>👍 Hlasuj za dealy, ktoré sa ti páčia<br>📝 Pridaj vlastný nájdený deal<br>🔥 Najhorúcejšie dealy idú nahor</p>
+      <p class="how-list">
+        <span><svg class="ic" aria-hidden="true"><use href="#i-plus"></use></svg> Hlasuj za dealy, ktoré sa ti páčia</span>
+        <span><svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg> Pridaj vlastný nájdený deal</span>
+        <span><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie dealy idú nahor</span>
+      </p>
     </div>
   </aside>
 </div>
