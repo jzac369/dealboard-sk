@@ -927,3 +927,43 @@ def test_coupon_boost_range_includes_cold_values():
         assert 0 not in hodnoty       # nula by vyzerala ako "nikto nehlasoval"
     finally:
         config.COUPON_BOOST_MIN, config.COUPON_BOOST_MAX, config.COUPON_FREEZE_CHANCE = original
+
+
+def test_deal_with_unknown_merchant_is_not_published():
+    """
+    Bez znameho predajcu by odkaz skoncil na zdroji (zlacnene.sk), teda
+    na cudzej stranke. Taky deal sa nezverejni.
+    """
+    import main
+    from models import DealCandidate
+
+    znamy = DealCandidate(title='Uterák', deal_price=6.0, explicit_discount_percent=60,
+                          url='https://www.zlacnene.sk/akcia/x/', source='zlacnene.sk',
+                          store='Jysk')
+    neznamy = DealCandidate(title='Stolička', deal_price=20.0, explicit_discount_percent=50,
+                            url='https://www.zlacnene.sk/akcia/y/', source='zlacnene.sk',
+                            store='Úplne neznámy obchod')
+
+    assert main.is_sane(znamy) is True
+    assert main.is_sane(neznamy) is False
+
+
+def test_feed_deal_passes_without_known_merchant():
+    """
+    Polozka z feedu ma vlastny priamy odkaz, takze znameho predajcu
+    nepotrebuje.
+    """
+    import main
+    from models import DealCandidate
+
+    z_feedu = DealCandidate(title='Notebook', deal_price=599.0, original_price=899.0,
+                            url='https://partner.sk/p/1', source='affiliate-feed',
+                            store='Neznáma značka', direct_url=True)
+    assert main.is_sane(z_feedu) is True
+
+
+def test_known_merchants_cover_everything_we_scrape():
+    from merchant_links import is_known
+    for store in ('XXXLutz', 'SCONTO nábytok', 'STAVMAT', 'OBI', 'Tesco',
+                  'BILLA', 'Jysk', 'INTERSPORT', 'IDEA nábytok', 'Kaufland', 'Lidl'):
+        assert is_known(store), store

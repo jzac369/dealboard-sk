@@ -50,6 +50,12 @@ MIN_DEAL_PRICE = _env_float("MIN_DEAL_PRICE", 0.50)
 # Koľko návrhov maximálne zapísať za jeden beh.
 # Pri 3 behoch denne to dáva denný strop 30 návrhov na schválenie.
 MAX_DEALS_PER_RUN = _env_int("MAX_DEALS_PER_RUN", 10)
+# Nezverejňovať deal, ku ktorému nevieme zostaviť odkaz na predajcu.
+# Bez toho by sa do sveta dostal odkaz na zdroj (zlacnene.sk), teda na
+# cudziu stránku. Radšej deal vynechať; obchod sa doplní do tabuľky
+# v merchant_links.py alebo cez admin panel a nabudúce prejde.
+REQUIRE_KNOWN_MERCHANT = os.environ.get("REQUIRE_KNOWN_MERCHANT", "true").lower() == "true"
+
 # Najviac dealov z jedného obchodu za beh - aby výber nevyzeral
 # ako leták jediného reťazca.
 MAX_PER_STORE = _env_int("MAX_PER_STORE", 4)

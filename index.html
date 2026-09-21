@@ -1463,6 +1463,23 @@
 .coupon-code-box { width: 210px; flex: none; justify-content: space-between; }
 .coupon-code-box code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 560px) { .coupon-code-box { width: 100%; } }
+
+/* Filtre "Len platné" a "Uložené" sú prepínače, nie tlačidlá triedenia.
+   Plná tmavomodrá výplň na ne kričala viac než samotné dealy a do
+   oranžovo-bielej stránky nesadla. Teraz sa správajú ako fajočka:
+   vypnuté sú tiché, zapnuté len jemne podfarbené vo vlastnej farbe. */
+.sort-btn.filter-btn { opacity: 1; color: var(--muted); border: 1.5px solid var(--line);
+  border-radius: 999px; padding: 5px 13px; }
+.sort-btn.filter-btn:hover { border-color: var(--muted); color: var(--ink); }
+
+#btn-valid-only.active { background: rgba(46,139,61,.12); color: var(--green);
+  border-color: rgba(46,139,61,.45); }
+#btn-saved-only.active { background: var(--badge); color: var(--badge-t);
+  border-color: rgba(232,89,12,.45); }
+
+/* Zapnutý filter nemá podčiarknutie ako triedenie - je to iný typ voľby. */
+.sort-btn.filter-btn.active { border-bottom-color: rgba(46,139,61,.45); }
+#btn-saved-only.active { border-bottom-color: rgba(232,89,12,.45); }
 </style>
 </head>
 <body>
@@ -1512,7 +1529,7 @@
   <main id="deals-main">
     <div class="tabs-bar">
       <div class="sort-bar">
-        <button class="sort-btn active" onclick="setSort('new', this)">🆕 Najnovšie</button>
+        <button class="sort-btn active" onclick="setSort('new', this)"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> Najnovšie</button>
         <button class="sort-btn" onclick="setSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie</button>
         <button class="sort-btn" onclick="setSort('discount', this)"><svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg> Najväčšia zľava</button>
         <button class="sort-btn filter-btn" id="btn-valid-only" onclick="toggleValidOnly(this)" title="Skryť akcie, ktorým vypršala platnosť"><svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg> Len platné</button>

@@ -41,9 +41,17 @@ STRANKA_PREDAJCU: dict[str, str] = {
     "kaufland": "https://www.kaufland.sk/",
     "lidl": "https://www.lidl.sk/",
     "xxxlutz": "https://www.xxxlutz.sk/",
+    "ideanabytok": "https://www.idea-nabytok.sk/",
+    "idea": "https://www.idea-nabytok.sk/",
+    "jysk": "https://jysk.sk/",
+    "kik": "https://www.kik.sk/",
+    "moebelix": "https://www.moebelix.sk/",
+    "asko": "https://www.asko-nabytok.sk/",
+    "nay": "https://www.nay.sk/",
+    "datart": "https://www.datart.sk/",
+    "alza": "https://www.alza.sk/",
     "intersport": "https://www.intersport.sk/",
     "bauhaus": "https://www.bauhaus.sk/",
-    "moebelix": "https://www.moebelix.sk/",
     "mobelix": "https://www.moebelix.sk/",
     "dm": "https://www.mojadm.sk/",
     "teta": "https://www.tetadrogerie.sk/",
@@ -194,3 +202,17 @@ def add_affiliate_tracking(url: str) -> str:
         return url   # už otagované sieťou, druhýkrát by to tracking rozbilo
 
     return template.replace("{url}", quote(url, safe=""))
+
+
+def is_known(store: str) -> bool:
+    """
+    True, keď pre daný obchod vieme zostaviť odkaz k predajcovi.
+
+    Používa sa na to, aby sa na stránku nedostal deal odkazujúci na
+    zdroj namiesto obchodu. Radšej deal vynechať, než poslať
+    návštevníka na konkurenčný web.
+    """
+    return bool(
+        _match(store, _overrides_search) or _match(store, _overrides_page)
+        or _match(store, VYHLADAVANIE) or _match(store, STRANKA_PREDAJCU)
+    )

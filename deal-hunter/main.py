@@ -20,6 +20,7 @@ import sys
 from collections import defaultdict
 
 import config
+import merchant_links
 import price_history
 import price_watch
 from models import DealCandidate, guess_category
@@ -75,6 +76,18 @@ def is_sane(candidate: DealCandidate) -> bool:
     # Akcia, ktorej platnosť už uplynula, nemá čo robiť na stránke.
     if candidate.is_already_expired:
         return False
+
+    # Bez známeho predajcu by odkaz skončil na zdroji, teda na cudzej
+    # stránke. Radšej deal vynechať a obchod doplniť do tabuľky.
+    if (config.REQUIRE_KNOWN_MERCHANT and not candidate.direct_url
+            and not merchant_links.is_known(candidate.store)):
+        logger.warning(
+            "Vynechávam '%s' — predajcu '%s' nepoznám, odkaz by viedol na zdroj. "
+            "Doplň ho do merchant_links.py alebo v admin paneli.",
+            candidate.title[:40], candidate.store,
+        )
+        return False
+
     return True
 
 
