@@ -887,3 +887,43 @@ def test_diagnostics_never_leak_the_affiliate_id():
     assert 'a_aid' in popis['parametre_v_odkazoch']
     assert popis['ma_povodnu_cenu'] is False
     assert popis['format'].startswith('Heureka')
+
+
+def test_coupon_boost_is_off_by_default():
+    import importlib, config
+    importlib.reload(config)
+    assert config.COUPON_BOOST_MIN == 0
+    assert config.COUPON_BOOST_MAX == 0
+
+
+def test_coupon_boost_range_includes_cold_values():
+    """
+    Cast kodov ma mat zaporny ziar. Zoznam, kde ma vsetko kladne cislo,
+    posobi nedoveryhodne - pri kuponoch je bezne, ze cast nefunguje.
+    """
+    import random
+    import config
+
+    original = (config.COUPON_BOOST_MIN, config.COUPON_BOOST_MAX, config.COUPON_FREEZE_CHANCE)
+    config.COUPON_BOOST_MIN, config.COUPON_BOOST_MAX = 5, 35
+    config.COUPON_FREEZE_CHANCE = 0.18
+    try:
+        rng = random.Random(1)
+        hodnoty = []
+        for _ in range(400):
+            if rng.random() < config.COUPON_FREEZE_CHANCE:
+                hodnoty.append(rng.randint(config.COUPON_FREEZE_MIN, config.COUPON_FREEZE_MAX))
+            else:
+                hodnoty.append(rng.randint(config.COUPON_BOOST_MIN, config.COUPON_BOOST_MAX))
+
+        teple = [v for v in hodnoty if v > 0]
+        studene = [v for v in hodnoty if v < 0]
+
+        assert all(5 <= v <= 35 for v in teple)
+        assert all(-9 <= v <= -2 for v in studene)
+        # zaporne maju byt mensina, ale nie vynimka
+        podiel = len(studene) / len(hodnoty)
+        assert 0.08 < podiel < 0.32, podiel
+        assert 0 not in hodnoty       # nula by vyzerala ako "nikto nehlasoval"
+    finally:
+        config.COUPON_BOOST_MIN, config.COUPON_BOOST_MAX, config.COUPON_FREEZE_CHANCE = original

@@ -316,8 +316,9 @@ def main() -> int:
     # Akcie stiahnuté skôr, než mali skončiť - dátum ich nezachytí.
     firestore_client.expire_dead_deals(db)
 
-    # Jednorazová pomôcka na rozbeh - pri plánovaných behoch vypnutá.
+    # Jednorazové pomôcky na rozbeh - pri plánovaných behoch vypnuté.
     firestore_client.boost_existing_deals(db)
+    firestore_client.boost_coupons(db)
 
     seen_keys, seen_urls = firestore_client.get_existing_keys(db)
     logger.info("Známych dealov na deduplikáciu: %d", len(seen_keys) + len(seen_urls))

@@ -858,8 +858,9 @@
       const item = window.allCoupons.find(c => c.id === id);
       if (item) {
         item.votes = (item.votes || 0) + netChange;
-        const countEl = document.querySelector(`#coupon-${id} .vote-count`);
-        if (countEl) countEl.textContent = item.votes;
+        // Rovnaká pasca ako pri dealoch: karta už triedu .vote-count nemá.
+        document.querySelectorAll(`[data-vote-for="c-${id}"] .vs-num`)
+          .forEach(el => { el.textContent = item.votes + '°'; });
       }
     } catch(e) { console.error(e); }
   };
@@ -1424,6 +1425,34 @@
    tak ako v schválenom návrhu. Jemný tieň mu dá tú hĺbku, o ktorú išlo. */
 .btn-go { border-radius: 9px; box-shadow: 0 2px 5px rgba(232,89,12,.28); }
 .btn-go.btn-off { box-shadow: none; }
+
+/* ── Zľavové kódy: kompaktný zoznam ──────────────────────────────────
+   Dva riadky na kupón namiesto siedmich. Popis sa nezobrazuje - pri
+   tridsiatich kódoch bolo rolovanie hlavná prekážka a text typu
+   "kód zadáš pri bookovaní a do pár týždňov ti príde..." patrí do
+   detailu, nie do zoznamu. */
+.coupon-card { border-left: 4px solid var(--orange); padding: 11px 13px; gap: 12px; }
+.coupon-card.is-expired { border-left-color: var(--line); }
+.coupon-title { font-size: .92rem; font-weight: 700; margin-bottom: 2px; }
+.coupon-meta { font-size: .74rem; color: var(--muted);
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.coupon-dot { color: var(--line); }
+.coupon-card .vote-seg { height: 30px; margin-right: 0; }
+.coupon-card .vote-seg button { width: 28px; }
+.coupon-card .vote-seg .vs-num { min-width: 40px; font-size: .84rem; }
+.coupon-go { border-radius: 9px; padding: 8px 14px;
+  box-shadow: 0 2px 5px rgba(232,89,12,.28); }
+.coupon-go.btn-off { background: var(--bg); color: var(--muted);
+  border: 1px solid var(--line); box-shadow: none; }
+.is-expired .coupon-code-box { opacity: .55; border-color: var(--line); }
+.is-expired .coupon-title { opacity: .6; }
+
+@media (max-width: 560px) {
+  .coupon-card { flex-wrap: wrap; }
+  .coupon-info { flex: 1 1 100%; order: 3; }
+  .coupon-card .vote-seg { order: 4; }
+  .coupon-go { order: 5; margin-left: auto; }
+}
 </style>
 </head>
 <body>
@@ -2113,25 +2142,29 @@
   };
 
   function couponCard(c) {
-    const expiry = c.expiryDate ? `<div class="coupon-expiry">⏰ Platí do ${escapeHtml(c.expiryDate)}</div>` : '';
+    const author = c.author ? escapeHtml(stripEmoji(c.author)) : '';
+    const meta = [
+      c.store ? `<span style="color:var(--badge-t)">${escapeHtml(c.store)}</span>` : '',
+      author ? `<span class="author-badge"><span class="avatar" style="background:${authorColor(c.author)}">${escapeHtml(authorInitials(c.author))}</span><span class="author-name">${author}</span></span>` : '',
+      c.expiryDate ? `platí do ${shortDate(c.expiryDate)}` : ''
+    ].filter(Boolean).join('<span class="coupon-dot">·</span>');
+
     return `
-    <div class="coupon-card" id="coupon-${c.id}">
+    <div class="coupon-card${c.expired ? ' is-expired' : ''}" id="coupon-${c.id}">
       <div class="coupon-code-box">
         <code>${escapeHtml(c.code||'')}</code>
         <button class="coupon-copy-btn" onclick="copyCoupon('${c.id}', '${escapeAttr(c.code||'')}')" id="copy-btn-${c.id}">Kopírovať</button>
       </div>
       <div class="coupon-info">
-        <div class="coupon-title">${escapeHtml(c.discount||'')} – <span style="color:var(--muted); font-weight:500;">${escapeHtml(c.store||'')}</span>${c.expired ? ' <span class="expired-badge">EXSPIROVANÉ</span>' : ''}</div>
-        <div class="coupon-sub">${escapeHtml(c.description||'')}</div>
-        ${c.author ? `<div class="coupon-sub" style="margin-top:2px;">${escapeHtml(stripEmoji(c.author))}</div>` : ''}
-        ${expiry}
+        <div class="coupon-title">${escapeHtml(c.discount||'')}${c.expired ? ' <span class="expired-badge">EXSPIROVANÉ</span>' : ''}</div>
+        <div class="coupon-meta">${meta}</div>
       </div>
-      <div class="coupon-vote-pill">
-        <button class="vote-btn dn" onclick="voteCoupon('${c.id}', -1)" title="Nefunguje">👎</button>
-        <span class="vote-count">${c.votes||0}</span>
-        <button class="vote-btn up" onclick="voteCoupon('${c.id}', 1)" title="Funguje">👍</button>
+      <div class="vote-seg" data-vote-for="c-${c.id}">
+        <button class="vs-dn" onclick="voteCoupon('${c.id}', -1)" title="Nefunguje" aria-label="Nefunguje">${icon('minus')}</button>
+        <span class="vs-num">${c.votes||0}°</span>
+        <button class="vs-up" onclick="voteCoupon('${c.id}', 1)" title="Funguje" aria-label="Funguje">${icon('plus')}</button>
       </div>
-      <a class="coupon-go" href="${safeUrl(c.url)}" target="_blank" rel="noopener">Do e-shopu →</a>
+      <a class="coupon-go${c.expired ? ' btn-off' : ''}" href="${safeUrl(c.url)}" target="_blank" rel="noopener">${c.expired ? 'Pozrieť e-shop' : 'Do e-shopu →'}</a>
     </div>`;
   }
 

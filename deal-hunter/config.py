@@ -121,6 +121,17 @@ VOTE_BOOST_MAX = _env_int("VOTE_BOOST_MAX", 0)
 # pamäť, potom beží normálne ďalej. Schválených dealov sa nedotkne.
 RESET_PENDING = os.environ.get("RESET_PENDING", "false").lower() == "true"
 
+# Štartovací žiar pre zľavové kódy. Rovnako ako pri dealoch: zámerne
+# vypnuté a plánované behy to nikdy nezapnú.
+# Časť kódov dostane zápornú hodnotu - zoznam, kde má všetko kladné
+# číslo, pôsobí nedôveryhodne, a pri kupónoch je bežné, že časť
+# nefunguje.
+COUPON_BOOST_MIN = _env_int("COUPON_BOOST_MIN", 0)
+COUPON_BOOST_MAX = _env_int("COUPON_BOOST_MAX", 0)
+COUPON_FREEZE_CHANCE = _env_float("COUPON_FREEZE_CHANCE", 0.18)
+COUPON_FREEZE_MIN = _env_int("COUPON_FREEZE_MIN", -9)
+COUPON_FREEZE_MAX = _env_int("COUPON_FREEZE_MAX", -2)
+
 # Jednorazová oprava: prepíše odkazy starých dealov zo zdroja na predajcu.
 FIX_URLS = os.environ.get("FIX_URLS", "false").lower() == "true"
 

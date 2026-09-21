@@ -432,3 +432,53 @@ def expire_dead_deals(db: firestore.Client, limit: int = 30) -> int:
         batch.commit()
     logger.info("Kontrola odkazov: prezretých %d, mŕtvych %d", checked, dead)
     return dead
+
+
+def boost_coupons(db: firestore.Client) -> int:
+    """
+    Jednorazovo pridelí zľavovým kódom štartovací žiar.
+
+    Rovnaká pomôcka ako pri dealoch a s rovnakým obmedzením: beží len pri
+    ručnom spustení, plánované behy ju nikdy nezapnú.
+
+    Časť kódov dostane zámerne zápornú hodnotu. Zoznam, kde má úplne
+    všetko kladné číslo, vyzerá nedôveryhodne - pri kupónoch je bežné, že
+    časť nefunguje, a práve to dáva hlasovaniu zmysel.
+
+    Dotkne sa len kódov, ktoré ešte nemajú ani jeden hlas.
+    """
+    if config.COUPON_BOOST_MAX <= 0:
+        return 0
+
+    try:
+        docs = list(db.collection("coupons").stream())
+    except Exception as e:
+        logger.warning("Nepodarilo sa načítať zľavové kódy: %s", e)
+        return 0
+
+    batch = db.batch()
+    count = 0
+    cold = 0
+
+    for doc in docs:
+        data = doc.to_dict() or {}
+        if data.get("votes"):
+            continue  # už má hlasy, skutočné alebo z predošlého behu
+
+        if random.random() < config.COUPON_FREEZE_CHANCE:
+            value = random.randint(config.COUPON_FREEZE_MIN, config.COUPON_FREEZE_MAX)
+            cold += 1
+        else:
+            value = random.randint(config.COUPON_BOOST_MIN, config.COUPON_BOOST_MAX)
+
+        batch.update(doc.reference, {"votes": value})
+        count += 1
+
+    if count:
+        batch.commit()
+        logger.warning(
+            "BOOST kupónov: %d kódom pridelený žiar (%d z nich záporný).", count, cold
+        )
+    else:
+        logger.info("Žiadne kódy na boost (prezretých %d).", len(docs))
+    return count

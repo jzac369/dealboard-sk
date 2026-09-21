@@ -24,6 +24,10 @@ on:
         description: "Jednorazovo: dať dealom bez hlasov štartovací žiar 5-25 stupňov"
         type: boolean
         default: false
+      coupon_boost:
+        description: "Jednorazovo: dať zľavovým kódom bez hlasov žiar 5-35 (časť záporných)"
+        type: boolean
+        default: false
       feed_diagnostics:
         description: "Len vypísať štruktúru feedov (nič sa nezapíše)"
         type: boolean
@@ -94,6 +98,8 @@ jobs:
           # boost je vypnutý. Zapne sa len ručným zaškrtnutím vo formulári.
           VOTE_BOOST_MIN: ${{ inputs.vote_boost && 5 || 0 }}
           VOTE_BOOST_MAX: ${{ inputs.vote_boost && 25 || 0 }}
+          COUPON_BOOST_MIN: ${{ inputs.coupon_boost && 5 || 0 }}
+          COUPON_BOOST_MAX: ${{ inputs.coupon_boost && 35 || 0 }}
           MIN_DISCOUNT_PERCENT: "25"
           # Prázdny vstup necháva predvolenú hodnotu z config.py.
           MAX_DEALS_PER_RUN: ${{ inputs.max_deals || '10' }}
