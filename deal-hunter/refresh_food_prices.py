@@ -55,7 +55,9 @@ def main() -> int:
     import firestore_client
 
     db = firestore_client.get_client()
-    if firestore_client.refresh_food_prices(db):
+    # Ceny už máme stiahnuté, posielame ich ďalej. Inak by si ich
+    # firestore_client vypýtal z porovnávača druhýkrát.
+    if firestore_client.refresh_food_prices(db, snapshot_data=snapshot):
         logger.info("Hotovo, ceny sú na stránke.")
         return 0
 

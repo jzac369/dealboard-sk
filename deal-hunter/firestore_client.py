@@ -487,28 +487,37 @@ def boost_coupons(db: firestore.Client) -> int:
 FOOD_PRICES_DOC = "food_prices/current"
 
 
-def refresh_food_prices(db: firestore.Client) -> bool:
+def refresh_food_prices(db: firestore.Client, snapshot_data: dict | None = None) -> bool:
     """
     Raz denne obnoví prehľad cien základných potravín.
 
     Ceny v porovnávači sa menia raz za deň, takže pri troch behoch denne
     by sťahovanie pri každom bolo len zbytočné zaťaženie cudzieho servera.
+
+    `snapshot_data` je pre volajúceho, ktorý si ceny už stiahol sám
+    (refresh_food_prices.py si ich pýta, aby ich vypísal do denníka).
+    Bez toho by sa ťahali dvakrát za sebou z cudzieho servera — nechcem
+    od národného porovnávača brať dvojnásobok toho, čo naozaj potrebujem.
     """
     import food_prices
 
     today = date.today().isoformat()
     ref = db.document(FOOD_PRICES_DOC)
 
-    try:
-        snapshot = ref.get()
-        if snapshot.exists and (snapshot.to_dict() or {}).get("fetchedAt") == today:
-            logger.info("Ceny potravín sú už dnešné, sťahovanie preskakujem.")
-            return False
-    except Exception as e:
-        logger.warning("Stav cien potravín sa nepodarilo prečítať: %s", e)
+    # Keď ceny prišli od volajúceho, už ich stiahol a chce ich zapísať.
+    # Preskakovať vtedy nemá čo — kontrola je tu len proti zbytočnému
+    # sťahovaniu, nie proti zápisu.
+    if snapshot_data is None:
+        try:
+            snapshot = ref.get()
+            if snapshot.exists and (snapshot.to_dict() or {}).get("fetchedAt") == today:
+                logger.info("Ceny potravín sú už dnešné, sťahovanie preskakujem.")
+                return False
+        except Exception as e:
+            logger.warning("Stav cien potravín sa nepodarilo prečítať: %s", e)
 
-    data = food_prices.build_snapshot()
-    if not data:
+    data = snapshot_data if snapshot_data else food_prices.build_snapshot()
+    if not data or not data.get("items"):
         # Radšej necháme včerajšie ceny než prázdnu sekciu.
         return False
 

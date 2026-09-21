@@ -12,3 +12,4 @@ venv/
 
 # Lokalne pokusy
 *.local.*
+ceny-potravin.log
