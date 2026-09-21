@@ -111,11 +111,6 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://henkukaj.sk/deal/8-hojdaci-kon-galopp-ShjnR4bBS9teAzESAkA5/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
     <loc>https://henkukaj.sk/deal/jar-platinum-tablety-do-umyvacky-140-ks-TZILJ55pX3AdaqEPSkHU/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -202,6 +197,11 @@
   </url>
   <url>
     <loc>https://henkukaj.sk/deal/borges-extra-virgin-olivovy-olej-500-ml-tr6M2gCPts6Agw23AEjC/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://henkukaj.sk/deal/jednolozko-800-uRY6jCXmJWuVL2HVoTgF/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
