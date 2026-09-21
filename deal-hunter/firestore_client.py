@@ -486,6 +486,47 @@ def boost_coupons(db: firestore.Client) -> int:
 
 FOOD_PRICES_DOC = "food_prices/current"
 
+# Koľko dní histórie držíme. Tridsať je to, s čím počíta graf na
+# stránke; šesťdesiat je rezerva, aby sa dalo neskôr porovnávať aj
+# dlhšie obdobie bez toho, aby dokument narástol do nezmyslu.
+FOOD_HISTORY_DAYS = 60
+
+
+def _food_history(ref, data: dict) -> dict:
+    """
+    K existujúcej histórii pridá dnešnú najnižšiu cenu každej položky.
+
+    Históriu držíme v tom istom dokumente, nie vo vlastnej kolekcii:
+    stránka ju číta spolu s cenami jedným dotazom a Firestore účtuje
+    za dokument, nie za jeho veľkosť. Desať položiek krát šesťdesiat
+    dní je pár kilobajtov.
+
+    Porovnávač vracia ceny raz denne, takže dnešný záznam prepisujeme,
+    nie pridávame - inak by tri behy agenta spravili tri body za deň.
+    """
+    try:
+        current = (ref.get().to_dict() or {}).get("history") or {}
+    except Exception as e:
+        logger.warning("Históriu cien sa nepodarilo prečítať: %s", e)
+        current = {}
+
+    day = data.get("reportDate") or date.today().isoformat()
+    history: dict[str, list] = {}
+
+    for item in data["items"]:
+        prices = item.get("prices") or []
+        if not prices:
+            continue
+        cheapest = min(p["price"] for p in prices)
+        series = [row for row in current.get(item["label"], []) if row.get("d") != day]
+        series.append({"d": day, "p": cheapest})
+        series.sort(key=lambda row: row["d"])
+        history[item["label"]] = series[-FOOD_HISTORY_DAYS:]
+
+    days = max((len(s) for s in history.values()), default=0)
+    logger.info("História cien: %d položiek, najdlhší rad %d dní.", len(history), days)
+    return history
+
 
 def refresh_food_prices(db: firestore.Client, snapshot_data: dict | None = None) -> bool:
     """
@@ -517,6 +558,8 @@ def refresh_food_prices(db: firestore.Client, snapshot_data: dict | None = None)
             logger.warning("Stav cien potravín sa nepodarilo prečítať: %s", e)
 
     data = snapshot_data if snapshot_data else food_prices.build_snapshot()
+    if data and data.get("items"):
+        data["history"] = _food_history(ref, data)
     if not data or not data.get("items"):
         # Radšej necháme včerajšie ceny než prázdnu sekciu.
         return False

@@ -986,6 +986,8 @@
   .container { max-width: 1120px; margin: 0 auto; padding: 0 16px 24px; display: grid;
     grid-template-columns: 1fr 300px; gap: 20px; min-width: 0; }
   .container > * { min-width: 0; }
+  .container.full-width { grid-template-columns: 1fr; max-width: 1280px; }
+  .container.full-width > .sidebar { display: none; }
   @media (max-width: 720px) { .container { grid-template-columns: 1fr; } .sidebar { margin-top: 0; } }
 
   /* ── Top category nav ───────────────────────────────────────────────── */
@@ -1540,46 +1542,217 @@
 .sort-btn.filter-btn.active { border-bottom-color: rgba(46,139,61,.45); }
 #btn-saved-only.active { border-bottom-color: rgba(232,89,12,.45); }
 
-/* Najlacnejšie potraviny */
-.fb-box { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-  padding: 14px; margin-bottom: 14px; }
-.fb-title { font-size: .82rem; color: var(--muted); margin-bottom: 10px; }
-.fb-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
-.fb-name { width: 96px; flex: none; font-size: .82rem; }
-.fb-track { flex: 1; height: 22px; border-radius: 6px; background: var(--bg); overflow: hidden; }
-.fb-fill { display: block; height: 100%; }
-.fb-fill.cheap { background: rgba(46,139,61,.28); }
-.fb-fill.mid { background: rgba(232,89,12,.24); }
-.fb-fill.high { background: rgba(192,57,43,.2); }
-.fb-total { width: 68px; text-align: right; font-size: .86rem; font-weight: 700; flex: none; }
+/* ── Najlacnejšie potraviny ───────────────────────────────────────────
+   Vlastná farebná škála len pre túto sekciu: teplé takmer biele pozadie,
+   zelená pre ceny a úspory, oranžová pre akcie. Zvyšok stránky sa
+   nemení. */
+#food-main {
+  --fd-bg:    #FAF8F5;
+  --fd-card:  #FFFFFF;
+  --fd-line:  #EDE7DF;
+  --fd-ink:   #1F1D1A;
+  --fd-soft:  #6B655C;
+  --fd-faint: #9B958B;
+  --fd-green: #2E8B3D;
+  --fd-green-d: #236F2E;
+  --fd-green-bg: #EDF7EC;
+  --fd-green-bd: #CFE7CC;
+  --fd-red:   #D64545;
+  --fd-shadow: 0 1px 2px rgba(31,29,26,.04), 0 6px 18px rgba(31,29,26,.05);
+  color: var(--fd-ink);
+}
+body.food-page { background: #FAF8F5; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; }
 
-.fp-list { display: flex; flex-direction: column; gap: 9px; }
-.fp-row { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-  padding: 10px 13px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.fp-photo { width: 44px; height: 44px; object-fit: contain; border-radius: 8px;
-  background: #fff; flex: none; }
-.fp-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--badge);
-  color: var(--badge-t); display: flex; align-items: center; justify-content: center; flex: none; }
-.fp-name { width: 150px; flex: none; font-size: .88rem; }
-.fp-pack { color: var(--muted); font-size: .76rem; }
-.fp-best { display: inline-flex; align-items: baseline; gap: 7px; flex: none; }
-.fp-price { font-size: 1.05rem; font-weight: 800; color: var(--green); }
-.fp-chain { font-size: .72rem; padding: 2px 9px; border-radius: 999px;
-  background: rgba(46,139,61,.14); color: var(--green); font-weight: 600; }
-.fp-others { flex: 1; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
-.fp-other { font-size: .74rem; background: var(--bg); border: 1px solid var(--line);
-  border-radius: 7px; padding: 3px 8px; color: var(--muted); white-space: nowrap; }
-.fp-note { font-size: .76rem; color: var(--muted); margin-top: 12px; }
+.fd-hero { display: flex; align-items: center; gap: 28px; margin-bottom: 20px; }
+.fd-hero-text { flex: 1; min-width: 0; }
+.fd-hero h1 { font-size: 2.6rem; line-height: 1.06; letter-spacing: -1px; margin-bottom: 9px; }
+.fd-hero p { font-size: 1.02rem; color: var(--fd-soft); }
+.fd-hero-img { width: 186px; height: 186px; flex: none; object-fit: contain; }
 
-@media (max-width: 560px) {
-  .fp-name { width: auto; flex: 1 1 auto; }
-  .fp-others { flex: 1 1 100%; }
-  .fb-name { width: 72px; }
+.fd-tools { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.fd-search { flex: 1 1 280px; display: flex; align-items: center; gap: 11px;
+  background: var(--fd-card); border: 1px solid #E8E2DA; border-radius: 14px;
+  padding: 0 17px; height: 52px; box-shadow: var(--fd-shadow); }
+.fd-search .ic { color: var(--fd-faint); flex: none; }
+.fd-search input { flex: 1; border: none; outline: none; font: inherit;
+  font-size: .95rem; background: transparent; color: var(--fd-ink); min-width: 0; }
+.fd-btn-go { flex: none; border: none; background: var(--orange); color: #fff;
+  font: inherit; font-size: .98rem; font-weight: 700; padding: 0 30px;
+  border-radius: 14px; height: 52px; cursor: pointer; box-shadow: var(--fd-shadow); }
+.fd-btn-go:hover { background: var(--orange-dk); }
+.fd-select { flex: none; display: flex; align-items: center; gap: 9px;
+  background: var(--fd-card); border: 1px solid #E8E2DA; border-radius: 14px;
+  padding: 0 15px; height: 52px; box-shadow: var(--fd-shadow); cursor: pointer; }
+.fd-select .ic { color: var(--fd-soft); flex: none; }
+.fd-select select { border: none; outline: none; background: transparent; font: inherit;
+  font-size: .92rem; font-weight: 600; color: var(--fd-ink); cursor: pointer; }
+
+.fd-grid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 20px;
+  align-items: start; }
+.fd-left { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.fd-side { display: flex; flex-direction: column; gap: 16px; }
+
+/* Celý košík + najlacnejšia kombinácia */
+.fd-basket { background: var(--fd-green-bg); border: 1px solid var(--fd-green-bd);
+  border-radius: 16px; padding: 20px; display: flex; gap: 18px; box-shadow: var(--fd-shadow); }
+.fd-basket-main { flex: 1; min-width: 0; }
+.fd-basket h2 { display: flex; align-items: center; gap: 9px; font-size: 1.18rem; }
+.fd-basket h2 .ic { color: var(--fd-green); }
+.fd-basket-sub { font-size: .86rem; color: #6B7A69; margin: 2px 0 15px 29px; }
+.fb-row { display: flex; align-items: center; gap: 11px; margin-bottom: 10px; }
+.fb-medal { width: 17px; flex: none; color: var(--gold); }
+.fb-name { width: 84px; flex: none; font-size: .9rem; font-weight: 600; }
+.fb-row.best .fb-name { font-weight: 800; }
+.fb-track { flex: 1; height: 13px; border-radius: 7px; background: #DCEBDA; overflow: hidden; min-width: 40px; }
+.fb-fill { display: block; height: 100%; border-radius: 7px; }
+.fb-total { width: 66px; text-align: right; font-size: .95rem; font-weight: 700; flex: none; }
+.fb-row.best .fb-total { font-weight: 800; }
+.fb-diff { width: 60px; text-align: right; font-size: .8rem; font-weight: 600;
+  color: var(--fd-red); flex: none; }
+
+.fd-combo { width: 296px; flex: none; background: var(--fd-card);
+  border: 1px solid #D6EAD4; border-radius: 14px; padding: 17px; }
+.fd-combo-h { display: flex; align-items: center; gap: 8px; font-size: .9rem;
+  font-weight: 700; color: var(--fd-green); margin-bottom: 4px; }
+.fd-combo-big { font-size: 2.3rem; font-weight: 800; letter-spacing: -1.1px; line-height: 1.1; }
+.fd-combo-note { font-size: .84rem; color: var(--fd-soft); line-height: 1.45; margin: 3px 0 11px; }
+.fd-combo-note b { color: #4A453D; }
+.fd-save-pill { display: inline-flex; align-items: center; gap: 6px;
+  background: #E4F4E2; color: var(--fd-green-d); border-radius: 999px;
+  padding: 6px 14px; font-size: .84rem; font-weight: 700; margin-bottom: 12px; }
+.fd-combo-cta { display: block; background: var(--fd-green); color: #fff;
+  text-decoration: none; text-align: center; font-size: .92rem; font-weight: 700;
+  padding: 11px; border-radius: 11px; border: none; width: 100%; font-family: inherit; cursor: pointer; }
+.fd-combo-cta:hover { background: var(--fd-green-d); }
+.fd-settings { border-top: 1px solid #EFEAE3; margin-top: 15px; padding-top: 12px; }
+.fd-settings-t { font-size: .78rem; font-weight: 700; color: var(--fd-soft); margin-bottom: 8px; }
+.fd-settings label { display: flex; align-items: center; gap: 9px; font-size: .85rem;
+  color: #4A453D; margin-bottom: 7px; cursor: pointer; }
+.fd-settings input { width: 16px; height: 16px; accent-color: var(--fd-green); }
+
+/* Zoznam potravín */
+.fd-list-box { background: var(--fd-card); border: 1px solid var(--fd-line);
+  border-radius: 16px; padding: 18px 20px 6px; box-shadow: var(--fd-shadow); }
+.fd-list-h { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.fd-list-h h2 { font-size: 1.28rem; letter-spacing: -.4px; }
+.fd-list-h .fd-src { flex: 1; font-size: .78rem; color: var(--fd-faint); padding-bottom: 3px; }
+.fp-row { display: flex; align-items: center; gap: 13px; padding: 12px 6px;
+  border-top: 1px solid #F2EEE8; border-radius: 10px; }
+.fp-row:first-child { border-top: none; }
+.fp-row:hover { background: #FCFAF7; }
+.fp-photo { width: 56px; height: 56px; object-fit: contain; border-radius: 11px;
+  background: var(--fd-bg); padding: 4px; flex: none; }
+.fp-icon { width: 56px; height: 56px; border-radius: 11px; background: #F4F0EA;
+  color: #B3ADA4; display: flex; align-items: center; justify-content: center; flex: none; }
+.fp-icon .ic { width: 1.7rem; height: 1.7rem; }
+.fp-name { width: 148px; flex: none; }
+.fp-name b { display: block; font-size: .96rem; font-weight: 700; line-height: 1.25; }
+.fp-pack { display: block; font-size: .78rem; color: var(--fd-faint); }
+.fp-best { width: 92px; flex: none; text-align: right; }
+.fp-price { display: block; font-size: 1.25rem; font-weight: 800; color: var(--fd-green);
+  letter-spacing: -.5px; line-height: 1.15; }
+.fp-chain { display: inline-block; margin-top: 3px; background: #E4F4E2;
+  color: var(--fd-green-d); font-size: .68rem; font-weight: 800; letter-spacing: .3px;
+  border-radius: 6px; padding: 3px 8px; }
+/* Pilulky sa nezalamujú - inak by mal každý riadok inú výšku podľa
+   toho, ako dlhé sú názvy reťazcov. Čo sa nezmestí, sa odreže. */
+.fp-others { flex: 1; display: flex; gap: 6px; min-width: 0;
+  flex-wrap: nowrap; overflow: hidden; }
+.fp-other { font-size: .75rem; background: #F6F3EE; color: var(--fd-soft);
+  border-radius: 7px; padding: 4px 9px; white-space: nowrap; font-weight: 600; }
+.fp-trend { width: 100px; flex: none; text-align: right; }
+.fp-trend b { display: block; font-size: .84rem; font-weight: 800; }
+.fp-trend span { display: block; font-size: .7rem; color: #B3ADA4; }
+.fp-spark { flex: none; }
+.fp-add { width: 38px; height: 38px; flex: none; border: none; background: var(--orange);
+  color: #fff; border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; }
+.fp-add:hover { background: var(--orange-dk); }
+.fp-add.on { background: var(--fd-green); }
+.fd-legend { display: flex; align-items: center; gap: 10px; border-top: 1px solid #F2EEE8;
+  margin-top: 4px; padding: 12px 6px 14px; font-size: .78rem; color: var(--fd-faint);
+  line-height: 1.45; }
+
+/* Sidebar */
+.fd-card { background: var(--fd-card); border: 1px solid var(--fd-line);
+  border-radius: 16px; padding: 17px; box-shadow: var(--fd-shadow); }
+.fd-card h3 { font-size: 1.05rem; }
+.fd-card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 11px; }
+.fd-cart-row { display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  border-bottom: 1px solid #F4F0EA; }
+.fd-cart-row img, .fd-cart-row .fd-cart-ph { width: 40px; height: 40px; flex: none;
+  object-fit: contain; background: var(--fd-bg); border-radius: 9px; padding: 3px; }
+.fd-cart-ph { display: flex; align-items: center; justify-content: center; color: #B3ADA4; }
+.fd-cart-info { flex: 1; min-width: 0; }
+.fd-cart-info b { display: block; font-size: .84rem; line-height: 1.2; }
+.fd-cart-info span { display: block; font-size: .72rem; color: var(--fd-faint); }
+.fd-cart-info i { display: block; font-size: .86rem; font-weight: 800;
+  color: var(--fd-green); font-style: normal; margin-top: 1px; }
+.fd-qty { display: flex; align-items: center; gap: 5px; flex: none; }
+.fd-qty button { width: 23px; height: 23px; border: 1px solid #E8E2DA; background: #fff;
+  border-radius: 7px; font: inherit; font-size: .85rem; color: var(--fd-soft);
+  cursor: pointer; line-height: 1; padding: 0; }
+.fd-qty button:hover { border-color: var(--fd-soft); }
+.fd-qty .num { font-size: .8rem; font-weight: 700; min-width: 11px; text-align: center; }
+.fd-qty .del { border: none; color: #C4BEB4; font-size: .95rem; }
+.fd-qty .del:hover { color: var(--fd-red); }
+.fd-rank { border-top: 1px solid #F0ECE5; padding-top: 13px; margin-top: 11px; }
+.fd-rank-t { font-size: .82rem; font-weight: 800; margin-bottom: 10px; }
+.fd-rank-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: .86rem; }
+.fd-rank-row .nm { flex: 1; }
+.fd-rank-row.best .nm, .fd-rank-row.best .tot { font-weight: 800; }
+.fd-rank-row .dif { width: 52px; text-align: right; font-size: .75rem;
+  font-weight: 600; color: var(--fd-red); }
+.fd-savebox { display: flex; align-items: center; gap: 10px; background: var(--fd-green-bg);
+  border-radius: 12px; padding: 12px 13px; margin: 13px 0; }
+.fd-savebox b { display: block; font-size: .95rem; font-weight: 800; color: var(--fd-green-d); }
+.fd-savebox span { display: block; font-size: .73rem; color: #6B7A69; margin-top: 2px; }
+.fd-cta { display: block; width: 100%; background: var(--orange); color: #fff;
+  border: none; font-family: inherit; font-size: .92rem; font-weight: 700;
+  padding: 12px; border-radius: 11px; cursor: pointer; text-align: center; text-decoration: none; }
+.fd-cta:hover { background: var(--orange-dk); }
+.fd-watch-btn { width: 100%; border: 1.5px dashed #F0C9A8; background: #FFF8F3;
+  color: var(--badge-t); font: inherit; font-size: .85rem; font-weight: 700;
+  padding: 11px; border-radius: 11px; cursor: pointer; }
+.fd-watch-btn:hover { border-color: var(--orange); }
+.fd-watch-row { display: flex; align-items: center; gap: 8px; font-size: .8rem;
+  padding: 7px 0; border-bottom: 1px solid #F4F0EA; }
+.fd-watch-row .nm { flex: 1; }
+.fd-watch-hit { background: #E4F4E2; color: var(--fd-green-d); border-radius: 8px;
+  padding: 8px 10px; font-size: .8rem; font-weight: 600; margin-bottom: 9px; }
+.fd-tip-row { display: flex; align-items: center; gap: 12px; }
+.fd-tip-row img, .fd-tip-row .fp-icon { width: 68px; height: 68px; flex: none;
+  object-fit: contain; background: var(--fd-bg); border-radius: 12px; padding: 5px; }
+.fd-tip-name { font-size: .9rem; font-weight: 700; line-height: 1.25; }
+.fd-tip-sub { font-size: .75rem; color: var(--fd-faint); }
+.fd-tip-price { font-size: 1.3rem; font-weight: 800; color: var(--fd-green); letter-spacing: -.5px; }
+.fd-tip-pct { background: #E4F4E2; color: var(--fd-green-d); font-size: .75rem;
+  font-weight: 800; border-radius: 7px; padding: 3px 8px; }
+.fd-tip-note { font-size: .75rem; color: var(--fd-faint); line-height: 1.45; margin-top: 11px; }
+.fp-note { font-size: .76rem; color: var(--fd-faint); }
+
+@media (max-width: 1000px) {
+  .fd-grid { grid-template-columns: minmax(0,1fr); }
+  .fd-basket { flex-wrap: wrap; }
+  .fd-combo { width: 100%; }
+}
+@media (max-width: 720px) {
+  .fd-hero h1 { font-size: 1.9rem; }
+  .fd-hero-img { width: 128px; height: 128px; }
+  .fd-btn-go { flex: 1; padding: 0; }
+  .fp-trend, .fp-spark { display: none; }
+  .fp-name { width: auto; flex: 1 1 100%; }
+  .fp-others { flex: 1 1 100%; flex-wrap: wrap; overflow: visible; }
+}
+@media (max-width: 480px) {
+  .fd-hero-img { display: none; }
 }
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
 
 
 <!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
@@ -1664,13 +1837,63 @@
 
   <!-- Main: Leaflets -->
   <main id="food-main" style="display:none;">
-    <div class="leaflet-intro">
-      <h2><svg class="ic" aria-hidden="true"><use href="#i-basket"></use></svg> Najlacnejšie potraviny</h2>
-      <p>Dnešné ceny základných potravín podľa reťazcov. Zdroj cien:
-         <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">CenySlovensko.sk</a>
-         – Ministerstvo financií SR.</p>
+    <div class="fd-hero">
+      <div class="fd-hero-text">
+        <h1>Najlacnejšie potraviny</h1>
+        <p>Porovnajte ceny základných potravín vo všetkých veľkých reťazcoch.</p>
+      </div>
+      <!-- Kým nebude hotová fotka, kreslíme tašku vektorovo. Prázdne
+           miesto by v hero časti vyzeralo ako chyba. -->
+      <img id="fd-hero-img" class="fd-hero-img" src="images/potraviny-taska.png" alt=""
+           onerror="this.style.display='none';document.getElementById('fd-hero-svg').style.display='block';">
+      <svg id="fd-hero-svg" class="fd-hero-img" viewBox="0 0 272 164" aria-hidden="true" style="display:none;">
+        <ellipse cx="136" cy="152" rx="104" ry="10" fill="#EFE8DD"/>
+        <ellipse cx="119" cy="52" rx="26" ry="22" fill="#9CCF55"/>
+        <ellipse cx="102" cy="48" rx="17" ry="15" fill="#7FB93F"/>
+        <ellipse cx="136" cy="47" rx="16" ry="14" fill="#7FB93F"/>
+        <rect x="115" y="66" width="9" height="16" rx="4" fill="#4E8C22"/>
+        <path d="M160 82 L174 34 q3 -9 7 0 L194 82 Z" fill="#F0932B"/>
+        <path d="M177 36 q6 -16 16 -16 q-6 12 -13 17" fill="#5FA22B"/>
+        <path d="M164 72 q11 -5 22 0 M167 60 q9 -4 18 0" stroke="#D97B14" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <rect x="70" y="36" width="30" height="52" rx="5" fill="#BFDDF7"/>
+        <rect x="70" y="36" width="30" height="15" rx="5" fill="#4A96E0"/>
+        <ellipse cx="208" cy="62" rx="27" ry="19" fill="#D9A25E" transform="rotate(-16 208 62)"/>
+        <path d="M192 54 l7 -5 M202 50 l7 -5 M212 47 l7 -5" stroke="#B87D3C" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M44 74 h184 l-14 74 a13 13 0 0 1 -13 11 H71 a13 13 0 0 1 -13 -11 Z" fill="#E8B872"/>
+        <path d="M44 74 h184 l-3.4 18 H47.4 Z" fill="#D89E4A"/>
+        <path d="M100 92 v67 M172 92 v67" stroke="#D89E4A" stroke-width="2.2" opacity=".5"/>
+        <circle cx="240" cy="120" r="21" fill="#E05A4E"/>
+        <path d="M240 101 q4 -11 13 -11 q-4 9 -11 11" fill="#5FA22B"/>
+      </svg>
     </div>
-    <div id="food-body"><div class="loading">Načítavam ceny…</div></div>
+
+    <div class="fd-tools">
+      <div class="fd-search">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg>
+        <label for="fd-q" class="sr-only">Vyhľadajte potravinu</label>
+        <input type="search" id="fd-q" placeholder="Vyhľadajte potravinu (napr. mlieko, maslo, vajcia…)"
+               oninput="window.foodFilterChanged()">
+      </div>
+      <button type="button" class="fd-btn-go" onclick="window.foodFilterChanged()">Hľadať</button>
+      <label class="fd-select">
+        <span class="sr-only">Reťazec</span>
+        <svg class="ic" aria-hidden="true"><use href="#i-building-store"></use></svg>
+        <select id="fd-chain" onchange="window.foodFilterChanged()"><option value="">Všetky reťazce</option></select>
+      </label>
+      <label class="fd-select">
+        <span class="sr-only">Zoradenie</span>
+        <select id="fd-sort" onchange="window.foodFilterChanged()">
+          <option value="saving">Najväčšia úspora</option>
+          <option value="price">Najlacnejšie</option>
+          <option value="name">Podľa názvu</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="fd-grid">
+      <div class="fd-left" id="food-body"><div class="loading">Načítavam ceny…</div></div>
+      <aside class="fd-side" id="food-side"></aside>
+    </div>
   </main>
 
   <main id="leaflets-main" style="display:none;">
@@ -2197,6 +2420,13 @@
     document.getElementById('coupons-main').style.display = section === 'coupons' ? 'block' : 'none';
     document.getElementById('leaflets-main').style.display = section === 'leaflets' ? 'block' : 'none';
     document.getElementById('food-main').style.display = section === 'food' ? 'block' : 'none';
+    // Potraviny majú vlastný bočný panel, tak im dáme celú šírku a
+    // všeobecný sidebar stránky schováme - dva vedľa seba by z nej
+    // spravili tri stĺpce a produktové riadky by sa zalamovali.
+    document.querySelector('.container').classList.toggle('full-width', section === 'food');
+    // Teplé takmer biele pozadie patrí k tejto sekcii. Sivé zo zvyšku
+    // stránky pod bielymi kartami pôsobilo špinavo.
+    document.body.classList.toggle('food-page', section === 'food');
     if (section === 'food') loadFoodPrices();
     document.getElementById('cat-nav-wrap').style.display = section === 'deals' ? 'block' : 'none';
     document.getElementById('btn-add-deal').style.display = section === 'deals' ? 'inline-block' : 'none';
@@ -2208,17 +2438,41 @@
   // ── Najlacnejšie potraviny ──────────────────────────────────────────
   // Dáta pripravuje agent raz denne z národného porovnávača a ukladá ich
   // do jediného dokumentu, takže zobrazenie stojí jedno čítanie.
-  let foodLoaded = false;
+  // ── Najlacnejšie potraviny ──────────────────────────────────────────
+  // Celá sekcia beží z jedného dokumentu, ktorý agent obnovuje raz denne.
+  // Prepočty (poradie reťazcov, najlacnejšia kombinácia, môj nákup) robíme
+  // v prehliadači - sú to jednoduché súčty nad desiatimi položkami a
+  // server na to nepotrebujeme.
+
+  let foodData = null;
+  const CART_KEY  = 'hk_food_cart';
+  const CART_SEED = 'hk_food_cart_seeded';
+  const WATCH_KEY = 'hk_food_watch';
+
+  // localStorage môže hodiť výnimku (súkromné okno, zablokované dáta).
+  // Nákupný zoznam nie je dôvod zhodiť celú sekciu.
+  function lsGet(key, fallback) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+    catch (e) { return fallback; }
+  }
+  function lsSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  let foodCart  = lsGet(CART_KEY, {});
+  let foodWatch = lsGet(WATCH_KEY, []);
 
   window.loadFoodPrices = async function() {
-    if (foodLoaded) return;
     const el = document.getElementById('food-body');
     if (!el) return;
+    if (foodData) { renderFood(); return; }
     try {
       const data = await window.fetchFoodPrices();
-      if (!data) { el.innerHTML = foodEmpty(); return; }
-      el.innerHTML = renderFoodPrices(data);
-      foodLoaded = true;
+      if (!data || !(data.items || []).length) { el.innerHTML = foodEmpty(); return; }
+      foodData = data;
+      seedCart();
+      fillChainPicker();
+      renderFood();
     } catch (e) {
       console.warn('Ceny potravín sa nepodarilo načítať:', e);
       el.innerHTML = foodEmpty();
@@ -2231,53 +2485,457 @@
       Ceny sa zatiaľ nepodarilo načítať. Skús to neskôr.</div>`;
   }
 
-  function renderFoodPrices(data) {
-    const items = data.items || [];
-    const baskets = data.baskets || [];
-    if (!items.length) return foodEmpty();
+  // Prvá návšteva: nákup naplníme celým košíkom, nech je hneď vidieť,
+  // načo sekcia slúži. Keď si ho niekto vyprázdni, znova mu ho
+  // nenaplníme - to by bolo otravné.
+  function seedCart() {
+    if (lsGet(CART_SEED, false)) return;
+    (foodData.items || []).forEach(it => { foodCart[it.label] = 1; });
+    lsSet(CART_KEY, foodCart);
+    lsSet(CART_SEED, true);
+  }
 
-    const max = baskets.length ? baskets[baskets.length - 1].total : 0;
-    const rank = baskets.map((b, i) => {
-      const sirka = max ? Math.round(b.total / max * 100) : 0;
-      const trieda = i === 0 ? 'cheap' : (i < 2 ? 'mid' : 'high');
-      return `<div class="fb-row">
+  function allVendors() {
+    const set = new Set();
+    (foodData.items || []).forEach(it => (it.prices || []).forEach(p => set.add(p.vendor)));
+    return [...set].sort();
+  }
+
+  function fillChainPicker() {
+    const sel = document.getElementById('fd-chain');
+    if (!sel || sel.options.length > 1) return;
+    allVendors().forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+  }
+
+  window.foodFilterChanged = () => renderFood();
+
+  function currentFilters() {
+    return {
+      q:     (document.getElementById('fd-q')?.value || '').trim().toLowerCase(),
+      chain: document.getElementById('fd-chain')?.value || '',
+      sort:  document.getElementById('fd-sort')?.value || 'saving',
+    };
+  }
+
+  // Ceny položky obmedzené na povolené reťazce, zoradené od najlacnejšej.
+  function pricesOf(item, chain) {
+    const rows = (item.prices || []).slice().sort((a, b) => a.price - b.price);
+    return chain ? rows.filter(p => p.vendor === chain) : rows;
+  }
+
+  // Najlacnejšia kombinácia. `limit` je najviac koľko obchodov sa smie
+  // použiť; pri 1 a 2 skúšame všetky varianty hrubou silou - päť reťazcov
+  // a desať položiek je na to dosť málo.
+  function cheapestCombo(items, qty, limit) {
+    const vendors = allVendors();
+    const totalFor = (allowed) => {
+      let sum = 0;
+      for (const it of items) {
+        const rows = (it.prices || []).filter(p => allowed.has(p.vendor));
+        if (!rows.length) return null;
+        sum += Math.min(...rows.map(p => p.price)) * (qty[it.label] || 1);
+      }
+      return sum;
+    };
+
+    if (limit >= vendors.length) {
+      const t = totalFor(new Set(vendors));
+      return t === null ? null : { total: t, vendors: [] };
+    }
+
+    let best = null;
+    const consider = (list) => {
+      const t = totalFor(new Set(list));
+      if (t !== null && (!best || t < best.total)) best = { total: t, vendors: list.slice() };
+    };
+    vendors.forEach(v => consider([v]));
+    if (limit >= 2) {
+      for (let i = 0; i < vendors.length; i++)
+        for (let j = i + 1; j < vendors.length; j++) consider([vendors[i], vendors[j]]);
+    }
+    return best;
+  }
+
+  // Súčet košíka v jednom reťazci. null, keď tam niektorá položka chýba -
+  // taký reťazec do rebríčka nepatrí, inak by vyzeral falošne lacno.
+  function totalsByVendor(items, qty) {
+    return allVendors().map(v => {
+      let sum = 0;
+      for (const it of items) {
+        const row = (it.prices || []).find(p => p.vendor === v);
+        if (!row) return null;
+        sum += row.price * (qty[it.label] || 1);
+      }
+      return { vendor: v, total: Math.round(sum * 100) / 100 };
+    }).filter(Boolean).sort((a, b) => a.total - b.total);
+  }
+
+  const BAR_COLORS = ['#2E8B3D', '#4A96E0', '#F0C94A', '#EE8478', '#B3ADA4', '#C9A227'];
+
+  // ── graf vývoja ceny ────────────────────────────────────────────────
+  // História sa zbiera od nasadenia, takže spočiatku je čiara rovná a
+  // percento sa nezobrazuje. Radšej prázdny stĺpec než vymyslené číslo.
+  const SPARK_W = 66, SPARK_H = 30;
+
+  function sparkFor(label) {
+    const series = ((foodData.history || {})[label] || []).slice(-30);
+    if (series.length < 2) {
+      return { points: `2,${SPARK_H / 2} ${SPARK_W - 2},${SPARK_H / 2}`, color: '#B3ADA4',
+               trend: '—', note: 'zbierame históriu' };
+    }
+    const vals = series.map(s => s.p);
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const span = (hi - lo) || 1;
+    const points = series.map((s, i) => {
+      const x = 2 + i * ((SPARK_W - 4) / (series.length - 1));
+      const y = SPARK_H - 4 - ((s.p - lo) / span) * (SPARK_H - 8);
+      return `${Math.round(x * 10) / 10},${Math.round(y * 10) / 10}`;
+    }).join(' ');
+
+    const first = vals[0], last = vals[vals.length - 1];
+    const pct = first ? Math.round((last / first - 1) * 100) : 0;
+    const days = series.length;
+    const note = `oproti ${days} ${days === 1 ? 'dňu' : (days < 5 ? 'dňom' : 'dňom')}`;
+    if (pct < 0) return { points, color: '#2E8B3D', trend: `↓ ${pct} %`, note };
+    if (pct > 0) return { points, color: '#D64545', trend: `↑ +${pct} %`, note };
+    return { points, color: '#B3ADA4', trend: '↔ 0 %', note: 'stabilná cena' };
+  }
+
+  // ── vykreslenie ─────────────────────────────────────────────────────
+  function renderFood() {
+    if (!foodData) return;
+    const f = currentFilters();
+    const items = foodData.items || [];
+
+    const visible = items
+      .filter(it => !f.q || (it.label + ' ' + (it.product || '')).toLowerCase().includes(f.q))
+      .filter(it => pricesOf(it, f.chain).length > 0);
+
+    const sorted = visible.slice().sort((a, b) => {
+      const pa = pricesOf(a, f.chain), pb = pricesOf(b, f.chain);
+      if (f.sort === 'name')  return a.label.localeCompare(b.label, 'sk');
+      if (f.sort === 'price') return pa[0].price - pb[0].price;
+      const sa = (a.prices || []).length ? Math.max(...a.prices.map(p => p.price)) - pa[0].price : 0;
+      const sb = (b.prices || []).length ? Math.max(...b.prices.map(p => p.price)) - pb[0].price : 0;
+      return sb - sa;
+    });
+
+    document.getElementById('food-body').innerHTML =
+      basketCard(items) + listCard(sorted, f, visible.length !== items.length);
+    document.getElementById('food-side').innerHTML =
+      cartCard(items) + watchCard(items) + tipCard(items);
+  }
+
+  let comboLimit = 2;
+  window.foodComboMode = (n) => { comboLimit = n; renderFood(); };
+
+  function basketCard(items) {
+    const ones = totalsByVendor(items, {});
+    const max  = ones.length ? ones[ones.length - 1].total : 0;
+    const rows = ones.map((b, i) => {
+      const w = max ? Math.max(8, Math.round(b.total / max * 100)) : 0;
+      const diff = i === 0 ? '' : `+${price(b.total - ones[0].total)}`;
+      return `<div class="fb-row${i === 0 ? ' best' : ''}">
+        <span class="fb-medal">${i === 0 ? icon('award') : ''}</span>
         <span class="fb-name">${escapeHtml(b.vendor)}</span>
-        <span class="fb-track"><span class="fb-fill ${trieda}" style="width:${sirka}%"></span></span>
+        <span class="fb-track"><span class="fb-fill" style="width:${w}%;background:${BAR_COLORS[i % BAR_COLORS.length]}"></span></span>
         <span class="fb-total">${price(b.total)}</span>
+        <span class="fb-diff">${diff}</span>
       </div>`;
     }).join('');
+
+    const combo   = cheapestCombo(items, {}, comboLimit);
+    const oneBest = ones.length ? ones[0].total : 0;
+    const saved   = combo && oneBest ? oneBest - combo.total : 0;
+    const kde = combo && combo.vendors.length
+      ? `Nákup rozdelený medzi ${combo.vendors.length === 1 ? 'jeden obchod' : combo.vendors.length + ' obchody'}<br><b>(${combo.vendors.map(escapeHtml).join(' + ')})</b>`
+      : 'Každá položka tam, kde je najlacnejšia';
+
+    return `<div class="fd-basket">
+      <div class="fd-basket-main">
+        <h2>${icon('basket')} Celý košík (${items.length} ${items.length < 5 ? 'položky' : 'položiek'})</h2>
+        <p class="fd-basket-sub">Kde je dnes najlacnejší?</p>
+        ${rows || '<div class="empty" style="font-size:.85rem;">Zatiaľ nemáme dosť dát na porovnanie.</div>'}
+      </div>
+      <div class="fd-combo">
+        <div class="fd-combo-h">${icon('puzzle')} Najlacnejšia kombinácia</div>
+        <div class="fd-combo-big">${combo ? price(combo.total) : '—'}</div>
+        <p class="fd-combo-note">${kde}</p>
+        ${saved > 0.004 ? `<span class="fd-save-pill">${icon('circle-check')} Ušetríte ${price(saved)}</span>` : ''}
+        <button type="button" class="fd-combo-cta" onclick="window.foodShowCombo()">Zobraziť detail nákupu →</button>
+        <div class="fd-settings">
+          <div class="fd-settings-t">Nastavenia porovnania</div>
+          <label><input type="radio" name="fd-combo" ${comboLimit === 1 ? 'checked' : ''} onchange="window.foodComboMode(1)"> Jeden obchod</label>
+          <label><input type="radio" name="fd-combo" ${comboLimit === 2 ? 'checked' : ''} onchange="window.foodComboMode(2)"> Kombinovať max. 2 obchody</label>
+          <label><input type="radio" name="fd-combo" ${comboLimit > 2 ? 'checked' : ''} onchange="window.foodComboMode(99)"> Bez obmedzenia</label>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function photoOf(it, cls) {
+    return it.photo
+      ? `<img class="${cls}" src="${escapeAttr(it.photo)}" alt="" loading="lazy">`
+      : `<span class="fp-icon">${icon(it.icon || 'basket')}</span>`;
+  }
+
+  function listCard(rows, f, filtered) {
+    const datum = foodData.reportDate
+      ? foodData.reportDate.split('-').reverse().map(n => parseInt(n, 10)).join('. ') + '.' : '';
+
+    const body = rows.map(it => {
+      const ceny = pricesOf(it, f.chain);
+      const naj  = ceny[0];
+      const ostatne = (it.prices || []).slice().sort((a, b) => a.price - b.price)
+        .filter(p => p.vendor !== naj.vendor).slice(0, 3)
+        .map(p => `<span class="fp-other">${escapeHtml(p.vendor)} ${price(p.price)}</span>`).join('');
+      const bal = it.packageSize
+        ? `${parseFloat(it.packageSize)} ${escapeHtml(it.unit || '')}` : '';
+      const sp = sparkFor(it.label);
+      const inCart = foodCart[it.label] > 0;
+      return `<div class="fp-row">
+        ${photoOf(it, 'fp-photo')}
+        <span class="fp-name"><b>${escapeHtml(it.label)}</b><span class="fp-pack">${bal}</span></span>
+        <span class="fp-best">
+          <span class="fp-price">${price(naj.price)}</span>
+          <span class="fp-chain">${escapeHtml(naj.vendor)}</span>
+        </span>
+        <span class="fp-others">${ostatne}</span>
+        <span class="fp-trend"><b style="color:${sp.color}">${sp.trend}</b><span>${sp.note}</span></span>
+        <svg class="fp-spark" width="${SPARK_W}" height="${SPARK_H}" viewBox="0 0 ${SPARK_W} ${SPARK_H}" fill="none" aria-hidden="true">
+          <polyline points="${sp.points}" stroke="${sp.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+        <button type="button" class="fp-add${inCart ? ' on' : ''}"
+                aria-label="${inCart ? 'Odobrať z nákupu' : 'Pridať do nákupu'}"
+                onclick="window.foodToggleCart('${escapeAttr(it.label)}')">
+          ${icon(inCart ? 'circle-check' : 'plus')}
+        </button>
+      </div>`;
+    }).join('');
+
+    return `<div class="fd-list-box">
+      <div class="fd-list-h">
+        <h2>Zoznam potravín</h2>
+        <span class="fd-src">Ceny k ${escapeHtml(datum)} · zdroj:
+          <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">CenySlovensko.sk</a>
+          – Ministerstvo financií SR</span>
+      </div>
+      ${body || `<div class="empty" style="font-size:.85rem;padding:18px 6px;">Nič sa nenašlo.</div>`}
+      <div class="fd-legend">
+        <svg width="52" height="16" viewBox="0 0 52 16" fill="none" aria-hidden="true" style="flex:none;">
+          <polyline points="2,8 50,8" stroke="#B3ADA4" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Čiara je zatiaľ rovná — každý deň k nej pribudne jeden bod z reálnych cien, takže sa postupne zakriví sama.</span>
+      </div>
+    </div>`;
+  }
+
+  // ── Môj nákup ───────────────────────────────────────────────────────
+  window.foodToggleCart = (label) => {
+    if (foodCart[label]) delete foodCart[label]; else foodCart[label] = 1;
+    lsSet(CART_KEY, foodCart);
+    renderFood();
+  };
+  window.foodQty = (label, delta) => {
+    const next = (foodCart[label] || 0) + delta;
+    if (next < 1) delete foodCart[label]; else foodCart[label] = Math.min(next, 99);
+    lsSet(CART_KEY, foodCart);
+    renderFood();
+  };
+  window.foodClearCart = () => {
+    foodCart = {};
+    lsSet(CART_KEY, foodCart);
+    renderFood();
+  };
+
+  function cartItems(items) {
+    return items.filter(it => foodCart[it.label] > 0);
+  }
+
+  function cartCard(items) {
+    const mine = cartItems(items);
+    const count = mine.reduce((s, it) => s + foodCart[it.label], 0);
+
+    if (!mine.length) {
+      return `<div class="fd-card">
+        <div class="fd-card-h"><h3>Môj nákup</h3></div>
+        <p style="font-size:.85rem;color:var(--fd-soft);line-height:1.5;">
+          Klikni na oranžové <b>+</b> pri potravinách, ktoré naozaj kupuješ.
+          Prepočítame ti, kde vyjde <i>tvoj</i> nákup najlacnejšie.</p>
+      </div>`;
+    }
+
+    const rows = mine.slice(0, 4).map(it => {
+      const naj = pricesOf(it, '')[0];
+      const bal = it.packageSize ? `${parseFloat(it.packageSize)} ${escapeHtml(it.unit || '')}` : '';
+      const l = escapeAttr(it.label);
+      return `<div class="fd-cart-row">
+        ${it.photo ? `<img src="${escapeAttr(it.photo)}" alt="" loading="lazy">`
+                   : `<span class="fd-cart-ph">${icon(it.icon || 'basket')}</span>`}
+        <span class="fd-cart-info">
+          <b>${escapeHtml(it.label)}</b><span>${bal}</span><i>${price(naj.price)}</i>
+        </span>
+        <span class="fd-qty">
+          <button type="button" aria-label="Menej" onclick="window.foodQty('${l}',-1)">−</button>
+          <span class="num">${foodCart[it.label]}</span>
+          <button type="button" aria-label="Viac" onclick="window.foodQty('${l}',1)">+</button>
+          <button type="button" class="del" aria-label="Odstrániť" onclick="window.foodToggleCart('${l}')">×</button>
+        </span>
+      </div>`;
+    }).join('');
+
+    const ones = totalsByVendor(mine, foodCart);
+    const rank = ones.slice(0, 3).map((b, i) => `
+      <div class="fd-rank-row${i === 0 ? ' best' : ''}">
+        <span style="width:17px;flex:none;color:var(--gold)">${i === 0 ? icon('award') : ''}</span>
+        <span class="nm">${escapeHtml(b.vendor)}</span>
+        <span class="tot">${price(b.total)}</span>
+        <span class="dif">${i === 0 ? '' : '+' + price(b.total - ones[0].total)}</span>
+      </div>`).join('');
+
+    const saving = ones.length > 1 ? ones[ones.length - 1].total - ones[0].total : 0;
+
+    return `<div class="fd-card">
+      <div class="fd-card-h">
+        <h3 style="flex:1">Môj nákup (${count})</h3>
+        <button type="button" onclick="window.foodClearCart()" class="store-edit">Vymazať všetko</button>
+      </div>
+      ${rows}
+      ${mine.length > 4 ? `<p style="font-size:.78rem;color:var(--fd-faint);padding:10px 0 0;">a ďalších ${mine.length - 4} ${mine.length - 4 === 1 ? 'položka' : 'položiek'}</p>` : ''}
+      <div class="fd-rank">
+        <div class="fd-rank-t">Najlacnejší obchod pre celý nákup</div>
+        ${rank || '<p style="font-size:.8rem;color:var(--fd-faint)">Žiadny reťazec nemá všetky tvoje položky.</p>'}
+        ${saving > 0.004 ? `<div class="fd-savebox">
+          ${icon('pig')}
+          <span><b>Ušetríte až ${price(saving)}</b><span>oproti najdrahšiemu nákupu</span></span>
+        </div>` : ''}
+        <button type="button" class="fd-cta" onclick="window.foodShowCombo(true)">Zobraziť detail porovnania →</button>
+      </div>
+    </div>`;
+  }
+
+  // Detail rozpísaný po položkách. Používa ho aj zelené CTA pri
+  // kombinácii, aj oranžové v nákupe - líšia sa len tým, či počítajú
+  // celý košík alebo len to, čo si človek naklikal.
+  window.foodShowCombo = (mine) => {
+    const items = mine ? cartItems(foodData.items || []) : (foodData.items || []);
+    const qty   = mine ? foodCart : {};
+    if (!items.length) return;
+    const combo = cheapestCombo(items, qty, comboLimit);
+    if (!combo) return;
+    const allowed = combo.vendors.length ? new Set(combo.vendors) : new Set(allVendors());
 
     const rows = items.map(it => {
-      const ceny = it.prices || [];
-      if (!ceny.length) return '';
-      const naj = ceny[0];
-      const ostatne = ceny.slice(1, 4).map(p =>
-        `<span class="fp-other">${escapeHtml(p.vendor)} ${price(p.price)}</span>`).join('');
-      const foto = it.photo
-        ? `<img class="fp-photo" src="${escapeAttr(it.photo)}" alt="" loading="lazy">`
-        : `<span class="fp-icon">${icon(it.icon || 'basket')}</span>`;
-      const balenie = it.packageSize
-        ? ` <span class="fp-pack">${it.packageSize} ${escapeHtml(it.unit || '')}</span>` : '';
-      return `<div class="fp-row">
-        ${foto}
-        <span class="fp-name">${escapeHtml(it.label)}${balenie}</span>
-        <span class="fp-best"><span class="fp-price">${price(naj.price)}</span>
-          <span class="fp-chain">${escapeHtml(naj.vendor)}</span></span>
-        <span class="fp-others">${ostatne}</span>
+      const row = (it.prices || []).filter(p => allowed.has(p.vendor))
+        .sort((a, b) => a.price - b.price)[0];
+      const n = qty[it.label] || 1;
+      return `<div class="fp-row" style="padding:9px 4px">
+        ${photoOf(it, 'fp-photo')}
+        <span class="fp-name"><b>${escapeHtml(it.label)}</b><span class="fp-pack">${n > 1 ? n + '×' : ''}</span></span>
+        <span class="fp-others"><span class="fp-other">${escapeHtml(row.vendor)}</span></span>
+        <span class="fp-best"><span class="fp-price">${price(row.price * n)}</span></span>
       </div>`;
     }).join('');
 
-    const datum = data.reportDate ? shortDate(data.reportDate.split('-').reverse().join('.')) : '';
-    return `
-      <div class="fb-box">
-        <div class="fb-title">Celý košík — kde je dnes najlacnejší</div>
-        ${rank || '<div class="empty" style="font-size:.85rem;">Zatiaľ nemáme dosť dát na porovnanie.</div>'}
+    document.getElementById('detail-modal').classList.add('open');
+    document.querySelector('#detail-modal h2').textContent = 'Detail nákupu';
+    document.getElementById('detail-body').innerHTML = `
+      <div class="price-box" style="margin-bottom:14px">
+        <div style="font-size:2rem;font-weight:800">${price(combo.total)}</div>
+        <div style="font-size:.85rem;color:var(--muted)">${
+          combo.vendors.length ? escapeHtml(combo.vendors.join(' + ')) : 'každá položka tam, kde je najlacnejšia'}</div>
       </div>
-      <div class="fp-list">${rows}</div>
-      <div class="fp-note">Ceny k ${escapeHtml(datum)} · Zdroj cien:
-        <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">CenySlovensko.sk</a>
-        – Ministerstvo financií SR</div>`;
+      ${rows}`;
+  };
+
+  // ── Stráž ceny ──────────────────────────────────────────────────────
+  // Upozornenie žije v prehliadači. Mail ani push neposielame a
+  // netvárime sa, že áno - keď sa človek vráti, ukážeme mu, čo zlacnelo.
+  window.foodAddWatch = () => {
+    const items = foodData.items || [];
+    const names = items.map(it => it.label);
+    const pick = prompt('Na ktorú potravinu ťa máme upozorniť?\n\n' + names.join(', '));
+    if (!pick) return;
+    const item = items.find(it => it.label.toLowerCase() === pick.trim().toLowerCase());
+    if (!item) { alert('Takú potravinu v zozname nemáme.'); return; }
+    const now = pricesOf(item, '')[0].price;
+    const raw = prompt(`Teraz stojí ${price(now)}. Pri akej cene ťa máme upozorniť?`,
+                       String(Math.round(now * 90) / 100).replace('.', ','));
+    if (!raw) return;
+    const target = parseFloat(raw.replace(',', '.'));
+    if (isNaN(target) || target <= 0) { alert('To nie je platná cena.'); return; }
+    foodWatch = foodWatch.filter(w => w.label !== item.label);
+    foodWatch.push({ label: item.label, target: Math.round(target * 100) / 100 });
+    lsSet(WATCH_KEY, foodWatch);
+    renderFood();
+  };
+  window.foodDropWatch = (label) => {
+    foodWatch = foodWatch.filter(w => w.label !== label);
+    lsSet(WATCH_KEY, foodWatch);
+    renderFood();
+  };
+
+  function watchCard(items) {
+    const rows = foodWatch.map(w => {
+      const it = items.find(x => x.label === w.label);
+      if (!it) return '';
+      const now = pricesOf(it, '')[0];
+      const hit = now.price <= w.target;
+      return hit
+        ? `<div class="fd-watch-hit">${escapeHtml(it.label)} je za ${price(now.price)} v ${escapeHtml(now.vendor)} — pod tvojou hranicou ${price(w.target)}.
+             <button type="button" class="store-edit" onclick="window.foodDropWatch('${escapeAttr(w.label)}')">zrušiť</button></div>`
+        : `<div class="fd-watch-row">
+             <span class="nm">${escapeHtml(it.label)} pod ${price(w.target)}</span>
+             <span style="color:var(--fd-faint)">teraz ${price(now.price)}</span>
+             <button type="button" class="store-edit" onclick="window.foodDropWatch('${escapeAttr(w.label)}')">×</button>
+           </div>`;
+    }).join('');
+
+    return `<div class="fd-card">
+      <div class="fd-card-h">${icon('bell')}<h3>Stráž ceny</h3></div>
+      ${rows || '<p style="font-size:.82rem;color:var(--fd-soft);line-height:1.5;margin-bottom:12px;">Povedz nám, na čo ťa máme upozorniť. Ukážeme ti to tu, keď sa vrátiš.</p>'}
+      <button type="button" class="fd-watch-btn" onclick="window.foodAddWatch()" style="margin-top:10px">+ Pridať upozornenie</button>
+    </div>`;
   }
+
+  // ── Tip dňa ─────────────────────────────────────────────────────────
+  // Položka, pri ktorej je dnes medzi reťazcami najväčší rozdiel. Keď
+  // nazbierame mesiac histórie, prepneme to na najnižšiu cenu za 30 dní.
+  function tipCard(items) {
+    let best = null;
+    items.forEach(it => {
+      const rows = (it.prices || []).slice().sort((a, b) => a.price - b.price);
+      if (rows.length < 2) return;
+      const gap = rows[rows.length - 1].price - rows[0].price;
+      if (!best || gap > best.gap) best = { it, gap, lo: rows[0], hi: rows[rows.length - 1] };
+    });
+    if (!best) return '';
+
+    const pct = Math.round((1 - best.lo.price / best.hi.price) * 100);
+    const bal = best.it.packageSize
+      ? `${parseFloat(best.it.packageSize)} ${escapeHtml(best.it.unit || '')}` : '';
+    return `<div class="fd-card">
+      <div class="fd-card-h">${icon('bulb')}<h3>Tip dňa</h3></div>
+      <div class="fd-tip-row">
+        ${best.it.photo ? `<img src="${escapeAttr(best.it.photo)}" alt="" loading="lazy">`
+                        : `<span class="fp-icon">${icon(best.it.icon || 'basket')}</span>`}
+        <span style="flex:1">
+          <span class="fd-tip-name">${escapeHtml(best.it.label)}</span>
+          <span class="fd-tip-sub">${bal} · ${escapeHtml(best.lo.vendor)}</span>
+          <span style="display:flex;align-items:center;gap:8px;margin-top:5px">
+            <span class="fd-tip-price">${price(best.lo.price)}</span>
+            <span class="fd-tip-pct">−${pct} %</span>
+          </span>
+        </span>
+      </div>
+      <p class="fd-tip-note">Najväčší rozdiel medzi reťazcami dnes — v ${escapeHtml(best.hi.vendor)} stojí ${price(best.hi.price)}.</p>
+    </div>`;
+  }
+
 
   // ── Letáky ────────────────────────────────────────────────────────────────
   const LEAFLET_STORES = {
