@@ -44,11 +44,12 @@ def _call_quietly(method: str, payload: dict) -> Optional[dict]:
     return _call(method, payload, quiet=True)
 
 
-def _call(method: str, payload: dict, quiet: bool = False) -> Optional[dict]:
+def _call(method: str, payload: dict, quiet: bool = False,
+          http_timeout: Optional[int] = None) -> Optional[dict]:
     """Zavolá Telegram API. Vráti None, keď to zlyhá — nikdy nevyhodí výnimku."""
     url = f"{API_BASE}{config.TELEGRAM_BOT_TOKEN}/{method}"
     try:
-        response = requests.post(url, json=payload, timeout=_TIMEOUT)
+        response = requests.post(url, json=payload, timeout=http_timeout or _TIMEOUT)
         data = response.json()
     except Exception as e:
         logger.log(logging.DEBUG if quiet else logging.WARNING,
@@ -175,10 +176,14 @@ def _is_authorised(callback: dict) -> bool:
     return allowed in (sender, chat)
 
 
-def process_updates(db) -> int:
+def process_updates(db, long_poll: int = 0) -> int:
     """
     Vyzdvihne stlačené tlačidlá z Telegramu a premietne ich do databázy.
     Vráti počet spracovaných rozhodnutí.
+
+    `long_poll` zapne dlhé dopytovanie: Telegram podrží spojenie otvorené
+    až tak dlho a odpovie hneď, ako niekto stlačí tlačidlo. Reakcia je
+    potom okamžitá namiesto čakania na ďalší beh.
     """
     if not is_configured():
         logger.info("Telegram nie je nastavený — preskakujem.")
@@ -187,9 +192,9 @@ def process_updates(db) -> int:
     offset = _load_offset(db)
     updates = _call("getUpdates", {
         "offset": offset,
-        "timeout": 0,
+        "timeout": long_poll,
         "allowed_updates": ["callback_query"],
-    })
+    }, http_timeout=long_poll + 15 if long_poll else None)
     if not updates:
         return 0
 

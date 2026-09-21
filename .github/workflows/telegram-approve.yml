@@ -1,32 +1,41 @@
 name: Telegram schvaľovanie
 
 # Telegram tlačidlá bežne obsluhuje server s verejnou adresou (webhook).
-# Taký nemáme, tak sa Telegramu pravidelne pýtame, či sa niečo stalo.
-# Dôsledok: medzi stlačením tlačidla a zmenou na stránke ubehne až ~15 min.
+# Taký nemáme, tak sa Telegramu pýtame sami.
+#
+# Pôvodne to bol cron každých 15 minút, lenže GitHub tak časté úlohy
+# nedodržiava - v praxi ich púšťal raz za dve až päť hodín a schválenie
+# dealu sa prejavilo až s takým oneskorením.
+#
+# Teraz beží jeden spustený beh 55 minút a používa dlhé dopytovanie:
+# Telegram podrží spojenie a odpovie hneď po stlačení tlačidla. Reakcia
+# je preto v sekundách a cron stačí hodinový, čo GitHub zvláda.
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "2 * * * *"
   workflow_dispatch:
     inputs:
       diag:
         description: "Len diagnostika - zistí, prečo sa stlačenia nespracúvajú"
         type: boolean
         default: false
+      seconds:
+        description: "Ako dlho počúvať (prázdne = 3300 s, teda 55 min)"
+        type: string
+        default: ""
 
-# Keby sa behy nahromadili, nech nebežia dva naraz nad tou istou frontou.
+# Dva behy naraz by si navzájom brali stlačenia z tej istej fronty.
 concurrency:
   group: telegram-approve
   cancel-in-progress: false
 
-# Tieto behy do repozitara nic nezapisuju - citaju kod a pisu do
-# Firestore. Najuzsie mozne opravnenia tokenu.
 permissions:
   contents: read
 
 jobs:
   poll:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 60
 
     defaults:
       run:
@@ -56,6 +65,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_DIAG: ${{ inputs.diag }}
+          POLL_SECONDS: ${{ inputs.seconds }}
 
       - name: Zmazanie kľúča
         if: always()
