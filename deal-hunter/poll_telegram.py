@@ -31,8 +31,7 @@ def main() -> int:
 
     if os.environ.get("TELEGRAM_DIAG", "").lower() == "true":
         import json
-        logger.info("DIAGNOSTIKA:
-%s",
+        logger.info("DIAGNOSTIKA: %s",
                     json.dumps(telegram_bot.diagnose(db), ensure_ascii=False, indent=2))
         return 0
 
