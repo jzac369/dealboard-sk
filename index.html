@@ -560,11 +560,15 @@
   // ── Zmenší a skomprimuje obrázok, vráti base64 dátový text (žiadny Storage potrebný) ──
   // Ak užívateľ zadá adresu bez http(s):// (napr. "alza.sk/produkt/..."),
   // automaticky doplníme https:// – nemusí ho písať sám.
-  function normalizeUrl(value) {
+  // Na window zámerne: táto funkcia žije v modulovom bloku, ale volá ju
+  // aj klasický <script> nižšie (odoslanie dealu aj zľavového kódu).
+  // Moduly majú vlastný scope, takže bez tohto riadku tam bola
+  // ReferenceError a odoslanie padlo do "Chyba pri ukladaní".
+  window.normalizeUrl = function normalizeUrl(value) {
     if (!value) return value;
     if (/^https?:\/\//i.test(value)) return value;
     return 'https://' + value.replace(/^\/+/, '');
-  }
+  };
 
   // Niektoré file pickery (najmä v Android TWA appke / WebView) nevrátia
   // správny file.type pre obrázky – preto kontrolujeme aj príponu súboru.
@@ -1273,6 +1277,33 @@
 @keyframes newDealsIn{ from{ opacity:0; transform:translateX(-50%) translateY(-12px);} to{ opacity:1; transform:translateX(-50%) translateY(0);} }
 @media (prefers-reduced-motion: reduce){ #new-deals-bar{ animation:none; } }
 
+/* ── Formulár "Pridaj nový deal" ──────────────────────────────────────
+   Obchod rozpoznaný z odkazu. Ukazujeme ho ako potvrdenie, nie ako
+   ďalšie pole na vyplnenie - ale s možnosťou prepísať, lebo doména
+   nie vždy sedí s tým, ako sa obchod naozaj volá. */
+.store-hit{ display:flex; align-items:center; gap:7px; margin-top:7px; flex-wrap:wrap; }
+.store-hit .ic{ color:var(--green); }
+.store-chip{ background:var(--badge); color:var(--badge-t); border-radius:999px;
+  padding:2px 10px; font-size:.8rem; font-weight:700; }
+.store-note{ font-size:.76rem; color:var(--muted); }
+.store-edit{ background:none; border:none; padding:0; font-size:.76rem;
+  color:var(--muted); text-decoration:underline; cursor:pointer; font-family:inherit; }
+.store-edit:hover{ color:var(--orange); }
+
+/* Rozbaľovač voliteľných polí. Bez neho mal formulár deväť polí a
+   rolovalo sa v ňom; vyplnenú ich mala aj tak menšina. */
+.more-toggle{ display:flex; align-items:center; gap:8px; width:100%;
+  background:none; border:1.5px dashed var(--line); border-radius:var(--r);
+  padding:10px 12px; margin:2px 0 4px; cursor:pointer; font-family:inherit;
+  font-size:.86rem; color:var(--muted); text-align:left; }
+.more-toggle:hover{ border-color:var(--muted); color:var(--ink); }
+.more-toggle .more-opt{ margin-left:auto; font-size:.74rem; }
+.more-chev{ transition:transform .18s ease; flex:none; }
+.more-toggle[aria-expanded="true"]{ border-style:solid; }
+.more-toggle[aria-expanded="true"] .more-chev{ transform:rotate(180deg); }
+@media (prefers-reduced-motion: reduce){ .more-chev{ transition:none; } }
+#more-fields > div{ margin-bottom:12px; }
+
 /* Záložka na karte dealu */
 .deal-footer .save-btn{ text-decoration:none; font-size:1.05rem; line-height:1; }
 .deal-footer .save-btn:hover{ transform:scale(1.15); display:inline-block; }
@@ -1611,8 +1642,9 @@
   <main id="food-main" style="display:none;">
     <div class="leaflet-intro">
       <h2><svg class="ic" aria-hidden="true"><use href="#i-basket"></use></svg> Najlacnejšie potraviny</h2>
-      <p>Dnešné ceny základných potravín podľa reťazcov. Dáta pochádzajú z národného porovnávača
-         <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">cenyslovensko.sk</a>.</p>
+      <p>Dnešné ceny základných potravín podľa reťazcov. Zdroj cien:
+         <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">CenySlovensko.sk</a>
+         – Ministerstvo financií SR.</p>
     </div>
     <div id="food-body"><div class="loading">Načítavam ceny…</div></div>
   </main>
@@ -1654,58 +1686,85 @@
       <h2>Pridaj nový deal</h2>
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
+    <!-- Poradie polí nie je náhodné. Odkaz je prvý, lebo z neho vieme
+         odvodiť obchod a človek ho má po ruke - práve ho skopíroval.
+         Kategória, obrázok, popis a platnosť sú zbalené: vyplní ich
+         menšina a na obrazovke brali miesto všetkým ostatným. -->
     <div class="modal-body">
       <div>
-        <label>Vaše meno / prezývka *</label>
-        <input type="text" id="f-author" placeholder="napr. Jarko123" maxlength="40">
+        <label>Odkaz na deal *</label>
+        <input type="text" id="f-url" placeholder="alza.sk/produkt/... (https:// doplníme automaticky)">
+        <div id="store-detected" class="store-hit" style="display:none;">
+          <svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg>
+          <span class="store-chip" id="store-chip"></span>
+          <span class="store-note">rozpoznané z odkazu</span>
+          <button type="button" class="store-edit" onclick="unlockStore()">zmeniť</button>
+        </div>
+      </div>
+      <div id="store-manual">
+        <label>E-shop *</label>
+        <input type="text" id="f-store" placeholder="napr. Alza.sk, Mall.cz, Heureka.sk…">
       </div>
       <div>
         <label>Názov produktu *</label>
         <input type="text" id="f-title" placeholder="napr. Samsung Galaxy S24 128GB">
       </div>
-      <div>
-        <label>E-shop *</label>
-        <input type="text" id="f-store" placeholder="napr. Alza.sk, Mall.cz, Heureka.sk…">
-      </div>
       <div class="row2">
         <div>
-          <label>Pôvodná cena (€)</label>
-          <input type="number" id="f-orig" placeholder="299">
+          <label>Bežná cena (€)</label>
+          <input type="number" id="f-orig" placeholder="299" step="0.01" min="0">
         </div>
         <div>
-          <label>Zľavnená cena (€) *</label>
-          <input type="number" id="f-deal" placeholder="199">
+          <label>Akciová cena (€) *</label>
+          <input type="number" id="f-deal" placeholder="199" step="0.01" min="0">
         </div>
       </div>
       <div>
-        <label>Kategória</label>
-        <select id="f-cat">
-          <option>Elektronika</option>
-          <option>Dom & Záhrada</option>
-          <option>Móda</option>
-          <option>Hračky</option>
-          <option>Šport</option>
-          <option>Jedlo & Nápoje</option>
-          <option>Cestovanie</option>
-          <option>Iné</option>
-        </select>
+        <label>Tvoja prezývka *</label>
+        <input type="text" id="f-author" placeholder="napr. Jarko123" maxlength="40">
       </div>
-      <div>
-        <label>Odkaz na deal *</label>
-        <input type="text" id="f-url" placeholder="alza.sk/produkt/... (https:// doplníme automaticky)">
-      </div>
-      <div>
-        <label>Obrázok produktu</label>
-        <input type="file" id="f-img-file" accept="image/*">
-        <div id="img-preview-wrap" style="display:none; margin-top:8px;">
-          <img id="img-preview" style="max-width:140px; max-height:140px; border-radius:8px; border:1px solid var(--line);">
+
+      <button type="button" class="more-toggle" id="more-toggle"
+              aria-expanded="false" aria-controls="more-fields" onclick="toggleMore()">
+        <svg class="ic more-chev" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+        <span>Kategória, obrázok, popis, platnosť</span>
+        <span class="more-opt">voliteľné</span>
+      </button>
+
+      <div id="more-fields" style="display:none;">
+        <div class="row2">
+          <div>
+            <label>Kategória</label>
+            <select id="f-cat">
+              <option>Iné</option>
+              <option>Elektronika</option>
+              <option>Dom &amp; Záhrada</option>
+              <option>Móda</option>
+              <option>Hračky</option>
+              <option>Šport</option>
+              <option>Jedlo &amp; Nápoje</option>
+              <option>Cestovanie</option>
+            </select>
+          </div>
+          <div>
+            <label>Akcia platí do</label>
+            <input type="date" id="f-until">
+          </div>
         </div>
-        <p style="font-size:.76rem; color:var(--muted); margin-top:4px;">Max. veľkosť 5 MB. Voliteľné.</p>
+        <div>
+          <label>Popis / poznámka</label>
+          <textarea id="f-desc" rows="3" placeholder="Prečo je tento deal super? Historické minimum? Cashback?"></textarea>
+        </div>
+        <div>
+          <label>Obrázok produktu</label>
+          <input type="file" id="f-img-file" accept="image/*">
+          <div id="img-preview-wrap" style="display:none; margin-top:8px;">
+            <img id="img-preview" style="max-width:140px; max-height:140px; border-radius:8px; border:1px solid var(--line);">
+          </div>
+          <p style="font-size:.76rem; color:var(--muted); margin-top:4px;">Max. veľkosť 5 MB.</p>
+        </div>
       </div>
-      <div>
-        <label>Popis / poznámka</label>
-        <textarea id="f-desc" rows="3" placeholder="Prečo je tento deal super? Historické minimum? Cashback?"></textarea>
-      </div>
+
       <!-- Honeypot: skryté pole, ľudia ho nevidia a nevyplnia, boty často áno -->
       <div style="position:absolute; left:-9999px; opacity:0;" aria-hidden="true">
         <label>Nevyplňujte toto pole</label>
@@ -2157,8 +2216,9 @@
         ${rank || '<div class="empty" style="font-size:.85rem;">Zatiaľ nemáme dosť dát na porovnanie.</div>'}
       </div>
       <div class="fp-list">${rows}</div>
-      <div class="fp-note">Ceny k ${escapeHtml(datum)} · zdroj
-        <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">cenyslovensko.sk</a></div>`;
+      <div class="fp-note">Ceny k ${escapeHtml(datum)} · Zdroj cien:
+        <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">CenySlovensko.sk</a>
+        – Ministerstvo financií SR</div>`;
   }
 
   // ── Letáky ────────────────────────────────────────────────────────────────
@@ -2455,7 +2515,13 @@
   };
 
   // ── Modal ─────────────────────────────────────────────────────────────────
-  window.openModal  = () => document.getElementById('modal').classList.add('open');
+  window.openModal  = () => {
+    // Akcia, ktorá skončila včera, nemá zmysel. Dátum do minulosti
+    // preto prehliadač ani neponúkne.
+    const until = document.getElementById('f-until');
+    if (until && !until.min) until.min = new Date().toISOString().slice(0, 10);
+    document.getElementById('modal').classList.add('open');
+  };
   window.closeModal = () => document.getElementById('modal').classList.remove('open');
   document.getElementById('modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
@@ -2550,6 +2616,104 @@
   });
 
   // ── Image preview ────────────────────────────────────────────────────────
+  // ── Rozpoznanie obchodu z odkazu ────────────────────────────────────
+  // Tabuľka je zámerne krátka a ručná. Skúšal som odvodzovať názov
+  // priamo z domény ("alza.sk" -> "Alza"), lenže to plodí nezmysly
+  // ako "Mojadm" alebo "Xxxlutz". Radšej presné mená pre obchody,
+  // ktoré sa u nás naozaj objavujú, a pri ostatných nechať človeka
+  // napísať si to sám.
+  const STORE_BY_DOMAIN = {
+    'alza.sk':'Alza', 'alza.cz':'Alza',
+    'mall.sk':'Mall', 'nay.sk':'NAY', 'datart.sk':'Datart',
+    'billa.sk':'BILLA', 'tesco.sk':'Tesco', 'kaufland.sk':'Kaufland',
+    'lidl.sk':'Lidl', 'terno.sk':'TERNO', 'coop.sk':'COOP Jednota',
+    'jysk.sk':'JYSK', 'ikea.sk':'IKEA', 'ikea.com':'IKEA',
+    'moebelix.sk':'Möbelix', 'xxxlutz.sk':'XXXLutz',
+    'asko-nabytok.sk':'ASKO', 'idea-nabytok.sk':'IDEA nábytok',
+    'sconto.sk':'SCONTO', 'kika.sk':'kika',
+    'obi.sk':'OBI', 'hornbach.sk':'HORNBACH', 'bauhaus.sk':'BAUHAUS',
+    'stavmat.sk':'Stavmat',
+    'mojadm.sk':'dm drogerie', 'tetadrogerie.sk':'TETA',
+    'pepco.sk':'Pepco', 'kik.sk':'KiK', 'action.com':'Action',
+    'decathlon.sk':'Decathlon', 'intersport.sk':'Intersport',
+    'hervis.sk':'Hervis', 'exisport.com':'EXIsport',
+    'martinus.sk':'Martinus', 'panta-rhei.sk':'Panta Rhei',
+    'notino.sk':'Notino', 'zalando.sk':'Zalando', 'aboutyou.sk':'About You',
+    'booking.com':'Booking.com', 'pelikan.sk':'Pelikan',
+    'heureka.sk':'Heureka', 'allegro.sk':'Allegro',
+  };
+
+  function storeFromUrl(raw) {
+    if (!raw || !raw.trim()) return null;
+    let host;
+    try {
+      host = new URL(normalizeUrl(raw.trim())).hostname.toLowerCase();
+    } catch (e) {
+      return null;      // rozpísaný odkaz, ešte sa nemá čo hľadať
+    }
+    host = host.replace(/^www\./, '');
+    if (STORE_BY_DOMAIN[host]) return STORE_BY_DOMAIN[host];
+    // Poddomény typu "eshop.billa.sk" - skúsime aj o úroveň vyššie.
+    const parts = host.split('.');
+    for (let i = 1; i < parts.length - 1; i++) {
+      const tail = parts.slice(i).join('.');
+      if (STORE_BY_DOMAIN[tail]) return STORE_BY_DOMAIN[tail];
+    }
+    return null;
+  }
+
+  // Keď človek klikne na "zmeniť", pole na obchod sa vráti a už mu
+  // ho odkaz neprepisuje - jeho voľba má prednosť pred našou tabuľkou.
+  let storeUnlocked = false;
+
+  window.unlockStore = () => {
+    storeUnlocked = true;
+    document.getElementById('store-detected').style.display = 'none';
+    document.getElementById('store-manual').style.display = '';
+    document.getElementById('f-store').focus();
+  };
+
+  function syncStoreFromUrl() {
+    if (storeUnlocked) return;
+    const hit    = storeFromUrl(document.getElementById('f-url').value);
+    const chip   = document.getElementById('store-chip');
+    const found  = document.getElementById('store-detected');
+    const manual = document.getElementById('store-manual');
+    if (hit) {
+      chip.textContent = hit;
+      document.getElementById('f-store').value = hit;
+      found.style.display  = 'flex';
+      manual.style.display = 'none';
+    } else {
+      found.style.display  = 'none';
+      manual.style.display = '';
+    }
+  }
+
+  document.getElementById('f-url').addEventListener('input', syncStoreFromUrl);
+  document.getElementById('f-url').addEventListener('blur', syncStoreFromUrl);
+
+  // Po odoslaní vrátiť formulár do východiskového stavu. Bez toho by
+  // ďalšiemu človeku ostal otvorený rozbaľovač a zamknutý obchod
+  // z predošlého dealu.
+  function resetDealForm() {
+    storeUnlocked = false;
+    document.getElementById('store-detected').style.display = 'none';
+    document.getElementById('store-manual').style.display   = '';
+    const btn = document.getElementById('more-toggle');
+    btn.setAttribute('aria-expanded', 'false');
+    document.getElementById('more-fields').style.display = 'none';
+    document.getElementById('f-cat').selectedIndex = 0;
+  }
+
+  window.toggleMore = () => {
+    const btn  = document.getElementById('more-toggle');
+    const body = document.getElementById('more-fields');
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!open));
+    body.style.display = open ? 'none' : '';
+  };
+
   document.getElementById('f-img-file').addEventListener('change', (e) => {
     const file = e.target.files[0];
     const wrap = document.getElementById('img-preview-wrap');
@@ -2609,12 +2773,20 @@
         description: document.getElementById('f-desc').value.trim(),
         currency: '€'
       };
+      // Platnosť je voliteľná. Keď ju človek zadá, deal sa po dátume
+      // sám označí za neplatný - inak by tu visel donekonečna.
+      const until = document.getElementById('f-until').value;
+      if (until) {
+        data.validUntilISO = until;
+        data.validUntil = new Date(until + 'T00:00:00').toLocaleDateString('sk-SK');
+      }
       const status = await window.submitDeal(data, honeypot);
       closeModal();
-      ['f-author','f-title','f-store','f-orig','f-deal','f-url','f-desc','f-honeypot'].forEach(id =>
-        document.getElementById(id).value = '');
+      ['f-author','f-title','f-store','f-orig','f-deal','f-url','f-desc','f-honeypot','f-until']
+        .forEach(id => document.getElementById(id).value = '');
       document.getElementById('f-img-file').value = '';
       document.getElementById('img-preview-wrap').style.display = 'none';
+      resetDealForm();
       if (status === 'approved') {
         alert('Ďakujeme! Deal bol zverejnený.');
       } else {
