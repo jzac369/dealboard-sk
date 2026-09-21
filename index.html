@@ -1304,6 +1304,30 @@
 @media (prefers-reduced-motion: reduce){ .more-chev{ transition:none; } }
 #more-fields > div{ margin-bottom:12px; }
 
+/* ── Formulár "Pridaj zľavový kód" ────────────────────────────────── */
+/* Kód je hlavná vec celého formulára, nech tak aj vyzerá. */
+.code-input{ font-family:ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size:1.05rem; letter-spacing:1.5px; text-align:center; text-transform:uppercase;
+  border:1.5px dashed var(--orange) !important; color:var(--badge-t); background:var(--badge) !important; }
+.code-input::placeholder{ letter-spacing:1px; opacity:.55; }
+
+.seg-pick{ display:flex; border:1.5px solid var(--line); border-radius:var(--r); overflow:hidden; }
+.seg-pick button{ flex:1; border:none; border-right:1px solid var(--line); background:none;
+  padding:9px 4px; font-family:inherit; font-size:.82rem; color:var(--muted); cursor:pointer;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Na úzkych displejoch sa "doprava zdarma" nezmestí na jeden riadok.
+   Radšej zmenšiť písmo než nechať tlačidlo zalomiť na dva riadky -
+   prepínač by potom mal každú položku inak vysokú. */
+@media (max-width: 460px){ .seg-pick button{ font-size:.74rem; padding:9px 2px; } }
+.seg-pick button:last-child{ border-right:none; }
+.seg-pick button:hover{ background:var(--badge); color:var(--badge-t); }
+.seg-pick button.active{ background:var(--orange); color:#fff; font-weight:700; }
+
+.cp-preview{ display:flex; align-items:center; gap:7px; background:var(--bg);
+  border-radius:var(--r); padding:8px 10px; font-size:.8rem; color:var(--muted); }
+.cp-preview .ic{ flex:none; color:var(--muted); }
+.cp-preview strong{ color:var(--ink); }
+
 /* Záložka na karte dealu */
 .deal-footer .save-btn{ text-decoration:none; font-size:1.05rem; line-height:1; }
 .deal-footer .save-btn:hover{ transform:scale(1.15); display:inline-block; }
@@ -1824,35 +1848,69 @@
       <h2>Pridaj zľavový kód</h2>
       <button class="modal-close" onclick="closeCouponModal()">✕</button>
     </div>
+    <!-- Zľava sa už nepíše voľným textom. Ľudia do nej písali "20% na
+         všetko", "-20 %" aj "zľava dvadsať percent" a na kartách to
+         vyzeralo rozhádzane. Prepínač + číslo dá vždy rovnaký tvar. -->
     <div class="modal-body">
       <div>
-        <label>Vaše meno / prezývka *</label>
-        <input type="text" id="cp-author" placeholder="napr. Jarko123" maxlength="40">
+        <label>Odkaz na e-shop *</label>
+        <input type="text" id="cp-url" placeholder="zalando.sk (https:// doplníme automaticky)">
+        <div id="cp-store-detected" class="store-hit" style="display:none;">
+          <svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg>
+          <span class="store-chip" id="cp-store-chip"></span>
+          <span class="store-note">rozpoznané z odkazu</span>
+          <button type="button" class="store-edit" onclick="unlockCouponStore()">zmeniť</button>
+        </div>
       </div>
-      <div>
-        <label>Zľavový kód *</label>
-        <input type="text" id="cp-code" placeholder="napr. ZIMA20" style="text-transform:uppercase;">
-      </div>
-      <div>
+      <div id="cp-store-manual">
         <label>E-shop *</label>
         <input type="text" id="cp-store" placeholder="napr. Alza.sk, Zalando.sk…">
       </div>
       <div>
-        <label>Zľava *</label>
-        <input type="text" id="cp-discount" placeholder="napr. 20% na všetko, 5€ nad 50€…">
+        <label>Zľavový kód *</label>
+        <input type="text" id="cp-code" class="code-input" placeholder="ZIMA20" maxlength="40"
+               autocapitalize="characters" autocomplete="off" spellcheck="false">
       </div>
       <div>
-        <label>Odkaz na e-shop *</label>
-        <input type="text" id="cp-url" placeholder="eshop.sk (https:// doplníme automaticky)">
+        <label>Typ zľavy *</label>
+        <div class="seg-pick" id="cp-kind" role="radiogroup" aria-label="Typ zľavy">
+          <button type="button" role="radio" aria-checked="true"  class="active" data-kind="pct"  onclick="pickCouponKind('pct')">% z ceny</button>
+          <button type="button" role="radio" aria-checked="false" data-kind="eur"  onclick="pickCouponKind('eur')">€ zľava</button>
+          <button type="button" role="radio" aria-checked="false" data-kind="ship" onclick="pickCouponKind('ship')">doprava zdarma</button>
+        </div>
       </div>
+      <div class="row2">
+        <div id="cp-amount-wrap">
+          <label id="cp-amount-label">Koľko %</label>
+          <input type="number" id="cp-amount" placeholder="20" step="0.01" min="0" oninput="updateCouponPreview()">
+        </div>
+        <div>
+          <label>Platí do</label>
+          <input type="date" id="cp-expiry">
+        </div>
+      </div>
+      <p class="cp-preview" id="cp-preview">
+        <svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg>
+        <span>Na karte sa zobrazí: <strong id="cp-preview-text">—</strong></span>
+      </p>
       <div>
-        <label>Platí do (voliteľné)</label>
-        <input type="text" id="cp-expiry" placeholder="napr. 30.6.2026">
+        <label>Tvoja prezývka *</label>
+        <input type="text" id="cp-author" placeholder="napr. Jarko123" maxlength="40">
       </div>
-      <div>
-        <label>Popis / podmienky</label>
-        <textarea id="cp-desc" rows="2" placeholder="Min. hodnota objednávky, vylúčené kategórie, atď."></textarea>
+
+      <button type="button" class="more-toggle" id="cp-more-toggle"
+              aria-expanded="false" aria-controls="cp-more-fields" onclick="toggleCouponMore()">
+        <svg class="ic more-chev" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+        <span>Podmienky použitia</span>
+        <span class="more-opt">voliteľné</span>
+      </button>
+      <div id="cp-more-fields" style="display:none;">
+        <div>
+          <label>Popis / podmienky</label>
+          <textarea id="cp-desc" rows="2" placeholder="Min. hodnota objednávky, vylúčené kategórie, atď."></textarea>
+        </div>
       </div>
+
       <button class="btn-submit" onclick="handleCouponSubmit()">Odoslať na schválenie</button>
     </div>
   </div>
@@ -2359,7 +2417,16 @@
     if (searchVal) window.performCouponsSearch(); else window.loadCouponsPage(true);
   };
 
+  // Kód, ktorý včera doplatil, sa označí sám. Dátum berieme z expiryISO;
+  // staršie kódy ho nemajú a tie sa riadia ďalej len príznakom `expired`.
+  function couponExpired(c) {
+    if (c.expired) return true;
+    if (!c.expiryISO) return false;
+    return c.expiryISO < new Date().toISOString().slice(0, 10);
+  }
+
   function couponCard(c) {
+    const expired = couponExpired(c);
     const author = c.author ? escapeHtml(stripEmoji(c.author)) : '';
     const meta = [
       c.store ? `<span style="color:var(--badge-t)">${escapeHtml(c.store)}</span>` : '',
@@ -2368,13 +2435,13 @@
     ].filter(Boolean).join('<span class="coupon-dot">·</span>');
 
     return `
-    <div class="coupon-card${c.expired ? ' is-expired' : ''}" id="coupon-${c.id}">
+    <div class="coupon-card${expired ? ' is-expired' : ''}" id="coupon-${c.id}">
       <div class="coupon-code-box">
         <code>${escapeHtml(c.code||'')}</code>
         <button class="coupon-copy-btn" onclick="copyCoupon('${c.id}', '${escapeAttr(c.code||'')}')" id="copy-btn-${c.id}">Kopírovať</button>
       </div>
       <div class="coupon-info">
-        <div class="coupon-title">${escapeHtml(c.discount||'')}${c.expired ? ' <span class="expired-badge">EXSPIROVANÉ</span>' : ''}</div>
+        <div class="coupon-title">${escapeHtml(c.discount||'')}${expired ? ' <span class="expired-badge">EXSPIROVANÉ</span>' : ''}</div>
         <div class="coupon-meta">${meta}</div>
       </div>
       <div class="vote-seg" data-vote-for="c-${c.id}">
@@ -2382,7 +2449,7 @@
         <span class="vs-num">${c.votes||0}°</span>
         <button class="vs-up" onclick="voteCoupon('${c.id}', 1)" title="Funguje" aria-label="Funguje">${icon('plus')}</button>
       </div>
-      <a class="coupon-go${c.expired ? ' btn-off' : ''}" href="${safeUrl(c.url)}" target="_blank" rel="noopener">${c.expired ? 'Pozrieť e-shop' : 'Do e-shopu →'}</a>
+      <a class="coupon-go${expired ? ' btn-off' : ''}" href="${safeUrl(c.url)}" target="_blank" rel="noopener">${expired ? 'Pozrieť e-shop' : 'Do e-shopu →'}</a>
     </div>`;
   }
 
@@ -2477,17 +2544,26 @@
   setTimeout(highlightSharedDeal, 1200);
 
   // ── Modal: pridanie kódu ────────────────────────────────────────────────────
-  window.openCouponModal  = () => document.getElementById('coupon-modal').classList.add('open');
+  window.openCouponModal  = () => {
+    const exp = document.getElementById('cp-expiry');
+    if (exp && !exp.min) exp.min = new Date().toISOString().slice(0, 10);
+    document.getElementById('coupon-modal').classList.add('open');
+  };
   window.closeCouponModal = () => document.getElementById('coupon-modal').classList.remove('open');
 
   window.handleCouponSubmit = async function() {
     const author   = window.stripEmoji(document.getElementById('cp-author').value);
     const code     = document.getElementById('cp-code').value.trim().toUpperCase();
     const store    = document.getElementById('cp-store').value.trim();
-    const discount = document.getElementById('cp-discount').value.trim();
+    const discount = couponDiscountText();
     const url      = normalizeUrl(document.getElementById('cp-url').value.trim());
-    if (!author || !code || !store || !discount || !url) {
+    if (!author || !code || !store || !url) {
       alert('Vyplň prosím povinné polia (*).');
+      return;
+    }
+    if (!discount) {
+      alert('Doplň prosím výšku zľavy.');
+      document.getElementById('cp-amount').focus();
       return;
     }
     const data = {
@@ -2496,14 +2572,24 @@
       store,
       discount,
       url,
-      description: document.getElementById('cp-desc').value.trim(),
-      expiryDate: document.getElementById('cp-expiry').value.trim() || null
+      description: document.getElementById('cp-desc').value.trim()
     };
+    // Platnosť ukladáme dvakrát: v slovenskom tvare na zobrazenie a
+    // v ISO na porovnávanie. Predtým to bol voľný text, takže sa podľa
+    // neho nedalo vyhodnotiť nič a kódy nikdy neexspirovali.
+    const expiry = document.getElementById('cp-expiry').value;
+    if (expiry) {
+      data.expiryISO  = expiry;
+      data.expiryDate = new Date(expiry + 'T00:00:00').toLocaleDateString('sk-SK');
+    } else {
+      data.expiryDate = null;
+    }
     try {
       const status = await window.submitCoupon(data);
       closeCouponModal();
-      ['cp-author','cp-code','cp-store','cp-discount','cp-url','cp-desc','cp-expiry'].forEach(id =>
+      ['cp-author','cp-code','cp-store','cp-url','cp-desc','cp-expiry','cp-amount'].forEach(id =>
         document.getElementById(id).value = '');
+      resetCouponForm();
       if (status === 'approved') {
         alert('Ďakujeme! Kód bol zverejnený.');
       } else {
@@ -2692,6 +2778,85 @@
 
   document.getElementById('f-url').addEventListener('input', syncStoreFromUrl);
   document.getElementById('f-url').addEventListener('blur', syncStoreFromUrl);
+
+  // ── Zľavový kód: obchod, typ zľavy, náhľad ──────────────────────────
+  let couponStoreUnlocked = false;
+  let couponKind = 'pct';
+
+  window.unlockCouponStore = () => {
+    couponStoreUnlocked = true;
+    document.getElementById('cp-store-detected').style.display = 'none';
+    document.getElementById('cp-store-manual').style.display   = '';
+    document.getElementById('cp-store').focus();
+  };
+
+  function syncCouponStoreFromUrl() {
+    if (couponStoreUnlocked) return;
+    const hit    = storeFromUrl(document.getElementById('cp-url').value);
+    const found  = document.getElementById('cp-store-detected');
+    const manual = document.getElementById('cp-store-manual');
+    if (hit) {
+      document.getElementById('cp-store-chip').textContent = hit;
+      document.getElementById('cp-store').value = hit;
+      found.style.display  = 'flex';
+      manual.style.display = 'none';
+    } else {
+      found.style.display  = 'none';
+      manual.style.display = '';
+    }
+  }
+
+  document.getElementById('cp-url').addEventListener('input', syncCouponStoreFromUrl);
+  document.getElementById('cp-url').addEventListener('blur',  syncCouponStoreFromUrl);
+
+  window.pickCouponKind = (kind) => {
+    couponKind = kind;
+    document.querySelectorAll('#cp-kind button').forEach(b => {
+      const on = b.dataset.kind === kind;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', String(on));
+    });
+    // Pri doprave zdarma nie je čo vyčísliť - pole by len mýlilo.
+    const wrap = document.getElementById('cp-amount-wrap');
+    wrap.style.visibility = (kind === 'ship') ? 'hidden' : '';
+    document.getElementById('cp-amount-label').textContent =
+      (kind === 'eur') ? 'Koľko €' : 'Koľko %';
+    updateCouponPreview();
+  };
+
+  // Text, ktorý sa naozaj uloží a zobrazí na karte. Skladáme ho my,
+  // nie používateľ - preto vyzerajú všetky kupóny rovnako.
+  function couponDiscountText() {
+    if (couponKind === 'ship') return 'Doprava zdarma';
+    const raw = document.getElementById('cp-amount').value;
+    const num = parseFloat(raw);
+    if (isNaN(num) || num <= 0) return '';
+    const shown = Number.isInteger(num) ? String(num) : String(num).replace('.', ',');
+    return couponKind === 'eur' ? `Zľava ${shown} €` : `Zľava ${shown} %`;
+  }
+
+  window.updateCouponPreview = () => {
+    const text = couponDiscountText();
+    document.getElementById('cp-preview-text').textContent = text || '—';
+  };
+
+  window.toggleCouponMore = () => {
+    const btn  = document.getElementById('cp-more-toggle');
+    const body = document.getElementById('cp-more-fields');
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!open));
+    body.style.display = open ? 'none' : '';
+  };
+
+  function resetCouponForm() {
+    couponStoreUnlocked = false;
+    document.getElementById('cp-store-detected').style.display = 'none';
+    document.getElementById('cp-store-manual').style.display   = '';
+    const btn = document.getElementById('cp-more-toggle');
+    btn.setAttribute('aria-expanded', 'false');
+    document.getElementById('cp-more-fields').style.display = 'none';
+    pickCouponKind('pct');
+  }
 
   // Po odoslaní vrátiť formulár do východiskového stavu. Bez toho by
   // ďalšiemu človeku ostal otvorený rozbaľovač a zamknutý obchod
