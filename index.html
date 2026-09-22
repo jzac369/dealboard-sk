@@ -1878,6 +1878,24 @@ body.food-page { background: #FAF8F5; }
 .fd-watch-row .nm { flex: 1; }
 .fd-watch-hit { background: #E4F4E2; color: var(--fd-green-d); border-radius: 8px;
   padding: 8px 10px; font-size: .8rem; font-weight: 600; margin-bottom: 9px; }
+/* Dnes zlacnelo */
+.fd-ch-row { display: flex; align-items: center; gap: 10px; padding: 9px 0;
+  border-top: 1px solid #F4F0EA; }
+.fd-ch-row:first-of-type { border-top: none; }
+.fd-ch-row img, .fd-ch-row .fd-cart-ph { width: 36px; height: 36px; flex: none;
+  object-fit: contain; background: var(--fd-bg); border-radius: 9px; padding: 3px; }
+.fd-ch-info { flex: 1; min-width: 0; }
+.fd-ch-info b { display: block; font-size: .85rem; line-height: 1.2; }
+.fd-ch-info span { display: block; font-size: .72rem; color: var(--fd-faint); }
+.fd-ch-price { flex: none; text-align: right; }
+.fd-ch-price s { display: block; font-size: .72rem; color: var(--fd-faint); }
+.fd-ch-price b { display: block; font-size: .95rem; font-weight: 800; color: var(--fd-green); }
+.fd-ch-up { display: flex; align-items: center; gap: 7px; border-top: 1px solid #F0ECE5;
+  margin-top: 10px; padding-top: 10px; font-size: .78rem; color: var(--fd-soft); }
+.fd-ch-up .ic { color: var(--fd-red); flex: none; }
+.fd-ch-pct { background: #FCEBEB; color: #A32D2D; border-radius: 6px;
+  padding: 2px 7px; font-size: .72rem; font-weight: 800; }
+
 .fd-tip-row { display: flex; align-items: center; gap: 12px; }
 .fd-tip-row img, .fd-tip-row .fp-icon { width: 68px; height: 68px; flex: none;
   object-fit: contain; background: var(--fd-bg); border-radius: 12px; padding: 5px; }
@@ -1930,7 +1948,7 @@ body.food-page { background: #FAF8F5; }
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /> <path d="M15 19l2 2l4 -4" /></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></symbol><symbol id="i-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /> <path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /> <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /> <path d="M15 19l2 2l4 -4" /></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></symbol><symbol id="i-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /> <path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /> <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M3 7l6 6l4 -4l8 8" /> <path d="M21 10l0 7l-7 0" /></symbol><symbol id="i-trending-up" viewBox="0 0 24 24"><path d="M3 17l6 -6l4 4l8 -8" /> <path d="M14 7l7 0l0 7" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
 
 
 <!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
@@ -2947,7 +2965,7 @@ body.food-page { background: #FAF8F5; }
     document.getElementById('food-body').innerHTML =
       basketCard(items) + listCard(sorted, f, visible.length !== items.length);
     document.getElementById('food-side').innerHTML =
-      cartCard(items) + watchCard(items) + tipCard(items);
+      cartCard(items) + changesCard(items) + watchCard(items) + tipCard(items);
   }
 
   let comboLimit = 2;
@@ -3171,6 +3189,87 @@ body.food-page { background: #FAF8F5; }
       </div>
       ${rows}`;
   };
+
+  // ── Dnes zlacnelo ───────────────────────────────────────────────────
+  // Porovnávame posledné dva zápisy v histórii položky. Nie "dnes proti
+  // včerajšku" podľa kalendára: keď v nedeľu beh nezbehne, posledné dva
+  // zápisy môžu byť piatok a sobota - a aj to je platné porovnanie.
+  function priceChanges(items) {
+    const history = foodData.history || {};
+    const zmeny = [];
+    items.forEach(it => {
+      const rad = history[it.label] || [];
+      if (rad.length < 2) return;
+      const teraz = rad[rad.length - 1], predtym = rad[rad.length - 2];
+      if (!teraz || !predtym || !predtym.p) return;
+      const rozdiel = teraz.p - predtym.p;
+      if (Math.abs(rozdiel) < 0.005) return;      // zaokrúhľovací šum, nie zmena
+      zmeny.push({
+        it, stara: predtym.p, nova: teraz.p, rozdiel,
+        pct: Math.round((teraz.p / predtym.p - 1) * 100),
+        vendor: (pricesOf(it, '')[0] || {}).vendor || '',
+      });
+    });
+    return zmeny;
+  }
+
+  function changesCard(items) {
+    const zmeny = priceChanges(items);
+    const dole  = zmeny.filter(z => z.rozdiel < 0).sort((a, b) => a.rozdiel - b.rozdiel);
+    const hore  = zmeny.filter(z => z.rozdiel > 0).sort((a, b) => b.rozdiel - a.rozdiel);
+
+    const dni = Math.max(...items.map(it => ((foodData.history || {})[it.label] || []).length), 0);
+
+    // Kým nemáme aspoň dva zbery, nie je čo porovnávať. Povedzme to
+    // rovno, nech to nevyzerá ako porucha.
+    if (dni < 2) {
+      return `<div class="fd-card">
+        <div class="fd-card-h">${icon('trending-down')}<h3>Dnes zlacnelo</h3></div>
+        <p style="font-size:.82rem;color:var(--fd-soft);line-height:1.5;">
+          Ceny zbierame od ${escapeHtml(prvyZber())} Hneď ako budeme mať dva dni,
+          ukážeme tu, čo zlacnelo.</p>
+      </div>`;
+    }
+
+    const riadky = dole.slice(0, 3).map(z => `
+      <div class="fd-ch-row">
+        ${z.it.photo ? `<img src="${escapeAttr(z.it.photo)}" alt="" loading="lazy">`
+                     : `<span class="fd-cart-ph">${icon(z.it.icon || 'basket')}</span>`}
+        <span class="fd-ch-info">
+          <b>${escapeHtml(z.it.label)}</b>
+          <span>${z.it.packageSize ? parseFloat(z.it.packageSize) + ' ' + escapeHtml(z.it.unit || '') : ''}${z.vendor ? ' · ' + escapeHtml(z.vendor) : ''}</span>
+        </span>
+        <span class="fd-ch-price">
+          <s>${price(z.stara)}</s>
+          <b>${price(z.nova)}</b>
+        </span>
+      </div>`).join('');
+
+    const zdrazelo = hore.length
+      ? `<div class="fd-ch-up">${icon('trending-up')}
+           Zdraželo: ${escapeHtml(hore[0].it.label)}
+           <span class="fd-ch-pct">+${hore[0].pct} %</span></div>`
+      : '';
+
+    return `<div class="fd-card">
+      <div class="fd-card-h">
+        ${icon('trending-down')}<h3 style="flex:1">Dnes zlacnelo</h3>
+        <span style="font-size:.72rem;color:var(--fd-faint)">oproti minulému zberu</span>
+      </div>
+      ${riadky || `<p style="font-size:.82rem;color:var(--fd-soft);line-height:1.5;">
+          Dnes nič nezlacnelo. Reťazce menia akcie väčšinou v stredu a vo štvrtok.</p>`}
+      ${zdrazelo}
+    </div>`;
+  }
+
+  // Dátum prvého zberu - berieme najstarší zápis, aký v histórii máme.
+  function prvyZber() {
+    const vsetky = Object.values(foodData.history || {}).flat().map(r => r.d).filter(Boolean);
+    if (!vsetky.length) return 'dnes';
+    const naj = vsetky.sort()[0];
+    const [r, m, d] = naj.split('-');
+    return `${parseInt(d, 10)}. ${parseInt(m, 10)}.`;
+  }
 
   // ── Stráž ceny ──────────────────────────────────────────────────────
   // Upozornenie žije v prehliadači. Mail ani push neposielame a
