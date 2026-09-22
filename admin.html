@@ -82,8 +82,38 @@
       document.getElementById('toggle-deals').checked = deals;
       document.getElementById('toggle-comments').checked = comments;
       document.getElementById('toggle-coupons').checked = coupons;
+
+      // Mazanie exspirovaných kódov. Predvolene VYPNUTÉ - mazanie je
+      // nevratné a nemá sa zapnúť samo od seba tým, že sa doplní kód.
+      const purge = data.purgeExpiredCoupons === true;
+      const mesiace = Number(data.purgeAfterMonths) > 0 ? Number(data.purgeAfterMonths) : 3;
+      document.getElementById('toggle-purge').checked = purge;
+      document.getElementById('purge-months').value = mesiace;
+      document.getElementById('purge-detail').style.display = purge ? 'block' : 'none';
     });
   }
+
+  window.togglePurge = async function(checked) {
+    document.getElementById('purge-detail').style.display = checked ? 'block' : 'none';
+    try {
+      await setDoc(settingsRef, { purgeExpiredCoupons: checked }, { merge: true });
+    } catch (e) {
+      alert('Nepodarilo sa uložiť nastavenie: ' + e.message);
+    }
+  };
+
+  window.savePurgeMonths = async function(value) {
+    const n = Math.min(36, Math.max(1, Math.round(Number(value) || 3)));
+    document.getElementById('purge-months').value = n;
+    try {
+      await setDoc(settingsRef, { purgeAfterMonths: n }, { merge: true });
+      const ok = document.getElementById('purge-saved');
+      ok.style.display = 'inline';
+      setTimeout(() => { ok.style.display = 'none'; }, 1800);
+    } catch (e) {
+      alert('Nepodarilo sa uložiť nastavenie: ' + e.message);
+    }
+  };
 
   window.toggleModeration = async function(type, checked) {
     const field = type + 'Required';
@@ -1000,6 +1030,32 @@
           </label>
         </label>
         <p class="settings-hint">Keď je vypnutá, nové kódy sa zverejnia okamžite bez čakania na schválenie.</p>
+      </div>
+
+      <div class="settings-panel">
+        <label class="switch-label">
+          <span>Mazať exspirované kódy</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-purge" onchange="togglePurge(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <div id="purge-detail" style="display:none; margin-top:10px;">
+          <label for="purge-months" style="font-size:.85rem; font-weight:600; display:block; margin-bottom:5px;">
+            Zmazať, keď je po platnosti dlhšie než
+          </label>
+          <span style="display:flex; align-items:center; gap:9px;">
+            <input type="number" id="purge-months" min="1" max="36" step="1"
+                   style="width:88px;" onchange="savePurgeMonths(this.value)">
+            <span style="font-size:.85rem; color:var(--muted);">mesiacov</span>
+            <span id="purge-saved" style="font-size:.8rem; color:var(--green); display:none;">uložené</span>
+          </span>
+        </div>
+        <p class="settings-hint">
+          Exspirované kódy zostávajú na stránke označené červenou nálepkou. Po uplynutí
+          tejto lehoty ich agent nenávratne zmaže — mazanie sa nedá vrátiť späť.
+          Keď je prepínač vypnutý, nemaže sa nič.
+        </p>
       </div>
       <div class="tabs">
         <button class="tab-btn coupon-tab-btn active" onclick="setCouponTab('pending', this)">Na schválenie (<span id="coupcount-pending">0</span>)</button>

@@ -332,6 +332,10 @@ def main() -> int:
     # Akcie stiahnuté skôr, než mali skončiť - dátum ich nezachytí.
     firestore_client.expire_dead_deals(db)
 
+    # Zľavové kódy dlho po platnosti. Beží len vtedy, keď je mazanie
+    # zapnuté v admin paneli - je nevratné, tak sa nezapína samo.
+    firestore_client.purge_expired_coupons(db)
+
     # Jednorazové pomôcky na rozbeh - pri plánovaných behoch vypnuté.
     firestore_client.boost_existing_deals(db)
     firestore_client.boost_coupons(db)

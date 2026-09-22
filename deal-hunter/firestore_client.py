@@ -484,6 +484,74 @@ def boost_coupons(db: firestore.Client) -> int:
     return count
 
 
+
+
+def purge_expired_coupons(db: firestore.Client) -> int:
+    """
+    Nenávratne zmaže zľavové kódy, ktoré sú po platnosti dlhšie, než
+    dovoľuje nastavenie v admin paneli.
+
+    PREČO JE TO PREDVOLENE VYPNUTÉ
+    Mazanie sa nedá vrátiť späť. Keby sa zapínalo samo tým, že sa
+    doplní kód, stačilo by jedno zle vyplnené pole "platí do" a kupón
+    by zmizol bez stopy. Zapína to človek v admin paneli vedome.
+
+    Kódy bez dátumu platnosti sa nemažú nikdy - nevieme o nich povedať,
+    či ešte platia.
+    """
+    try:
+        nastavenia = (db.document("settings/moderation").get().to_dict() or {})
+    except Exception as e:
+        logger.warning("Nastavenia sa nepodarilo prečítať, nemažem nič: %s", e)
+        return 0
+
+    if nastavenia.get("purgeExpiredCoupons") is not True:
+        return 0
+
+    mesiace = nastavenia.get("purgeAfterMonths")
+    try:
+        mesiace = int(mesiace)
+    except (TypeError, ValueError):
+        mesiace = 3
+    mesiace = max(1, min(36, mesiace))
+
+    # Mesiac berieme ako 30 dní. Presný posun po kalendári by tu nič
+    # nezmenil - rozdiel jedného dňa pri trojmesačnej lehote je šum.
+    hranica = (date.today() - timedelta(days=mesiace * 30)).isoformat()
+
+    try:
+        stare = (
+            db.collection("coupons")
+            .where(filter=FieldFilter("expiryISO", "<", hranica))
+            .stream()
+        )
+        kandidati = list(stare)
+    except Exception as e:
+        logger.warning("Dotaz na staré kupóny zlyhal: %s", e)
+        return 0
+
+    if not kandidati:
+        return 0
+
+    batch = db.batch()
+    count = 0
+    for doc in kandidati:
+        data = doc.to_dict() or {}
+        logger.info("Mažem kupón po platnosti: %s / %s (platil do %s)",
+                    data.get("store", "?"), data.get("code", "?"), data.get("expiryISO"))
+        batch.delete(doc.reference)
+        count += 1
+        if count % 400 == 0:
+            batch.commit()
+            batch = db.batch()
+
+    if count % 400:
+        batch.commit()
+
+    logger.info("Zmazaných kupónov po platnosti dlhšie než %d mesiacov: %d", mesiace, count)
+    return count
+
+
 FOOD_PRICES_DOC = "food_prices/current"
 
 # Koľko dní histórie držíme. Tridsať je to, s čím počíta graf na
