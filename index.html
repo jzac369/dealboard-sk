@@ -59,16 +59,52 @@
   // Prihlásenie a uložené dealy sú na fungovanie stránky nevyhnutné a
   // súhlas nepotrebujú. Meranie návštevnosti nevyhnutné NIE JE - posiela
   // IP adresu službe ip-api.com kvôli zisteniu krajiny - takže beží len
-  // vtedy, keď ho návštevník povolí. Kým nerozhodne, nebeží.
-  window.hasAnalyticsConsent = function() {
-    try { return localStorage.getItem('hk_consent') === 'accepted'; }
-    catch (e) { return false; }
-  };
+  // vtedy, keď ho návštevník povolí.
+  //
+  // Súhlas zbiera platforma Googlu (CMP), nie naša vlastná lišta.
+  // Google vyžaduje certifikovanú platformu a tá naša na jeho zozname
+  // nie je; dve lišty vedľa seba by navyše návštevníka len mýlili.
+  // Odpoveď čítame cez rozhranie __tcfapi, ktoré tá platforma vystavuje.
+  window.hasAnalyticsConsent = function() { return analyticsAllowed === true; };
+  let analyticsAllowed = null;      // null = ešte nevieme
+
+  function applyConsent(allowed) {
+    if (analyticsAllowed === allowed) return;
+    analyticsAllowed = allowed;
+    if (allowed && window.recordVisitNow) window.recordVisitNow();
+  }
+
+  (function watchConsent() {
+    // Mimo EÚ sa platforma nezobrazí a rozhranie neexistuje. Vtedy
+    // meranie nespúšťame - radšej prísnejšie než naopak.
+    if (typeof window.__tcfapi !== 'function') {
+      let cakanie = 0;
+      const skus = setInterval(() => {
+        if (typeof window.__tcfapi === 'function') { clearInterval(skus); watchConsent(); }
+        else if ((cakanie += 400) > 8000) { clearInterval(skus); applyConsent(false); }
+      }, 400);
+      return;
+    }
+
+    window.__tcfapi('addEventListener', 2, (tcData, success) => {
+      if (!success || !tcData) return;
+      // Návštevník mimo pôsobnosti GDPR - meranie je v poriadku.
+      if (tcData.gdprApplies === false) { applyConsent(true); return; }
+      if (tcData.eventStatus !== 'tcloaded' && tcData.eventStatus !== 'useractioncomplete') return;
+
+      // Účel 1 = ukladanie a čítanie údajov v zariadení.
+      // Účel 8 = meranie výkonnosti obsahu. Na náš počet návštev stačia
+      // tieto dva; nič iné o návštevníkovi nezisťujeme.
+      const p = (tcData.purpose && tcData.purpose.consents) || {};
+      applyConsent(!!p[1] && !!p[8]);
+    });
+  })();
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
       currentUid = user.uid;
       window.recordVisitNow = function () { recordVisit(user.uid); };
+      // Súhlas mohol doraziť skôr, než sa dokončilo prihlásenie.
       if (window.hasAnalyticsConsent()) recordVisit(user.uid);
     } else {
       signInAnonymously(auth).catch(e => console.error("Auth error:", e));
@@ -1519,23 +1555,6 @@
 .cat-nav button.active .ic { color: currentColor; }
 .tag-cat.has-cat { color: var(--cat-color); border-color: var(--cat-color); }
 
-/* Lišta so súhlasom. Zámerne neblokuje obsah - cookie wall, ktorý
-   nepustí ďalej, kým človek neklikne "Prijať", je sám o sebe problém.
-   Obe tlačidlá majú rovnakú váhu; predvybraté nie je nič. */
-#cookie-bar{position:fixed;left:0;right:0;bottom:0;z-index:3000;
-  background:var(--card);border-top:1px solid var(--line);
-  box-shadow:0 -2px 10px rgba(0,0,0,.08);padding:14px 16px;}
-#cookie-bar .cb-in{max-width:1120px;margin:0 auto;display:flex;
-  align-items:center;gap:14px;flex-wrap:wrap;font-size:.85rem;
-  color:var(--ink);line-height:1.5;}
-#cookie-bar p{margin:0;flex:1;min-width:240px;}
-#cookie-bar a{color:var(--orange-dk);font-weight:600;}
-#cookie-bar .cb-btns{display:flex;gap:9px;flex:none;}
-#cookie-bar button{font:inherit;font-weight:600;cursor:pointer;
-  padding:9px 18px;border-radius:999px;border:1.5px solid var(--orange-dk);}
-#cb-reject{background:transparent;color:var(--orange-dk);}
-#cb-accept{background:var(--orange-dk);color:#fff;border-color:var(--orange-dk);}
-@media(max-width:560px){#cookie-bar .cb-btns{width:100%}#cookie-bar button{flex:1}}
 
 /* ── Karta dealu ─────────────────────────────────────────────────────
    Farebná hrana vľavo nesie kategóriu. Rovnaká farba je aj v bublinke,
@@ -4230,14 +4249,20 @@ body.food-page { background: #FAF8F5; }
 <script>
   // ── Google reklama (AdSense) ────────────────────────────────────────
   //
-  // Sem patrí tvoje vydavateľské ID a čísla reklamných blokov, keď ťa
-  // AdSense schváli. Kým sú prázdne, nenačíta sa nič a na stránke nie
-  // sú ani prázdne rámčeky - radšej žiadna reklama než diera po nej.
+  // Sem patria čísla reklamných blokov, keď AdSense stránku schváli.
+  // Kým sú prázdne, nenačíta sa nič a na stránke nie sú ani prázdne
+  // rámčeky - radšej žiadna reklama než diera po nej.
   //
-  // Reklamy sa spúšťajú AŽ po rozhodnutí o cookies:
-  //   "Prijať"    -> bežné (personalizované) reklamy
-  //   "Odmietnuť" -> neperzonalizované, bez sledovacích cookies
-  // Bez tohto by lišta so súhlasom bola len ozdoba.
+  // PREČO SA SKRIPT NAČÍTAVA HNEĎ A NIE AŽ PO SÚHLASE
+  // Pôvodne čakal na našu vlastnú cookie lištu. Lenže Google vyžaduje
+  // certifikovanú platformu na zbieranie súhlasu (CMP) a tú svoju
+  // doručuje práve týmto skriptom. Keby sme ho držali, platforma by sa
+  // nikdy nezobrazila a súhlas by nebolo ako získať.
+  //
+  // Skript sám o sebe reklamy nezobrazí ani cookies nenastaví - najprv
+  // ukáže lištu a až podľa odpovede koná. Zbieranie súhlasu je tak
+  // úplne v jeho réžii a naše meranie návštevnosti sa na jeho výsledok
+  // napája cez rozhranie __tcfapi (hore v module).
   window.ADSENSE = {
     client: 'ca-pub-3385205746423629',
     slots: {
@@ -4253,18 +4278,9 @@ body.food-page { background: #FAF8F5; }
     return !!(window.ADSENSE.client && window.ADSENSE.client.indexOf('ca-pub-') === 0);
   }
 
-  // Načíta knižnicu AdSense raz. `personalised` prichádza z voľby
-  // návštevníka a mení sa už len pri ďalšej návšteve - knižnica sa
-  // v rámci jedného načítania stránky prekonfigurovať nedá.
-  function startAds(personalised) {
+  function startAds() {
     if (!adsConfigured() || window.adsReady) return;
     window.adsReady = true;
-
-    window.adsbygoogle = window.adsbygoogle || [];
-    if (!personalised) {
-      // Musí byť nastavené PRED načítaním skriptu, inak sa neuplatní.
-      window.adsbygoogle.requestNonPersonalizedAds = 1;
-    }
 
     var s = document.createElement('script');
     s.async = true;
@@ -4303,54 +4319,11 @@ body.food-page { background: #FAF8F5; }
     document.querySelectorAll('.ad-slot').forEach(showAd);
   };
 
-  // Rozhodnutie z minulej návštevy - lišta sa už nezobrazí.
-  (function () {
-    var v = null;
-    try { v = localStorage.getItem('hk_consent'); } catch (e) {}
-    if (v === 'accepted') startAds(true);
-    else if (v === 'rejected') startAds(false);
-  })();
+  startAds();
 
-  // Súhlas so štatistikou návštevnosti (GDPR / ePrivacy).
-  //
-  // Podstatné je, že voľba niečo naozaj robí: pri odmietnutí sa meranie
-  // ani služba na zistenie krajiny nespustia. Lišta, ktorá len informuje
-  // a nič nemení, nie je súhlas - je to ozdoba.
-  (function () {
-    var KEY = 'hk_consent';
-
-    function read() {
-      try { return localStorage.getItem(KEY); } catch (e) { return null; }
-    }
-    function write(value) {
-      try { localStorage.setItem(KEY, value); } catch (e) { /* inkognito */ }
-    }
-
-    if (read()) return;   // už rozhodol
-
-    var bar = document.createElement('div');
-    bar.id = 'cookie-bar';
-    bar.setAttribute('role', 'dialog');
-    bar.setAttribute('aria-label', 'Súhlas s meraním návštevnosti');
-    bar.innerHTML =
-      '<div class="cb-in">' +
-      '<p>Na stránke používame úložisko prehliadača, aby fungovalo hlasovanie a ukladanie dealov. So súhlasom meriame návštevnosť (krajina návštevy) a zobrazujeme personalizovanú reklamu Google. Pri odmietnutí sa reklama zobrazí bez personalizácie. Podrobnosti v <a href="/ochrana-udajov.html">Ochrane osobných údajov</a>.</p>' +
-      '<span class="cb-btns">' +
-      '<button type="button" id="cb-reject">Odmietnuť</button>' +
-      '<button type="button" id="cb-accept">Prijať</button>' +
-      '</span></div>';
-    document.body.appendChild(bar);
-
-    function decide(value) {
-      write(value);
-      bar.remove();
-      // Pri súhlase spustíme meranie hneď, nech sa návšteva nestratí.
-      if (value === 'accepted' && window.recordVisitNow) window.recordVisitNow();
-      startAds(value === 'accepted');
-    }
-    document.getElementById('cb-accept').onclick = function () { decide('accepted'); };
-    document.getElementById('cb-reject').onclick = function () { decide('rejected'); };
-  })();
+  // Naša vlastná cookie lišta tu bývala. Nahradila ju platforma Googlu,
+  // ktorá je certifikovaná a vie o súhlase povedať aj nám. Dve lišty
+  // vedľa seba by návštevníka len mýlili.
 </script>
 </body>
 </html>
