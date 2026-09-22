@@ -2643,7 +2643,48 @@ body.food-page { background: #FAF8F5; }
     document.getElementById('btn-add-deal').style.display = section === 'deals' ? 'inline-block' : 'none';
     document.getElementById('btn-add-coupon').style.display = section === 'coupons' ? 'inline-block' : 'none';
     document.getElementById('btn-add-placeholder').style.display = (section === 'leaflets' || section === 'food') ? 'inline-block' : 'none';
+    rememberSection(section);
   };
+
+  // ── Zapamätanie otvorenej sekcie ────────────────────────────────────
+  // Sekcia je v adrese (#letaky). Po obnovení stránky človek zostane
+  // tam, kde bol, a odkaz sa dá aj poslať ďalej - to by localStorage
+  // nezvládol.
+  const SECTION_HASH = { deals: 'dealy', coupons: 'kody', food: 'potraviny', leaflets: 'letaky' };
+  const HASH_SECTION = Object.fromEntries(Object.entries(SECTION_HASH).map(([k, v]) => [v, k]));
+
+  let applyingHash = false;
+
+  function rememberSection(section) {
+    if (applyingHash) return;          // prišli sme z adresy, nie od kliknutia
+    const hash = SECTION_HASH[section];
+    if (!hash) return;
+    // replaceState, nie location.hash: nechceme, aby tlačidlo Späť
+    // preklikávalo cez všetky sekcie, ktoré si človek otvoril.
+    try { history.replaceState(null, '', '#' + hash); } catch (e) {}
+  }
+
+  function sectionFromHash() {
+    const raw = (location.hash || '').replace(/^#/, '').toLowerCase();
+    return HASH_SECTION[raw] || null;
+  }
+
+  function openSectionFromHash() {
+    const section = sectionFromHash();
+    if (!section) return false;
+    const btn = [...document.querySelectorAll('.main-section-btn')]
+      .find(b => (b.getAttribute('onclick') || '').includes(`'${section}'`));
+    if (!btn) return false;
+    applyingHash = true;
+    try { setMainSection(section, btn); } finally { applyingHash = false; }
+    return true;
+  }
+
+  // Späť/dopredu v prehliadači aj ručná úprava adresy.
+  window.addEventListener('hashchange', () => { if (sectionFromHash()) openSectionFromHash(); });
+
+  // Po načítaní stránky. Keď v adrese nič nie je, ostávajú dealy.
+  openSectionFromHash();
 
 
   // ── Najlacnejšie potraviny ──────────────────────────────────────────
