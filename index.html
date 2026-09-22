@@ -992,7 +992,9 @@
   .container { max-width: 1120px; margin: 0 auto; padding: 0 16px 24px; display: grid;
     grid-template-columns: 1fr 300px; gap: 20px; min-width: 0; }
   .container > * { min-width: 0; }
-  .container.full-width { grid-template-columns: 1fr; max-width: 1280px; }
+  /* Rovnaká šírka ako zvyšok stránky - mení sa len počet stĺpcov, nie
+     to, ako široko stránka siaha. */
+  .container.full-width { grid-template-columns: 1fr; }
   .container.full-width > .sidebar { display: none; }
   @media (max-width: 720px) { .container { grid-template-columns: 1fr; } .sidebar { margin-top: 0; } }
 
@@ -1750,7 +1752,7 @@ body.food-page { background: #FAF8F5; }
 .fd-list-h h2 { font-size: 1.28rem; letter-spacing: -.4px; }
 .fd-list-h .fd-src { flex: 1; font-size: .78rem; color: var(--fd-faint); padding-bottom: 3px; }
 .fp-row { display: flex; align-items: center; gap: 13px; padding: 12px 6px;
-  border-top: 1px solid #F2EEE8; border-radius: 10px; }
+  border-top: 1px solid #F2EEE8; border-radius: 10px; flex-wrap: wrap; row-gap: 8px; }
 .fp-row:first-child { border-top: none; }
 .fp-row:hover { background: #FCFAF7; }
 .fp-photo { width: 56px; height: 56px; object-fit: contain; border-radius: 11px;
@@ -1767,13 +1769,15 @@ body.food-page { background: #FAF8F5; }
 .fp-chain { display: inline-block; margin-top: 3px; background: #E4F4E2;
   color: var(--fd-green-d); font-size: .68rem; font-weight: 800; letter-spacing: .3px;
   border-radius: 6px; padding: 3px 8px; }
-/* Pilulky sa nezalamujú - inak by mal každý riadok inú výšku podľa
-   toho, ako dlhé sú názvy reťazcov. Čo sa nezmestí, sa odreže. */
-.fp-others { flex: 1; display: flex; gap: 6px; min-width: 0;
-  flex-wrap: nowrap; overflow: hidden; }
+/* Ceny ostatných reťazcov majú vlastný riadok pod názvom.
+   Na jednom riadku so všetkým ostatným sa do šírky stránky nezmestili
+   a orezávali sa - v každej z desiatich položiek. Takto je vidieť
+   všetky tri a všetky riadky majú rovnakú výšku. */
+.fp-others { flex: 1 1 100%; order: 3; display: flex; gap: 6px;
+  min-width: 0; flex-wrap: wrap; padding-left: 69px; }
 .fp-other { font-size: .75rem; background: #F6F3EE; color: var(--fd-soft);
   border-radius: 7px; padding: 4px 9px; white-space: nowrap; font-weight: 600; }
-.fp-trend { width: 100px; flex: none; text-align: right; }
+.fp-trend { width: 100px; flex: none; text-align: right; margin-left: auto; }
 .fp-trend b { display: block; font-size: .84rem; font-weight: 800; }
 .fp-trend span { display: block; font-size: .7rem; color: #B3ADA4; }
 .fp-spark { flex: none; }
@@ -1866,8 +1870,9 @@ body.food-page { background: #FAF8F5; }
 
   /* KĽÚČOVÉ: bez zalamovania riadok nepretečie, ale sa preskupí tak, že
      oranžové "+" skončí cez ceny. Toto je tá chyba z telefónu. */
-  .fp-row { flex-wrap: wrap; row-gap: 8px; padding: 14px 6px; }
+  .fp-row { padding: 14px 6px; }
   .fp-trend, .fp-spark { display: none; }
+  .fp-others { padding-left: 0; }
   .fp-name { width: auto; flex: 1 1 auto; min-width: 0; }
   .fp-best { width: auto; flex: none; margin-left: auto; }
   .fp-others { flex: 1 1 100%; flex-wrap: wrap; overflow: visible; order: 3; }
@@ -2684,7 +2689,16 @@ body.food-page { background: #FAF8F5; }
   window.addEventListener('hashchange', () => { if (sectionFromHash()) openSectionFromHash(); });
 
   // Po načítaní stránky. Keď v adrese nič nie je, ostávajú dealy.
-  openSectionFromHash();
+  //
+  // Čakáme na DOMContentLoaded zámerne: tento blok je uprostred
+  // skriptu a loadFoodPrices je definovaná až nižšie. Bez čakania
+  // otvorenie odkazu #potraviny spadlo na ReferenceError a sekcia
+  // navždy ostala na "Načítavam ceny…". Overené v prehliadači.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', openSectionFromHash, { once: true });
+  } else {
+    openSectionFromHash();
+  }
 
 
   // ── Najlacnejšie potraviny ──────────────────────────────────────────
