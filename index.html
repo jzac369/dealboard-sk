@@ -1278,10 +1278,22 @@
     .lf-hero-art img { width: 128px; height: 128px; }
     .lf-slogan, .lf-arrow { display: none; }
     .lf-cards { grid-template-columns: minmax(0,1fr); }
+
+    /* Štyri benefity pod sebou zabrali na telefóne celú obrazovku a
+       každý mal v sebe kopu prázdneho miesta. Sú to drobné informácie,
+       nie hlavný obsah - patria do mriežky 2×2 a majú byť nízke. */
+    /* Rovnaká výška aj keď sa niektorému popisu zalomí text - inak
+       vyzerá spodný rad "vyšší" a mriežka je rozhodená. */
+    .lf-perks { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px;
+      grid-auto-rows: 1fr; }
+    .lf-perk { padding: 14px 10px; }
+    .lf-perk-ico { width: 40px; height: 40px; margin-bottom: 8px; }
+    .lf-perk-ico .ic { width: 1.2rem; height: 1.2rem; }
+    .lf-perk b { font-size: .88rem; margin-bottom: 2px; }
+    .lf-perk span { font-size: .74rem; }
   }
   @media (max-width: 480px) {
     .lf-hero-art { display: none; }
-    .lf-perks { grid-template-columns: minmax(0,1fr); }
   }
 
   /* ── Coupon card ────────────────────────────────────────────────────── */
