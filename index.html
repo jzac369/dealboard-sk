@@ -1610,6 +1610,11 @@
 .coupon-title { font-size: .92rem; font-weight: 700; margin-bottom: 2px; }
 .coupon-meta { font-size: .74rem; color: var(--muted);
   display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+/* Autor sa drží pravého okraja riadku, nech je meno kdekoľvek v zozname
+   v jednom stĺpci. Ľavá časť sa v prípade potreby skráti, nie autor. */
+.coupon-meta .cm-left { flex: 1 1 auto; min-width: 0; display: flex;
+  align-items: center; gap: 7px; overflow: hidden; }
+.coupon-meta .author-badge { flex: none; margin-left: auto; }
 .coupon-dot { color: var(--line); }
 .coupon-card .vote-seg { height: 30px; margin-right: 0; }
 .coupon-card .vote-seg button { width: 28px; }
@@ -1682,7 +1687,10 @@ body.food-page { background: #FAF8F5; }
 .fd-hero-text { flex: 1; min-width: 0; }
 .fd-hero h1 { font-size: 2.6rem; line-height: 1.06; letter-spacing: -1px; margin-bottom: 9px; }
 .fd-hero p { font-size: 1.02rem; color: var(--fd-soft); }
-.fd-hero-img { width: 186px; height: 186px; flex: none; object-fit: contain; }
+/* Odsadenie od pravého okraja - nalepená na hranu stránky pôsobila
+   orezane, akoby tam nemala byť celá. */
+.fd-hero-img { width: 186px; height: 186px; flex: none; object-fit: contain;
+  margin-right: 34px; }
 
 .fd-tools { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 .fd-search { flex: 1 1 280px; display: flex; align-items: center; gap: 11px;
@@ -1855,7 +1863,7 @@ body.food-page { background: #FAF8F5; }
 }
 @media (max-width: 720px) {
   .fd-hero h1 { font-size: 1.9rem; }
-  .fd-hero-img { width: 128px; height: 128px; }
+  .fd-hero-img { width: 128px; height: 128px; margin-right: 0; }
 
   /* Vyhľadávanie cez celý riadok, inak sa tlačidlo "Hľadať" nezmestí
      a text v ňom je useknutý. Obe rozbaľovačky vedľa seba. */
@@ -3414,11 +3422,16 @@ body.food-page { background: #FAF8F5; }
   function couponCard(c) {
     const expired = couponExpired(c);
     const author = c.author ? escapeHtml(stripEmoji(c.author)) : '';
-    const meta = [
+    // Obchod a platnosť vľavo, autor vpravo. Keď boli všetky tri za
+    // sebou, autor sa pri každom kupóne posunul inam podľa toho, aký
+    // dlhý mal obchod názov, a stĺpec mien vyzeral rozhádzane.
+    const vlavo = [
       c.store ? `<span style="color:var(--badge-t)">${escapeHtml(c.store)}</span>` : '',
-      author ? `<span class="author-badge"><span class="avatar" style="background:${authorColor(c.author)}">${escapeHtml(authorInitials(c.author))}</span><span class="author-name">${author}</span></span>` : '',
       c.expiryDate ? `platí do ${shortDate(c.expiryDate)}` : ''
     ].filter(Boolean).join('<span class="coupon-dot">·</span>');
+    const meta = `<span class="cm-left">${vlavo}</span>` + (author
+      ? `<span class="author-badge"><span class="avatar" style="background:${authorColor(c.author)}">${escapeHtml(authorInitials(c.author))}</span><span class="author-name">${author}</span></span>`
+      : '');
 
     return `
     <div class="coupon-card${expired ? ' is-expired' : ''}" id="coupon-${c.id}">
