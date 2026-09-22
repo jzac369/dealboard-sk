@@ -978,7 +978,13 @@
     .header-inner { flex-wrap: wrap; padding: 10px 16px; gap: 10px; }
     .logo-link { flex: 0 0 auto; }
     .logo-img { height: 52px; }
-    .main-section-nav { order: 3; width: 100%; justify-content: center; }
+    /* Štyri záložky sa na telefón nezmestia. Centrovanie ich orezávalo
+       na oboch stranách naraz, takže "Dealy" aj "Letáky" boli useknuté
+       a nedalo sa k nim dostať. Teraz sa lišta posúva do strany. */
+    .main-section-nav { order: 3; width: 100%; justify-content: flex-start;
+      overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+      scroll-behavior: smooth; }
+    .main-section-nav::-webkit-scrollbar { display: none; }
     .btn-add { order: 2; }
   }
 
@@ -1834,10 +1840,31 @@ body.food-page { background: #FAF8F5; }
 @media (max-width: 720px) {
   .fd-hero h1 { font-size: 1.9rem; }
   .fd-hero-img { width: 128px; height: 128px; }
-  .fd-btn-go { flex: 1; padding: 0; }
+
+  /* Vyhľadávanie cez celý riadok, inak sa tlačidlo "Hľadať" nezmestí
+     a text v ňom je useknutý. Obe rozbaľovačky vedľa seba. */
+  .fd-search { flex: 1 1 100%; }
+  .fd-btn-go { flex: 1 1 100%; padding: 0; }
+  /* Na 390 px sa do rozbaľovačky nezmestí "Všetky reťazce" celé. Ikona
+     preč, menšie písmo a užšie odsadenie - text sa vojde, nie je useknutý. */
+  .fd-select { flex: 1 1 calc(50% - 5px); justify-content: center;
+    padding: 0 8px; gap: 4px; min-width: 0; }
+  .fd-select .ic { display: none; }
+  .fd-select select { max-width: 100%; font-size: .84rem; min-width: 0; }
+
+  /* KĽÚČOVÉ: bez zalamovania riadok nepretečie, ale sa preskupí tak, že
+     oranžové "+" skončí cez ceny. Toto je tá chyba z telefónu. */
+  .fp-row { flex-wrap: wrap; row-gap: 8px; padding: 14px 6px; }
   .fp-trend, .fp-spark { display: none; }
-  .fp-name { width: auto; flex: 1 1 100%; }
-  .fp-others { flex: 1 1 100%; flex-wrap: wrap; overflow: visible; }
+  .fp-name { width: auto; flex: 1 1 auto; min-width: 0; }
+  .fp-best { width: auto; flex: none; margin-left: auto; }
+  .fp-others { flex: 1 1 100%; flex-wrap: wrap; overflow: visible; order: 3; }
+  .fp-add { order: 2; }
+
+  /* Zdroj pod nadpis, nie vedľa neho. */
+  .fd-list-h { align-items: flex-start; }
+  .fd-list-h h2 { flex: 1 1 100%; }
+  .fd-list-h .fd-src { flex: 1 1 100%; padding-bottom: 0; }
 }
 @media (max-width: 480px) {
   .fd-hero-img { display: none; }
@@ -2577,6 +2604,12 @@ body.food-page { background: #FAF8F5; }
   window.setMainSection = function(section, btn) {
     document.querySelectorAll('.main-section-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    // Na telefóne sa lišta posúva do strany. Bez tohto by človek klikol
+    // na záložku a tá by mu ostala napoly za okrajom.
+    if (btn.scrollIntoView) {
+      try { btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }
+      catch (e) { /* staršie prehliadače: nevadí, len sa neposunie */ }
+    }
     document.getElementById('deals-main').style.display = section === 'deals' ? 'block' : 'none';
     document.getElementById('coupons-main').style.display = section === 'coupons' ? 'block' : 'none';
     document.getElementById('leaflets-main').style.display = section === 'leaflets' ? 'block' : 'none';
