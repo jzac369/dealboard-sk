@@ -4270,6 +4270,10 @@ body.food-page { background: #FAF8F5; }
       feed:    '',              // blok v zozname dealov
       footer:  '',              // vodorovný blok nad pätičkou
     },
+    // In-feed reklama nesie okrem čísla bloku aj kľúč rozloženia
+    // (data-ad-layout-key z kódu, ktorý dá AdSense). Bez neho sa
+    // zobrazí nesprávne. Bežné bannery ho nemajú.
+    feedLayoutKey: '',
   };
 
   window.adsReady = false;
@@ -4301,13 +4305,21 @@ body.food-page { background: #FAF8F5; }
     var kod = window.ADSENSE.slots[slot.dataset.slot];
     if (!kod) return;
     slot.dataset.filled = '1';
+
+    // In-feed blok sa riadi kľúčom rozloženia a nie je responzívny na
+    // šírku ako bežný banner - tie dva atribúty by si odporovali.
+    var jeFeed = slot.dataset.slot === 'feed' && window.ADSENSE.feedLayoutKey;
+    var extra = jeFeed
+      ? 'data-ad-layout-key="' + escapeAttr(window.ADSENSE.feedLayoutKey) + '" '
+      : 'data-full-width-responsive="true" ';
+
     slot.innerHTML =
       '<span class="ad-label">Reklama</span>' +
       '<ins class="adsbygoogle" style="display:block" ' +
       'data-ad-client="' + escapeAttr(window.ADSENSE.client) + '" ' +
       'data-ad-slot="' + escapeAttr(kod) + '" ' +
       'data-ad-format="' + (slot.dataset.format || 'auto') + '" ' +
-      'data-full-width-responsive="true"></ins>';
+      extra + '></ins>';
     slot.style.display = 'block';
     try { (window.adsbygoogle = window.adsbygoogle || []).push({}); }
     catch (e) { slot.remove(); }
