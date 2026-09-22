@@ -1,0 +1,13 @@
+# Domeny, ktorych logo nepouzivame. Skript fetch_shop_logos.py ich
+# preskoci, aby ich znova nestahoval.
+#
+solapoint.sk          prazdny obrazok
+gsklub.sk             takmer neviditelne
+vejare.sk             stiahlo sa logo WordPressu, nie ich znacka
+bohatstvo-prirody.sk  server nas odmietol
+cropp.com             server nas odmietol
+dizajnove-doplnky.sk  server nas odmietol
+ironaesthetics.sk     server nas odmietol
+kampotskekorenie.sk   server nas odmietol
+stoporex.sk           server nas odmietol
+stressfix.sk          server nas odmietol

@@ -1622,8 +1622,10 @@
 .deal-age { display: inline-flex; align-items: center; gap: 7px; }
 
 @media (max-width: 480px) {
-  /* Na úzkom displeji necháme krúžok a čas, meno by riadok zalomilo. */
-  .author-name { display: none; }
+  /* Iba v pätičke dealu, kde je riadok natlačený vedľa komentárov,
+     zdieľania a času. V kupónoch má autor vlastné miesto vpravo a
+     meno sa tam zmestí - skrývať ho tam bolo zbytočné. */
+  .deal-footer .author-name { display: none; }
   .avatar { width: 18px; height: 18px; font-size: .55rem; }
 }
 
@@ -1692,6 +1694,10 @@
    v jednom stĺpci. Ľavá časť sa v prípade potreby skráti, nie autor. */
 .coupon-meta .cm-left { flex: 1 1 auto; min-width: 0; display: flex;
   align-items: center; gap: 7px; overflow: hidden; }
+/* Logo e-shopu pri názve. Biele pozadie preto, že časť log je
+   priehľadná a na sivom by zanikla. */
+.shop-logo { width: 20px; height: 20px; flex: none; object-fit: contain;
+  background: #fff; border: 1px solid var(--line); border-radius: 5px; padding: 1px; }
 .coupon-meta .author-badge { flex: none; margin-left: auto; }
 .coupon-dot { color: var(--line); }
 .coupon-card .vote-seg { height: 30px; margin-right: 0; }
@@ -3622,14 +3628,32 @@ body.food-page { background: #FAF8F5; }
     return c.expiryISO < new Date().toISOString().slice(0, 10);
   }
 
+  // Doména bez "www." - podľa nej hľadáme uložené logo e-shopu.
+  function shopHost(url) {
+    try {
+      const h = new URL(window.normalizeUrl(url || '')).hostname.toLowerCase();
+      return /^[a-z0-9.-]+$/.test(h) ? h.replace(/^www\./, '') : '';
+    } catch (e) { return ''; }
+  }
+
   function couponCard(c) {
     const expired = couponExpired(c);
     const author = c.author ? escapeHtml(stripEmoji(c.author)) : '';
     // Obchod a platnosť vľavo, autor vpravo. Keď boli všetky tri za
     // sebou, autor sa pri každom kupóne posunul inam podľa toho, aký
     // dlhý mal obchod názov, a stĺpec mien vyzeral rozhádzane.
+    // Logo e-shopu. Máme ich stiahnuté u seba - za behu nechodíme po
+    // logá k žiadnej cudzej službe, tá by sa dozvedela, kto aké kupóny
+    // pozerá. Sedem e-shopov nám ich nedalo, tam sa obrázok ticho
+    // schová a ostane len názov.
+    const host = shopHost(c.url);
+    const logo = host
+      ? `<img class="shop-logo" src="assets/eshopy/${escapeAttr(host)}.png" alt=""
+              loading="lazy" onerror="this.remove()">`
+      : '';
+
     const vlavo = [
-      c.store ? `<span style="color:var(--badge-t)">${escapeHtml(c.store)}</span>` : '',
+      c.store ? `${logo}<span style="color:var(--badge-t)">${escapeHtml(c.store)}</span>` : '',
       c.expiryDate ? `platí do ${shortDate(c.expiryDate)}` : ''
     ].filter(Boolean).join('<span class="coupon-dot">·</span>');
     const meta = `<span class="cm-left">${vlavo}</span>` + (author
