@@ -1098,7 +1098,11 @@
   .deal-footer a { font-size: .8rem; color: var(--muted); text-decoration: none; display: flex;
     align-items: center; gap: 4px; flex-shrink: 0; }
   .deal-footer a:hover { color: var(--orange-dk); }
+  /* Vek dealu odtlačí autora až k pravému okraju. Keď boli obaja v
+     jednom bloku, autora posúval rôzne dlhý text o veku a mená v
+     zozname nedržali jeden stĺpec. */
   .deal-age { font-size: .76rem; color: var(--muted); flex-shrink: 0; margin-left: auto; }
+  .deal-footer > .author-badge { flex-shrink: 0; }
 
   .btn-go { flex-shrink: 0; margin-left: 14px; background: var(--orange-dk); color: #fff; border: none;
     padding: 9px 20px; border-radius: 22px; font-size: .85rem; font-weight: 700;
@@ -1690,7 +1694,7 @@ body.food-page { background: #FAF8F5; }
 /* Odsadenie od pravého okraja - nalepená na hranu stránky pôsobila
    orezane, akoby tam nemala byť celá. */
 .fd-hero-img { width: 186px; height: 186px; flex: none; object-fit: contain;
-  margin-right: 34px; }
+  margin-right: 110px; }
 
 .fd-tools { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 .fd-search { flex: 1 1 280px; display: flex; align-items: center; gap: 11px;
@@ -2600,7 +2604,8 @@ body.food-page { background: #FAF8F5; }
         <a href="#" onclick="openComments('${d.id}'); return false;">${icon('message-circle')} ${d.comments||0}</a>
         <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">${icon('share')} <span class="footer-label">Zdieľať</span></a>
         <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')}</a>
-        <span class="deal-age">${authorBadge(d.author)}${ageSentence(d)}</span>
+        <span class="deal-age">${ageSentence(d)}</span>
+        ${authorBadge(d.author)}
       </div>
     </div>`;
   }
