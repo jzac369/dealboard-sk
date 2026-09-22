@@ -256,6 +256,10 @@
         await insertDemoIfEmpty([]);
       }
       window.allDeals = window.allDeals.concat(newItems);
+      // Bočný panel letákov ukazuje najhorúcejšie dealy z tohto zoznamu.
+      // Pri priamom otvorení odkazu #letaky sa vykreslil skôr, než dealy
+      // dorazili, a hlásil "Zatiaľ žiadne dealy".
+      if (typeof window.renderLeafletHot === 'function') window.renderLeafletHot();
       if (snap.docs.length) window.dealsLastDoc = snap.docs[snap.docs.length - 1];
       window.dealsHasMore = newItems.length === DEALS_PAGE_SIZE;
       document.getElementById('fb-banner').style.display = 'none';
@@ -1188,21 +1192,21 @@
   }
   body.leaflet-page { background: #FAF8F5; }
 
+  /* Hlavička je len uvedenie, nie hlavný obsah - nemá si brať pol
+     obrazovky. Výšku drží obrázok, preto je nižší než pri potravinách. */
   .lf-hero { display: flex; align-items: center; gap: 26px; background: var(--lf-card);
-    border: 1px solid var(--lf-line); border-radius: 20px; padding: 24px 28px;
-    box-shadow: var(--lf-shadow); margin-bottom: 22px; }
+    border: 1px solid var(--lf-line); border-radius: 20px; padding: 16px 28px;
+    box-shadow: var(--lf-shadow); margin-bottom: 20px; }
   .lf-hero-text { flex: 1; min-width: 0; }
-  .lf-hero h1 { display: flex; align-items: center; gap: 12px; font-size: 2.6rem;
-    line-height: 1.05; letter-spacing: -1.1px; margin-bottom: 10px; }
+  .lf-hero h1 { display: flex; align-items: center; gap: 12px; font-size: 2.2rem;
+    line-height: 1.05; letter-spacing: -.9px; margin-bottom: 7px; }
   .lf-hero h1 .hl { color: var(--orange); }
-  .lf-hero-ico { width: 46px; height: 46px; flex: none; background: var(--badge);
-    border-radius: 13px; display: flex; align-items: center; justify-content: center; color: var(--orange); }
-  .lf-hero-ico .ic { width: 1.5rem; height: 1.5rem; }
-  .lf-hero p { font-size: 1.02rem; color: var(--lf-soft); line-height: 1.5; max-width: 560px; }
-  .lf-hero-art { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .lf-hero-art img { width: 186px; height: 186px; object-fit: contain; }
-  .lf-slogan { font-size: .95rem; font-weight: 600; color: #8C867D; }
-  .lf-arrow { width: 112px; height: 16px; }
+  .lf-hero-ico { width: 40px; height: 40px; flex: none; background: var(--badge);
+    border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--orange); }
+  .lf-hero-ico .ic { width: 1.35rem; height: 1.35rem; }
+  .lf-hero p { font-size: .96rem; color: var(--lf-soft); line-height: 1.5; max-width: 620px; }
+  .lf-hero-art { flex: none; display: flex; align-items: center; }
+  .lf-hero-art img { width: 118px; height: 118px; object-fit: contain; }
 
   .lf-grid { display: grid; grid-template-columns: minmax(0,1fr) 330px; gap: 22px;
     align-items: start; margin-bottom: 22px; }
@@ -1280,9 +1284,8 @@
     .lf-perks { grid-template-columns: repeat(2, minmax(0,1fr)); }
   }
   @media (max-width: 720px) {
-    .lf-hero h1 { font-size: 1.9rem; }
-    .lf-hero-art img { width: 128px; height: 128px; }
-    .lf-slogan, .lf-arrow { display: none; }
+    .lf-hero h1 { font-size: 1.7rem; }
+    .lf-hero-art img { width: 92px; height: 92px; }
     .lf-cards { grid-template-columns: minmax(0,1fr); }
 
     /* Štyri benefity pod sebou zabrali na telefóne celú obrazovku a
@@ -2101,11 +2104,6 @@ body.food-page { background: #FAF8F5; }
            Vždy aktuálne, priamo zo stránky obchodu.</p>
       </div>
       <div class="lf-hero-art">
-        <span class="lf-slogan">Všetky akcie na jednom mieste</span>
-        <svg class="lf-arrow" viewBox="0 0 112 16" fill="none" aria-hidden="true">
-          <path d="M3 11c22-7 62-10 106-5" stroke="#E8590C" stroke-width="2.4" stroke-linecap="round"/>
-          <path d="M99 2l9 4-8 5" stroke="#E8590C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
         <img src="images/potraviny-taska.png" alt="" loading="lazy">
       </div>
     </div>
@@ -3484,7 +3482,7 @@ body.food-page { background: #FAF8F5; }
 
   // Najhorúcejšie dealy v bočnom paneli letákov. Berieme ich z toho, čo
   // už máme načítané - druhý dotaz do databázy za to nestojí.
-  function renderLeafletHot() {
+  window.renderLeafletHot = function renderLeafletHot() {
     const box = document.getElementById('lf-hot');
     if (!box) return;
     const all = (window.allDeals || []).filter(d => !d.expired);
