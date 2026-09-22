@@ -3019,8 +3019,11 @@ body.food-page { background: #FAF8F5; }
 
     document.getElementById('food-body').innerHTML =
       basketCard(items) + listCard(sorted, f, visible.length !== items.length);
+    // Reklama až pod poslednou kartou panela, nikdy medzi cenami.
     document.getElementById('food-side').innerHTML =
-      cartCard(items) + changesCard(items) + watchCard(items) + tipCard(items);
+      cartCard(items) + changesCard(items) + watchCard(items) + tipCard(items) +
+      '<div class="ad-slot ad-sidebar" data-slot="sidebar" data-format="rectangle"></div>';
+    if (window.refreshAdSlots) window.refreshAdSlots();
   }
 
   let comboLimit = 2;
@@ -4266,9 +4269,9 @@ body.food-page { background: #FAF8F5; }
   window.ADSENSE = {
     client: 'ca-pub-3385205746423629',
     slots: {
-      sidebar: '',              // blok 300 x 250 v bočnom paneli
+      sidebar: '7411965976',    // blok 300 x 250 v bočnom paneli
       feed:    '2501228106',    // blok v zozname dealov
-      footer:  '',              // vodorovný blok nad pätičkou
+      footer:  '3842229936',    // vodorovný blok nad pätičkou
     },
     // In-feed reklama nesie okrem čísla bloku aj kľúč rozloženia
     // (data-ad-layout-key z kódu, ktorý dá AdSense). Bez neho sa
