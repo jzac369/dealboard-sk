@@ -11,3 +11,9 @@ ironaesthetics.sk     server nas odmietol
 kampotskekorenie.sk   server nas odmietol
 stoporex.sk           server nas odmietol
 stressfix.sk          server nas odmietol
+erexan.sk             stiahlo sa logo WordPressu, nie ich znacka
+180celsius.com        server nas odmietol
+desirel.sk            server nas odmietol
+homepoint.sk          server nas odmietol
+medosviecky.sk        server nas odmietol
+real-soft.sk          server nas odmietol
