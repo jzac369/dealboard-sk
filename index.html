@@ -1401,6 +1401,26 @@
   .btn-submit:hover { background: var(--orange-dk); }
   .btn-submit:disabled { background: var(--muted); cursor: not-allowed; }
 
+  /* ── Reklama ────────────────────────────────────────────────────────────
+     Miesta sú skryté, kým ich naozaj nenaplníme. Prázdny rámček je
+     horší než žiadna reklama - vyzerá ako pokazená stránka. */
+  .ad-slot { display: none; }
+  .ad-label { display: block; font-size: .64rem; letter-spacing: .06em;
+    text-transform: uppercase; color: #B3ADA4; margin-bottom: 5px; }
+
+  /* V zozname dealov vyzerá ako karta, aby netrhala rytmus - ale s
+     označením, nech si ju nikto nepomýli s dealom. */
+  .ad-feed { background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 12px 16px; margin-bottom: 14px; }
+
+  .ad-sidebar { background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 12px; margin-top: 16px; }
+  #leaflets-main .ad-sidebar, #food-main .ad-sidebar { border-radius: 18px; padding: 16px; }
+
+  .ad-footer-wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  .ad-footer { background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 12px 16px; margin-top: 8px; }
+
   /* ── Empty state ─────────────────────────────────────────────────────── */
   .empty { text-align: center; padding: 60px 20px; color: var(--muted);
     background: var(--card); border-radius: var(--r); border: 1px solid var(--line); }
@@ -2143,6 +2163,7 @@ body.food-page { background: #FAF8F5; }
           <div class="lf-step"><span class="lf-num">2</span><span>Pridaj vlastný nájdený deal</span></div>
           <div class="lf-step"><span class="lf-num">3</span><span>Najhorúcejšie dealy idú nahor</span></div>
         </div>
+        <div class="ad-slot ad-sidebar" data-slot="sidebar" data-format="rectangle"></div>
       </aside>
     </div>
 
@@ -2185,6 +2206,10 @@ body.food-page { background: #FAF8F5; }
         <span><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie dealy idú nahor</span>
       </p>
     </div>
+
+    <!-- Reklama sa naplní až po rozhodnutí o cookies. Kým nie je
+         nastavené vydavateľské ID, miesto sa vôbec nezobrazí. -->
+    <div class="ad-slot ad-sidebar" data-slot="sidebar" data-format="rectangle"></div>
   </aside>
 </div>
 
@@ -2481,13 +2506,23 @@ body.food-page { background: #FAF8F5; }
       return;
     }
     try {
-      let html = shown.map(dealCard).join('');
+      // Reklamu vkladáme raz, po šiestej karte - nie do každého
+      // "okna" pri donačítavaní, inak by ich v dlhom zozname pribúdalo
+      // na každých šesť dealov a zoznam by sa zmenil na reklamný pás.
+      const karty = shown.map(dealCard);
+      const AD_PO = 6;
+      if (karty.length > AD_PO) {
+        karty.splice(AD_PO, 0,
+          '<div class="ad-slot ad-feed" data-slot="feed" data-format="fluid"></div>');
+      }
+      let html = karty.join('');
       if (!window.dealsSearchMode && window.dealsHasMore) {
         html += `<div id="deals-load-sentinel" class="loading" style="padding:24px 0;">${window.dealsLoading ? 'Načítavam ďalšie dealy…' : ''}</div>`;
       } else if (window.dealsSearchMode && window.allDeals.length >= window.DEALS_SEARCH_CAP) {
         html += `<div class="empty" style="padding:14px 0; font-size:.85rem;">Zobrazených je prvých ${window.DEALS_SEARCH_CAP} výsledkov – skús vyhľadávanie zúžiť.</div>`;
       }
       el.innerHTML = html;
+      if (window.refreshAdSlots) window.refreshAdSlots();
       if (!window.dealsSearchMode && window.dealsHasMore) {
         window.ensureDealsSentinelObserver();
         const sentinel = document.getElementById('deals-load-sentinel');
@@ -4143,6 +4178,9 @@ body.food-page { background: #FAF8F5; }
 
   renderLeafletGrid();
 </script>
+<div class="ad-footer-wrap">
+  <div class="ad-slot ad-footer" data-slot="footer" data-format="horizontal"></div>
+</div>
 <footer style="background:var(--card); border-top:1px solid var(--line); margin-top:24px; padding:24px 16px;">
   <div style="max-width:1120px; margin:0 auto; font-size:.8rem; color:var(--muted); line-height:1.6;">
     <strong style="color:var(--ink);">Affiliate odkazy:</strong> niektoré odkazy na tejto stránke sú partnerské –
@@ -4187,6 +4225,89 @@ body.food-page { background: #FAF8F5; }
 </script>
 
 <script>
+  // ── Google reklama (AdSense) ────────────────────────────────────────
+  //
+  // Sem patrí tvoje vydavateľské ID a čísla reklamných blokov, keď ťa
+  // AdSense schváli. Kým sú prázdne, nenačíta sa nič a na stránke nie
+  // sú ani prázdne rámčeky - radšej žiadna reklama než diera po nej.
+  //
+  // Reklamy sa spúšťajú AŽ po rozhodnutí o cookies:
+  //   "Prijať"    -> bežné (personalizované) reklamy
+  //   "Odmietnuť" -> neperzonalizované, bez sledovacích cookies
+  // Bez tohto by lišta so súhlasom bola len ozdoba.
+  window.ADSENSE = {
+    client: '',                 // napr. 'ca-pub-1234567890123456'
+    slots: {
+      sidebar: '',              // blok 300 x 250 v bočnom paneli
+      feed:    '',              // blok v zozname dealov
+      footer:  '',              // vodorovný blok nad pätičkou
+    },
+  };
+
+  window.adsReady = false;
+
+  function adsConfigured() {
+    return !!(window.ADSENSE.client && window.ADSENSE.client.indexOf('ca-pub-') === 0);
+  }
+
+  // Načíta knižnicu AdSense raz. `personalised` prichádza z voľby
+  // návštevníka a mení sa už len pri ďalšej návšteve - knižnica sa
+  // v rámci jedného načítania stránky prekonfigurovať nedá.
+  function startAds(personalised) {
+    if (!adsConfigured() || window.adsReady) return;
+    window.adsReady = true;
+
+    window.adsbygoogle = window.adsbygoogle || [];
+    if (!personalised) {
+      // Musí byť nastavené PRED načítaním skriptu, inak sa neuplatní.
+      window.adsbygoogle.requestNonPersonalizedAds = 1;
+    }
+
+    var s = document.createElement('script');
+    s.async = true;
+    s.crossOrigin = 'anonymous';
+    s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='
+            + encodeURIComponent(window.ADSENSE.client);
+    s.onerror = function () {
+      // Blokovač reklám alebo výpadok - miesta nechávame skryté.
+      document.querySelectorAll('.ad-slot').forEach(function (el) { el.remove(); });
+    };
+    document.head.appendChild(s);
+
+    document.querySelectorAll('.ad-slot').forEach(showAd);
+  }
+
+  function showAd(slot) {
+    if (!window.adsReady || slot.dataset.filled === '1') return;
+    var kod = window.ADSENSE.slots[slot.dataset.slot];
+    if (!kod) return;
+    slot.dataset.filled = '1';
+    slot.innerHTML =
+      '<span class="ad-label">Reklama</span>' +
+      '<ins class="adsbygoogle" style="display:block" ' +
+      'data-ad-client="' + escapeAttr(window.ADSENSE.client) + '" ' +
+      'data-ad-slot="' + escapeAttr(kod) + '" ' +
+      'data-ad-format="' + (slot.dataset.format || 'auto') + '" ' +
+      'data-full-width-responsive="true"></ins>';
+    slot.style.display = 'block';
+    try { (window.adsbygoogle = window.adsbygoogle || []).push({}); }
+    catch (e) { slot.remove(); }
+  }
+
+  // Zoznam dealov sa prekresľuje, takže blok v ňom treba naplniť znova.
+  window.refreshAdSlots = function () {
+    if (!window.adsReady) return;
+    document.querySelectorAll('.ad-slot').forEach(showAd);
+  };
+
+  // Rozhodnutie z minulej návštevy - lišta sa už nezobrazí.
+  (function () {
+    var v = null;
+    try { v = localStorage.getItem('hk_consent'); } catch (e) {}
+    if (v === 'accepted') startAds(true);
+    else if (v === 'rejected') startAds(false);
+  })();
+
   // Súhlas so štatistikou návštevnosti (GDPR / ePrivacy).
   //
   // Podstatné je, že voľba niečo naozaj robí: pri odmietnutí sa meranie
@@ -4210,7 +4331,7 @@ body.food-page { background: #FAF8F5; }
     bar.setAttribute('aria-label', 'Súhlas s meraním návštevnosti');
     bar.innerHTML =
       '<div class="cb-in">' +
-      '<p>Na stránke používame úložisko prehliadača, aby fungovalo hlasovanie a ukladanie dealov. So súhlasom meriame aj návštevnosť (krajina návštevy). Podrobnosti v <a href="/ochrana-udajov.html">Ochrane osobných údajov</a>.</p>' +
+      '<p>Na stránke používame úložisko prehliadača, aby fungovalo hlasovanie a ukladanie dealov. So súhlasom meriame návštevnosť (krajina návštevy) a zobrazujeme personalizovanú reklamu Google. Pri odmietnutí sa reklama zobrazí bez personalizácie. Podrobnosti v <a href="/ochrana-udajov.html">Ochrane osobných údajov</a>.</p>' +
       '<span class="cb-btns">' +
       '<button type="button" id="cb-reject">Odmietnuť</button>' +
       '<button type="button" id="cb-accept">Prijať</button>' +
@@ -4222,6 +4343,7 @@ body.food-page { background: #FAF8F5; }
       bar.remove();
       // Pri súhlase spustíme meranie hneď, nech sa návšteva nestratí.
       if (value === 'accepted' && window.recordVisitNow) window.recordVisitNow();
+      startAds(value === 'accepted');
     }
     document.getElementById('cb-accept').onclick = function () { decide('accepted'); };
     document.getElementById('cb-reject').onclick = function () { decide('rejected'); };
