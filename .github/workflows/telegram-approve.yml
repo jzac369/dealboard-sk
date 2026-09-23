@@ -29,8 +29,10 @@ concurrency:
   group: telegram-approve
   cancel-in-progress: false
 
+# Po schvaleni sa hned generuju stranky dealov, tie sa commituju.
 permissions:
-  contents: read
+  contents: write
+  actions: write
 
 jobs:
   poll:
@@ -66,6 +68,29 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_DIAG: ${{ inputs.diag }}
           POLL_SECONDS: ${{ inputs.seconds }}
+
+      # Zdielanie dealu na socialnej sieti potrebuje jeho vlastnu
+      # stranku s Open Graph tagmi. Bez tohto kroku by na nu cakal az do
+      # najblizsej hodiny a dovtedy by Facebook zobrazoval len logo
+      # stranky namiesto fotky dealu.
+      - name: Vygenerovanie stránok práve schválených dealov
+        if: always()
+        working-directory: .
+        run: python generate_deal_pages.py
+        env:
+          FIRESTORE_PROJECT_ID: dealboard-e60bf
+          FIREBASE_CREDENTIALS_PATH: deal-hunter/firebase-credentials.json
+
+      - name: Zverejnenie stránok
+        if: always()
+        working-directory: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add deal/ sitemap.xml
+          git diff --cached --quiet || git commit -m "Stranky dealov po schvaleni z Telegramu"
+          git pull --rebase --autostash || true
+          git push
 
       - name: Zmazanie kľúča
         if: always()

@@ -339,7 +339,7 @@ def na_deal(let: dict) -> dict:
         # fetch_destination_photos.py). Absolútna adresa zámerne: tú istú
         # hodnotu posiela Telegram do sendPhoto a relatívna cesta by mu
         # nič nepovedala.
-        "imageUrl": f"https://henkukaj.sk/assets/destinacie/{let['kam']}.webp",
+        "imageUrl": f"https://henkukaj.sk/assets/destinacie/{let['kam']}.jpg",
         "photoCredit": _fotka_popis(let["kam"]),
         "description": popis,
         "status": "pending",

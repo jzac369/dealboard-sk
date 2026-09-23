@@ -39,6 +39,10 @@ KAM = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                    "assets", "destinacie")
 
 # Rozmer karty na stránke. Fotku orežeme na 16:9, aby karty nepreskakovali.
+#
+# JPEG, nie WebP, hoci by bol menší: tá istá fotka ide do og:image a
+# Facebook WebP v náhľadoch odkazov spoľahlivo nespracuje. Náhľad na
+# sociálnej sieti je pri týchto dealoch to hlavné, tak má prednosť.
 SIRKA, VYSKA = 800, 450
 
 # IATA kód -> názov článku na anglickej Wikipédii.
@@ -143,7 +147,7 @@ def uloz_obrazok(adresa: str, cielovy: str) -> bool:
         obr = obr.crop((0, horny, sirka, horny + nova))
 
     obr = obr.resize((SIRKA, VYSKA), Image.LANCZOS)
-    obr.save(cielovy, "WEBP", quality=82, method=6)
+    obr.save(cielovy, "JPEG", quality=84, optimize=True, progressive=True)
     return True
 
 
@@ -165,7 +169,7 @@ def main() -> int:
             logger.warning("%s: nepoznám článok, preskakujem", iata)
             continue
 
-        cielovy = os.path.join(KAM, f"{iata}.webp")
+        cielovy = os.path.join(KAM, f"{iata}.jpg")
         if os.path.exists(cielovy) and iata in popisy:
             preskocene += 1
             continue
