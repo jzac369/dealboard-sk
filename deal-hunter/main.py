@@ -347,6 +347,12 @@ def main() -> int:
     logger.info("Po deduplikácii: %d", len(unique))
 
     selected = select_best(unique, config.MAX_DEALS_PER_RUN)
+
+    # Karta bez obrázka vyzerá ako chyba načítania. Skúsime ho dotiahnuť
+    # z produktovej stránky skôr, než sa deal dostane do fronty.
+    import image_fallback
+    image_fallback.fill_missing_images(selected)
+
     log_preview(selected)
 
     if not selected:

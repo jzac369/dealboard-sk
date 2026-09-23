@@ -383,6 +383,7 @@
     const rejected = allComments.filter(c => c.status === 'rejected');
 
     document.getElementById('ccount-pending').textContent = pending.length;
+    updateDocTitle();
     document.getElementById('ccount-approved').textContent = approved.length;
     document.getElementById('ccount-rejected').textContent = rejected.length;
 
@@ -480,6 +481,7 @@
     const rejected = allCoupons.filter(c => c.status === 'rejected');
     const archived = allCoupons.filter(c => c.status === 'archived');
 
+    updateDocTitle();
     const elP = document.getElementById('coupcount-pending');
     if (!elP) return; // sekcia ešte nie je v DOM
     elP.textContent = pending.length;
@@ -626,6 +628,133 @@
     render();
   };
 
+  // ── Hromadný výber ────────────────────────────────────────────────
+  // Čakajúcich dealov býva viac než schválených a každý sa doteraz
+  // klikal zvlášť. Výber držíme v Set-e mimo vykresľovania, aby
+  // prekreslenie zoznamu (príde pri každej zmene v databáze)
+  // označenie nezhodilo.
+  const selectedDeals = new Set();
+
+  window.toggleDealSelect = function(id, on) {
+    if (on) selectedDeals.add(id); else selectedDeals.delete(id);
+    updateBulkBar();
+  };
+
+  window.toggleSelectAll = function(on) {
+    visibleDeals().forEach(d => { if (on) selectedDeals.add(d.id); else selectedDeals.delete(d.id); });
+    document.querySelectorAll('.row-check[data-deal]').forEach(ch => { ch.checked = on; });
+    updateBulkBar();
+  };
+
+  window.clearSelection = function() {
+    selectedDeals.clear();
+    document.querySelectorAll('.row-check').forEach(ch => { ch.checked = false; });
+    updateBulkBar();
+  };
+
+  function updateBulkBar() {
+    const n = selectedDeals.size;
+    document.getElementById('bulk-bar').classList.toggle('on', n > 0);
+    document.getElementById('bulk-count').textContent = `Označené: ${n}`;
+  }
+
+  // Zmeny posielame po jednej, ale naraz - Firestore nemá dôvod ich
+  // spájať a pri zlyhaní jednej chceme vedieť, ktorá to bola.
+  window.bulkSet = async function(status) {
+    const ids = [...selectedDeals];
+    if (!ids.length) return;
+    const slovo = { approved: 'schváliť', rejected: 'zamietnuť', archived: 'archivovať' }[status];
+    if (!confirm(`Naozaj ${slovo} ${ids.length} označených dealov?`)) return;
+
+    const bar = document.getElementById('bulk-bar');
+    bar.querySelectorAll('button').forEach(b => b.disabled = true);
+    let chyby = 0;
+    for (const id of ids) {
+      const d = allDeals.find(x => x.id === id);
+      try { await setDealStatus(id, status, d && d.title); }
+      catch (e) { chyby++; console.error('Hromadná zmena zlyhala pre', id, e); }
+    }
+    bar.querySelectorAll('button').forEach(b => b.disabled = false);
+    clearSelection();
+    if (chyby) alert(`${chyby} z ${ids.length} dealov sa nepodarilo zmeniť. Detaily sú v konzole.`);
+  };
+
+  function visibleDeals() {
+    const map = {
+      pending:  allDeals.filter(d => d.status === 'pending'),
+      approved: allDeals.filter(d => d.status === 'approved'),
+      rejected: allDeals.filter(d => d.status === 'rejected'),
+      archived: allDeals.filter(d => d.status === 'archived'),
+    };
+    return map[activeTab] || map.pending;
+  }
+
+  // ── Duplicity ─────────────────────────────────────────────────────
+  // Najprv skúsime kľúče, ktoré počíta agent (dedupeKey, productKey) -
+  // tie sú spoľahlivé. Keď ich deal nemá (napríklad od používateľa),
+  // porovnáme slová v názve. Krátke slová vyhadzujeme, inak by si
+  // "set 2 ks" a "set 3 ks" boli podobné až príliš.
+  //
+  // Zhodná adresa sa tu zámerne NEPOROVNÁVA: keď agent nepozná priamy
+  // odkaz na produkt, dá dealu odkaz na vyhľadávanie u predajcu. Jednu
+  // takú adresu dnes zdieľa 23 dealov, ktoré spolu nemajú nič spoločné -
+  // pravidlo na URL označilo 45 zo 46 čakajúcich ako duplicitu.
+  function titleTokens(s) {
+    return new Set(String(s || '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .split(/[^a-z0-9]+/).filter(w => w.length > 3));
+  }
+
+  function findDuplicate(d) {
+    const kandidati = allDeals.filter(x => x.id !== d.id &&
+      (x.status === 'approved' || x.status === 'pending'));
+    const mojeTokeny = titleTokens(d.title);
+
+    for (const x of kandidati) {
+      if (d.dedupeKey && x.dedupeKey === d.dedupeKey) return { deal: x, preco: 'rovnaký kľúč od agenta' };
+      if (d.productKey && x.productKey === d.productKey) return { deal: x, preco: 'rovnaký produkt' };
+    }
+    if (mojeTokeny.size < 3) return null;
+    for (const x of kandidati) {
+      const ich = titleTokens(x.title);
+      if (ich.size < 3) continue;
+      let spolocne = 0;
+      mojeTokeny.forEach(t => { if (ich.has(t)) spolocne++; });
+      const zhoda = spolocne / Math.min(mojeTokeny.size, ich.size);
+      if (zhoda >= 0.8) return { deal: x, preco: 'takmer rovnaký názov' };
+    }
+    return null;
+  }
+
+  // ── Úspešnosť agenta ──────────────────────────────────────────────
+  // Počítame len z rozhodnutých: čakajúce ešte nič nehovoria a keby
+  // sme ich rátali do menovateľa, úspešnosť by klesala len tým, že
+  // ich nestíhaš prechádzať.
+  function renderAgentStats() {
+    const el = document.getElementById('agent-stats');
+    if (!el) return;
+    const agent = allDeals.filter(d => d.autoGenerated);
+    const schvalene = agent.filter(d => d.status === 'approved').length;
+    const zamietnute = agent.filter(d => d.status === 'rejected').length;
+    const cakajuce = agent.filter(d => d.status === 'pending').length;
+    const rozhodnute = schvalene + zamietnute;
+    const uspesnost = rozhodnute ? Math.round(schvalene / rozhodnute * 100) : null;
+
+    el.innerHTML = `
+      <div class="as-box"><div class="as-num">${agent.length}</div><div class="as-lab">nájdených agentom</div></div>
+      <div class="as-box"><div class="as-num">${schvalene}</div><div class="as-lab">schválených</div></div>
+      <div class="as-box"><div class="as-num">${zamietnute}</div><div class="as-lab">zamietnutých</div></div>
+      <div class="as-box"><div class="as-num">${cakajuce}</div><div class="as-lab">čaká na teba</div></div>
+      <div class="as-box"><div class="as-num">${uspesnost === null ? '–' : uspesnost + ' %'}</div><div class="as-lab">úspešnosť</div></div>`;
+
+    const hint = document.getElementById('agent-hint');
+    if (hint) {
+      hint.textContent = rozhodnute
+        ? `Úspešnosť je podiel schválených z ${rozhodnute} rozhodnutých návrhov agenta. Čakajúce sa do nej nerátajú.`
+        : 'Úspešnosť sa ukáže, keď rozhodneš aspoň jeden návrh agenta.';
+    }
+  }
+
   function render() {
     const pending  = allDeals.filter(d => d.status === 'pending');
     const approved = allDeals.filter(d => d.status === 'approved');
@@ -637,8 +766,22 @@
     document.getElementById('count-rejected').textContent = rejected.length;
     document.getElementById('count-archived').textContent = archived.length;
 
+    renderAgentStats();
+    updateDocTitle();
+
     const map = { pending, approved, rejected, archived };
     const list = map[activeTab] || pending;
+
+    // Deal, ktorý medzitým zmenil stav, už v zozname nie je - nech sa
+    // nevláči vo výbere ako neviditeľná položka.
+    const vidnoIds = new Set(list.map(d => d.id));
+    [...selectedDeals].forEach(id => { if (!vidnoIds.has(id)) selectedDeals.delete(id); });
+
+    const wrap = document.getElementById('select-all-wrap');
+    if (wrap) wrap.style.display = list.length ? 'inline-flex' : 'none';
+    const vsetky = document.getElementById('select-all');
+    if (vsetky) vsetky.checked = list.length > 0 && list.every(d => selectedDeals.has(d.id));
+    updateBulkBar();
 
     const el = document.getElementById('deal-list');
     if (!list.length) {
@@ -646,6 +789,17 @@
       return;
     }
     el.innerHTML = list.map(d => rowTemplate(d)).join('');
+  }
+
+  // ── Počet v názve karty prehliadača ───────────────────────────────
+  // Admin býva otvorený na pozadí; v prepnutej karte je vidieť len
+  // titulok, tak nech v ňom je to jediné číslo, ktoré volá po akcii.
+  function updateDocTitle() {
+    const dealy = allDeals.filter(d => d.status === 'pending').length;
+    const kody = allCoupons.filter(c => c.status === 'pending').length;
+    const komenty = allComments.filter(c => c.status === 'pending').length;
+    const spolu = dealy + kody + komenty;
+    document.title = spolu ? `(${spolu}) HenKukaj – Admin` : 'HenKukaj – Admin';
   }
 
   function rowTemplate(d) {
@@ -661,13 +815,24 @@
       ? `<img class="row-thumb" src="${escapeAttr(d.imageUrl)}" alt="">`
       : `<div class="row-thumb row-thumb-empty">📦</div>`;
 
+    const dup = findDuplicate(d);
+    const dupWarn = dup
+      ? `<span class="dup-warn">⚠ Podobný deal už na stránke je (${escapeHtml(dup.preco)}):
+           <a href="#" onclick="skocNaDeal('${dup.deal.id}'); return false;">${escapeHtml(dup.deal.title || 'bez názvu')}</a></span>`
+      : '';
+
     return `
-    <div class="deal-row">
+    <div class="deal-row" id="row-${d.id}">
       <div class="row-header">
+        <input type="checkbox" class="row-check" data-deal="${d.id}"
+               ${selectedDeals.has(d.id) ? 'checked' : ''}
+               onchange="toggleDealSelect('${d.id}', this.checked)"
+               title="Označiť pre hromadnú akciu">
         ${thumb}
         <div class="row-info">
           <div class="row-title"><strong>${escapeHtml(d.title||'')}</strong> ${statusBadge} ${expiredBadge}</div>
           <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · 🖱 ${(window.dealClicks||{})[d.id] || 0} preklikov · ${(d.dealPrice||0).toFixed(2)} € · 👤 ${escapeHtml(d.author||'neznámy')}</div>
+          ${dupWarn}
         </div>
         <div class="row-actions">
           ${d.status === 'pending' ? `
@@ -690,7 +855,12 @@
           ` : ''}
           <button class="btn btn-delete" onclick="deleteDeal('${d.id}')">🗑 Vymazať</button>
           <button class="btn btn-edit" onclick="toggleEdit('${d.id}')">✎ Upraviť</button>
+          <button class="btn" onclick="togglePreview('${d.id}')">👁 Náhľad</button>
         </div>
+      </div>
+      <div class="preview-panel" id="preview-${d.id}">
+        <div class="pv-note">Takto deal uvidí návštevník stránky.</div>
+        ${previewCard(d)}
       </div>
       <div class="edit-panel" id="edit-${d.id}">
         <div class="edit-grid">
@@ -719,6 +889,53 @@
     const el = document.getElementById(`edit-${id}`);
     el.style.display = el.style.display === 'block' ? 'none' : 'block';
   };
+
+  window.togglePreview = function(id) {
+    const el = document.getElementById(`preview-${id}`);
+    el.style.display = el.style.display === 'block' ? 'none' : 'block';
+  };
+
+  window.skocNaDeal = function(id) {
+    const el = document.getElementById(`row-${id}`);
+    if (!el) {
+      alert('Ten deal je v inej záložke - prepni sa na ňu, aby si ho videl.');
+      return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.style.outline = '2px solid var(--orange)';
+    setTimeout(() => { el.style.outline = ''; }, 2000);
+  };
+
+  // ── Náhľad karty ──────────────────────────────────────────────────
+  // Zjednodušená kópia karty z index.html. Zámerne nie iframe: ide o
+  // to, či dáta dávajú zmysel (názov, cena, zľava, obrázok), nie o
+  // vernosť do posledného pixela.
+  function previewCard(d) {
+    const teraz = Number(d.dealPrice) || 0;
+    const povodna = Number(d.originalPrice) || 0;
+    const zlava = povodna > teraz && povodna > 0
+      ? Math.round((1 - teraz / povodna) * 100) : 0;
+
+    return `
+    <div class="pv-card">
+      ${d.imageUrl
+        ? `<img class="pv-img" src="${escapeAttr(d.imageUrl)}" alt="">`
+        : `<div class="pv-img-empty">📦</div>`}
+      <div class="pv-body">
+        <div class="pv-store">${escapeHtml(d.store || 'neznámy obchod')}</div>
+        <div class="pv-title">${escapeHtml(d.title || '(bez názvu)')}</div>
+        <div class="pv-prices">
+          <span class="pv-now">${teraz.toFixed(2)} €</span>
+          ${povodna > teraz ? `<span class="pv-was">${povodna.toFixed(2)} €</span>` : ''}
+          ${zlava > 0 ? `<span class="pv-off">−${zlava} %</span>` : ''}
+        </div>
+        <div class="pv-foot">
+          <span>${d.votes || 0}° · ${escapeHtml(d.author || 'neznámy')}</span>
+          <span class="pv-cta">Zobraziť deal →</span>
+        </div>
+      </div>
+    </div>`;
+  }
 
 
   // ── Predajcovia ─────────────────────────────────────────────────────
@@ -970,6 +1187,56 @@
   .empty { text-align: center; padding: 40px; color: var(--muted); background: var(--card);
     border-radius: 8px; border: 1px solid var(--line); }
 
+  /* ── Hromadné schvaľovanie ─────────────────────────────────────────
+     Lišta sa ukáže až keď je niečo označené - inak by len zaberala
+     miesto nad zoznamom. */
+  .bulk-bar { display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: #fff6ef; border: 1.5px solid var(--orange); border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 12px; }
+  .bulk-bar.on { display: flex; }
+  .bulk-count { font-weight: 700; font-size: .9rem; margin-right: auto; }
+  .row-check { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; accent-color: var(--orange); }
+  .select-all { display: inline-flex; align-items: center; gap: 7px; font-size: .84rem;
+    color: var(--muted); cursor: pointer; margin-bottom: 10px; }
+
+  /* ── Upozornenie na duplicitu ──────────────────────────────────── */
+  .dup-warn { display: block; margin-top: 6px; font-size: .78rem; color: #9a5b00;
+    background: #fff5e0; border: 1px solid #f0d18a; border-radius: 6px; padding: 5px 9px; }
+  .dup-warn a { color: inherit; font-weight: 700; }
+
+  /* ── Náhľad karty tak, ako ju uvidí návštevník ──────────────────
+     Zjednodušená kópia karty z index.html. Nie je to iframe: stačí
+     ukázať, čo návštevník uvidí, nie celú stránku. */
+  .preview-panel { display: none; margin-top: 14px; padding-top: 14px;
+    border-top: 1px dashed var(--line); }
+  .preview-panel .pv-note { font-size: .75rem; color: var(--muted); margin-bottom: 9px; }
+  .pv-card { max-width: 340px; border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+  .pv-img { width: 100%; height: 165px; object-fit: contain; background: #f7f7f7; display: block; }
+  .pv-img-empty { height: 165px; background: #f7f7f7; display: flex; align-items: center;
+    justify-content: center; font-size: 2rem; color: var(--muted); }
+  .pv-body { padding: 12px 14px 14px; }
+  .pv-store { font-size: .72rem; font-weight: 700; color: var(--orange);
+    text-transform: uppercase; letter-spacing: .04em; }
+  .pv-title { font-size: .95rem; font-weight: 700; line-height: 1.35; margin: 4px 0 8px; }
+  .pv-prices { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .pv-now { font-size: 1.25rem; font-weight: 800; }
+  .pv-was { font-size: .85rem; color: var(--muted); text-decoration: line-through; }
+  .pv-off { background: #e8f5e9; color: #1e7b32; font-size: .74rem; font-weight: 800;
+    border-radius: 5px; padding: 2px 7px; }
+  .pv-foot { display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-top: 11px; font-size: .78rem; color: var(--muted); }
+  .pv-cta { background: var(--orange); color: #fff; border-radius: 8px;
+    padding: 7px 13px; font-size: .8rem; font-weight: 700; }
+
+  /* ── Úspešnosť agenta ──────────────────────────────────────────── */
+  .agent-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .as-box { flex: 1 1 130px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 13px; }
+  .as-num { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+  .as-lab { font-size: .73rem; color: var(--muted); margin-top: 2px; }
+  .as-hint { font-size: .75rem; color: var(--muted); margin: -6px 0 14px; }
+
   /* ── Dotykové ovládanie (telefón, tablet) ──────────────────────────
      Admin sa dá ovládať aj z mobilu, ale tlačidlá mali 26 px a polia
      dokonca 19 - prstom sa to trafí ťažko.
@@ -1033,6 +1300,20 @@
         <button class="tab-btn" onclick="setTab('approved', this)">Schválené (<span id="count-approved">0</span>)</button>
         <button class="tab-btn" onclick="setTab('rejected', this)">Zamietnuté (<span id="count-rejected">0</span>)</button>
         <button class="tab-btn" onclick="setTab('archived', this)">Archív (<span id="count-archived">0</span>)</button>
+      </div>
+      <div class="agent-stats" id="agent-stats"></div>
+      <p class="as-hint" id="agent-hint"></p>
+
+      <label class="select-all" id="select-all-wrap" style="display:none;">
+        <input type="checkbox" class="row-check" id="select-all" onchange="toggleSelectAll(this.checked)">
+        Označiť všetky v tejto záložke
+      </label>
+      <div class="bulk-bar" id="bulk-bar">
+        <span class="bulk-count" id="bulk-count">Označené: 0</span>
+        <button class="btn btn-approve" onclick="bulkSet('approved')">✓ Schváliť označené</button>
+        <button class="btn btn-reject" onclick="bulkSet('rejected')">✕ Zamietnuť označené</button>
+        <button class="btn btn-archive" onclick="bulkSet('archived')">📦 Archivovať označené</button>
+        <button class="btn" onclick="clearSelection()">Zrušiť výber</button>
       </div>
       <div id="deal-list"></div>
     </section>
