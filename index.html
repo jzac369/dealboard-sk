@@ -2048,6 +2048,11 @@ body.food-page { background: #FAF8F5; }
    sa ovláda dotykom; na počítači s myšou zostáva všetko ako bolo, aby
    sa rozloženie nemenilo. */
 @media (pointer: coarse) {
+  /* Safari na iPhone a iPade priblíži celú stránku, keď človek klikne
+     do poľa s písmom menším než 16 px. Rozloženie sa tým rozhodí a
+     naspäť sa vráti až ručným oddialením. Nie je to preferencia, je to
+     pevné správanie systému. */
+  input:not([type=checkbox]):not([type=radio]), select, textarea { font-size: 16px; }
   .vote-seg { height: 40px; }
   .vote-seg button { width: 40px; }
   .coupon-card .vote-seg { height: 40px; }
