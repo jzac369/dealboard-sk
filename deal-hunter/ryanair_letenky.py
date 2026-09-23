@@ -226,19 +226,44 @@ def _riadok(let: dict) -> str:
     return f'• <a href="{_odkaz(let)}">{kam}</a> - {cena}\n   <i>{e(detail)}</i>'
 
 
-def zostav_spravu(nove_one: list[dict], nove_ret: list[dict]) -> str:
-    casti = [f"✈️ <b>Lacné letenky z {LETISKO}</b> - {date.today().strftime('%d.%m.%Y')}"]
+# Telegram odmietne správu nad 4096 znakov. Držíme sa pod tým s rezervou.
+LIMIT_SPRAVY = 3800
+
+
+def riadky_spravy(nove_one: list[dict], nove_ret: list[dict]) -> list[str]:
+    riadky = [f"✈️ <b>Lacné letenky z {LETISKO}</b> - {date.today().strftime('%d.%m.%Y')}"]
     if nove_ret:
-        casti.append(f"\n<b>Spiatočné do {MAX_SPIATOCNE:.0f} € ({POBYT_OD}-{POBYT_DO} dní)</b>")
-        casti += [_riadok(x) for x in nove_ret[:12]]
+        riadky.append(f"\n<b>Spiatočné do {MAX_SPIATOCNE:.0f} € ({POBYT_OD}-{POBYT_DO} dní)</b>")
+        riadky += [_riadok(x) for x in nove_ret]
     if nove_one:
-        casti.append(f"\n<b>Jednosmerné do {MAX_JEDNOSMERNE:.0f} €</b>")
-        casti += [_riadok(x) for x in nove_one[:15]]
-    sprava = "\n".join(casti)
-    # Telegram odmietne správu nad 4096 znakov.
-    if len(sprava) > 4000:
-        sprava = sprava[:3950] + "\n\n<i>… zvyšok vynechaný, bolo toho priveľa.</i>"
-    return sprava
+        riadky.append(f"\n<b>Jednosmerné do {MAX_JEDNOSMERNE:.0f} €</b>")
+        riadky += [_riadok(x) for x in nove_one]
+    return riadky
+
+
+def zostav_spravy(nove_one: list[dict], nove_ret: list[dict]) -> list[str]:
+    """
+    Rozdelí ponuky do viacerých správ.
+
+    Delíme po celých riadkoch, nikdy nie orezaním textu: riadok je HTML
+    s odkazom a rez uprostred značky Telegram odmietne chybou
+    "Unclosed start tag".
+    """
+    spravy: list[str] = []
+    aktualna: list[str] = []
+    dlzka = 0
+
+    for riadok in riadky_spravy(nove_one, nove_ret):
+        pridane = len(riadok) + 1
+        if aktualna and dlzka + pridane > LIMIT_SPRAVY:
+            spravy.append("\n".join(aktualna))
+            aktualna, dlzka = [], 0
+        aktualna.append(riadok)
+        dlzka += pridane
+
+    if aktualna:
+        spravy.append("\n".join(aktualna))
+    return spravy
 
 
 def posli(nove_one: list[dict], nove_ret: list[dict]) -> bool:
@@ -246,12 +271,20 @@ def posli(nove_one: list[dict], nove_ret: list[dict]) -> bool:
     if not telegram_bot.is_configured():
         logger.error("Telegram nie je nastavený - správu neposielam.")
         return False
-    return telegram_bot._call("sendMessage", {
-        "chat_id": telegram_bot.config.TELEGRAM_CHAT_ID,
-        "text": zostav_spravu(nove_one, nove_ret),
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True,
-    }) is not None
+
+    spravy = zostav_spravy(nove_one, nove_ret)
+    for poradie, text in enumerate(spravy, 1):
+        vysledok = telegram_bot._call("sendMessage", {
+            "chat_id": telegram_bot.config.TELEGRAM_CHAT_ID,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        })
+        if vysledok is None:
+            logger.error("Správa %d z %d sa neodoslala.", poradie, len(spravy))
+            return False
+    logger.info("Odoslaných správ: %d", len(spravy))
+    return True
 
 
 def main() -> int:

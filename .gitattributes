@@ -1,0 +1,3 @@
+# Windows davkove subory musia mat CRLF. S unixovymi koncami riadkov
+# cmd.exe spadne na viacriadkovom bloku "if (...)".
+*.cmd text eol=crlf
