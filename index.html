@@ -2199,6 +2199,7 @@ body.food-page { background: #FAF8F5; }
       <label class="fd-select">
         <span class="sr-only">Zoradenie</span>
         <select id="fd-sort" onchange="window.foodFilterChanged()">
+          <option value="basket">Poradie v košíku</option>
           <option value="saving">Najväčšia úspora</option>
           <option value="price">Najlacnejšie</option>
           <option value="name">Podľa názvu</option>
@@ -2963,6 +2964,20 @@ body.food-page { background: #FAF8F5; }
     lsSet(CART_SEED, true);
   }
 
+  // Poradie, v akom sa potraviny zobrazujú. Nie je abecedné ani podľa
+  // ceny - kopíruje to, ako človek nakupuje: základné suroviny najskôr,
+  // mäso nakoniec. Čo v zozname nie je, ide na koniec.
+  const PORADIE_KOSIKA = [
+    'Mlieko', 'Múka', 'Cukor', 'Maslo', 'Olej',
+    'Vajcia', 'Zemiaky', 'Chlieb', 'Jogurt', 'Kuracie prsia',
+  ];
+
+  function poradieVKosiku(label) {
+    const text = (label || '').toLowerCase();
+    const i = PORADIE_KOSIKA.findIndex(k => text.includes(k.toLowerCase()));
+    return i === -1 ? PORADIE_KOSIKA.length : i;
+  }
+
   function allVendors() {
     const set = new Set();
     (foodData.items || []).forEach(it => (it.prices || []).forEach(p => set.add(p.vendor)));
@@ -2985,7 +3000,7 @@ body.food-page { background: #FAF8F5; }
     return {
       q:     (document.getElementById('fd-q')?.value || '').trim().toLowerCase(),
       chain: document.getElementById('fd-chain')?.value || '',
-      sort:  document.getElementById('fd-sort')?.value || 'saving',
+      sort:  document.getElementById('fd-sort')?.value || 'basket',
     };
   }
 
@@ -3085,6 +3100,7 @@ body.food-page { background: #FAF8F5; }
 
     const sorted = visible.slice().sort((a, b) => {
       const pa = pricesOf(a, f.chain), pb = pricesOf(b, f.chain);
+      if (f.sort === 'basket') return poradieVKosiku(a.label) - poradieVKosiku(b.label);
       if (f.sort === 'name')  return a.label.localeCompare(b.label, 'sk');
       if (f.sort === 'price') return pa[0].price - pb[0].price;
       const sa = (a.prices || []).length ? Math.max(...a.prices.map(p => p.price)) - pa[0].price : 0;
@@ -3196,12 +3212,6 @@ body.food-page { background: #FAF8F5; }
           – Ministerstvo financií SR</span>
       </div>
       ${body || `<div class="empty" style="font-size:.85rem;padding:18px 6px;">Nič sa nenašlo.</div>`}
-      <div class="fd-legend">
-        <svg width="52" height="16" viewBox="0 0 52 16" fill="none" aria-hidden="true" style="flex:none;">
-          <polyline points="2,8 50,8" stroke="#B3ADA4" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span>Čiara je zatiaľ rovná — každý deň k nej pribudne jeden bod z reálnych cien, takže sa postupne zakriví sama.</span>
-      </div>
     </div>`;
   }
 
