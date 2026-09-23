@@ -13,3 +13,10 @@ venv/
 # Lokalne pokusy
 *.local.*
 ceny-potravin.log
+letenky.log
+
+# Telegram token pre planovane ulohy - NIKDY do repozitara
+telegram.env.cmd
+
+# Pamat uz poslanych leteniek (osobne, nie obsah stranky)
+letenky-poslane.json
