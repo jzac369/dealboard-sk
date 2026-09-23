@@ -125,9 +125,17 @@ def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandida
     per_store: dict[str, int] = defaultdict(int)
     per_category: dict[str, int] = defaultdict(int)
 
+    preskocene_kategorie = 0
     for candidate in ranked:
         store = candidate.store or candidate.source
         category = guess_category(candidate.title, candidate.category_hint)
+
+        # Kategórie, ktoré na stránku nechceme. Potraviny tvorili väčšinu
+        # návrhov a takmer všetky končili zamietnutím - bežné ceny
+        # základných potravín ukazuje samostatná sekcia, deal z rožka nie je.
+        if category in config.BLOCKED_CATEGORIES:
+            preskocene_kategorie += 1
+            continue
 
         if per_store[store] >= config.MAX_PER_STORE:
             continue
@@ -140,6 +148,11 @@ def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandida
         if len(selected) >= limit:
             break
 
+    if preskocene_kategorie:
+        logger.info(
+            "Preskočených pre nechcenú kategóriu (%s): %d",
+            ", ".join(config.BLOCKED_CATEGORIES), preskocene_kategorie,
+        )
     return selected
 
 

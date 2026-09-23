@@ -73,32 +73,16 @@ CATEGORY_MAP: dict[str, str] = {
     "oblecenie-detske": "Móda",
     "domaci-maznacikovia": "Iné",
     # drogéria a domácnosť
-    "cistiace-prostriedky": "Iné",
-    "pracie-prostriedky": "Iné",
-    "umyvanie-riadu": "Iné",
-    "toaletny-papier-vreckovky": "Iné",
-    "ostatna-drogeria": "Iné",
     "toaletne-vody-a-parfumy": "Iné",
-    "detska-vyziva": "Iné",
     "sezona": "Iné",
     "okna-dvere": "Dom & Záhrada",
     "kempovanie": "Šport",
-    # potraviny
-    "maso": "Jedlo & Nápoje",
-    "pecivo": "Jedlo & Nápoje",
-    "mrazeny-tovar": "Jedlo & Nápoje",
-    "udeniny-lahodky": "Jedlo & Nápoje",
-    "teple-napoje": "Jedlo & Nápoje",
-    "dochucovadla": "Jedlo & Nápoje",
-    "ostatne-potraviny": "Jedlo & Nápoje",
-    "ostatne-chladene": "Jedlo & Nápoje",
-    "mliecne-vyrobky": "Jedlo & Nápoje",
-    "ovocie": "Jedlo & Nápoje",
-    "zelenina": "Jedlo & Nápoje",
-    "napoje-nealkoholicke": "Jedlo & Nápoje",
-    "napoje-alkoholicke": "Jedlo & Nápoje",
-    "cukrovinky-pochutiny": "Jedlo & Nápoje",
-    "trvanlive": "Jedlo & Nápoje",
+    # POZNÁMKA K POTRAVINÁM A DROGÉRII (23. 9. 2026)
+    # Kategórie potravín a drogérie sú odtiaľto zámerne preč. Tvorili
+    # väčšinu návrhov a takmer všetky končili zamietnutím - rožky,
+    # jogurty a čistiace prostriedky nie sú to, čo na stránke chceme.
+    # Ceny základných potravín ukazuje samostatná sekcia z národného
+    # porovnávača, tam patria. Elektroniku dodáva zdroj shop_feeds.
 }
 
 # "-40%" v badge alebo "-40<span>%</span>" v ponuke

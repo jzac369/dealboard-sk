@@ -46,7 +46,11 @@ MIN_DISCOUNT_PERCENT = _env_float("MIN_DISCOUNT_PERCENT", 25)
 MAX_DISCOUNT_PERCENT = _env_float("MAX_DISCOUNT_PERCENT", 95)
 # Minimálna cena v €. Odfiltruje šum typu "zľava 50 %" na položke za 20 centov.
 # Nízka hranica je zámer: pri potravinách je aj minerálka za 0,55 € reálny deal.
-MIN_DEAL_PRICE = _env_float("MIN_DEAL_PRICE", 0.50)
+# Pod pätnásť eur sú v letákoch prevažne jogurty, omáčky a ovocie.
+# Zľava 50 % na Actimel za 1,29 € je síce zľava, ale nie deal - a presne
+# takéto návrhy sa zamietali. Kategóriový filter ich nechytí všetky,
+# lebo odhad kategórie podľa názvu ich zaradí medzi "Iné".
+MIN_DEAL_PRICE = _env_float("MIN_DEAL_PRICE", 15.0)
 # Koľko návrhov maximálne zapísať za jeden beh.
 # Pri 3 behoch denne to dáva denný strop 30 návrhov na schválenie.
 MAX_DEALS_PER_RUN = _env_int("MAX_DEALS_PER_RUN", 10)
@@ -68,7 +72,13 @@ DEDUPE_LOOKBACK_DAYS = _env_int("DEDUPE_LOOKBACK_DAYS", 30)
 
 # ── Zdroje ────────────────────────────────────────────────────────────
 # Zapnuté scrapery. Názvy zodpovedajú kľúčom v scrapers/__init__.py.
-ENABLED_SCRAPERS = _env_list("ENABLED_SCRAPERS") or ["zlacnene", "feeds"]
+ENABLED_SCRAPERS = _env_list("ENABLED_SCRAPERS") or ["zlacnene", "feeds", "shop_feeds"]
+
+# Kategórie, ktoré sa na stránku nedostanú, nech ich zdroj nájde koľko chce.
+# Potraviny sem patria zámerne: tvorili väčšinu návrhov agenta a takmer
+# všetky sa zamietali. Ceny základných potravín má stránka vo vlastnej
+# sekcii z národného porovnávača - tam dávajú zmysel, ako deal nie.
+BLOCKED_CATEGORIES = _env_list("BLOCKED_CATEGORIES") or ["Jedlo & Nápoje"]
 
 # Koľko strán všeobecného zoznamu prejsť na zlacnene.sk (20 položiek na stranu).
 ZLACNENE_MAX_PAGES = _env_int("ZLACNENE_MAX_PAGES", 2)

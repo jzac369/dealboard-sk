@@ -937,7 +937,9 @@ def test_deal_with_unknown_merchant_is_not_published():
     import main
     from models import DealCandidate
 
-    znamy = DealCandidate(title='Uterák', deal_price=6.0, explicit_discount_percent=60,
+    # Cena nad MIN_DEAL_PRICE zámerne: tento test je o predajcovi,
+    # nie o cenovej podlahe, a nemá na nej padať.
+    znamy = DealCandidate(title='Uterák', deal_price=29.0, explicit_discount_percent=60,
                           url='https://www.zlacnene.sk/akcia/x/', source='zlacnene.sk',
                           store='Jysk')
     neznamy = DealCandidate(title='Stolička', deal_price=20.0, explicit_discount_percent=50,
