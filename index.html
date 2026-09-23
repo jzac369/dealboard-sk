@@ -1039,7 +1039,11 @@
      to, ako široko stránka siaha. */
   .container.full-width { grid-template-columns: 1fr; }
   .container.full-width > .sidebar { display: none; }
-  @media (max-width: 720px) { .container { grid-template-columns: 1fr; } .sidebar { margin-top: 0; } }
+  /* Pod 1000 px jeden stĺpec. Na iPade na výšku (820 px) zostávalo na
+     obsah 453 px, kým bočný panel si bral 300 - karty dealov boli
+     natlačené a názvy sa lámali. Potraviny a letáky sa na tejto
+     hranici skladajú už teraz, tak nech je to všade rovnako. */
+  @media (max-width: 1000px) { .container { grid-template-columns: 1fr; } .sidebar { margin-top: 0; } }
 
   /* ── Top category nav ───────────────────────────────────────────────── */
   .cat-nav-wrap { background: var(--card); border-bottom: 1px solid var(--line); }
@@ -1432,7 +1436,10 @@
   /* ── Reklama ────────────────────────────────────────────────────────────
      Miesta sú skryté, kým ich naozaj nenaplníme. Prázdny rámček je
      horší než žiadna reklama - vyzerá ako pokazená stránka. */
-  .ad-slot { display: none; }
+  /* overflow kvôli otočeniu tabletu: Google si pamätá šírku, akú mal
+     blok pri prvom vykreslení, a po otočení na výšku by ňou roztiahol
+     stránku, kým sa sám neprekreslí. */
+  .ad-slot { display: none; max-width: 100%; overflow: hidden; }
   .ad-label { display: block; font-size: .64rem; letter-spacing: .06em;
     text-transform: uppercase; color: #B3ADA4; margin-bottom: 5px; }
 
@@ -1756,6 +1763,7 @@
 .how-list span { display: flex; align-items: center; gap: 7px; }
 
 
+
 /* Filtre "Len platné" a "Uložené" sú prepínače, nie tlačidlá triedenia.
    Plná tmavomodrá výplň na ne kričala viac než samotné dealy a do
    oranžovo-bielej stránky nesadla. Teraz sa správajú ako fajočka:
@@ -1992,6 +2000,14 @@ body.food-page { background: #FAF8F5; }
   .fd-basket { flex-wrap: wrap; }
   .fd-combo { width: 100%; }
 }
+/* Tablet: vyhľadávanie cez celý riadok, pod ním tlačidlo a obe
+   rozbaľovačky vedľa seba. Bez toho zostala jedna rozbaľovačka sama
+   na treťom riadku a vedľa nej prázdne miesto. */
+@media (max-width: 1000px) and (min-width: 721px) {
+  .fd-search { flex: 1 1 100%; }
+  .fd-btn-go { flex: 0 0 auto; padding: 0 34px; }
+  .fd-select { flex: 1 1 auto; }
+}
 @media (max-width: 720px) {
   .fd-hero h1 { font-size: 1.9rem; }
   .fd-hero-img { width: 128px; height: 128px; margin-right: 0; }
@@ -2024,6 +2040,25 @@ body.food-page { background: #FAF8F5; }
 }
 @media (max-width: 480px) {
   .fd-hero-img { display: none; }
+}
+
+/* ── Dotykové ovládanie (telefón, tablet) ────────────────────────────
+   Tlačidlá navrhnuté pre myš sú prstom ťažko trafiteľné - hlasovanie
+   malo 28 px a plusko v nákupe dokonca 23. Zväčšujeme ich len tam, kde
+   sa ovláda dotykom; na počítači s myšou zostáva všetko ako bolo, aby
+   sa rozloženie nemenilo. */
+@media (pointer: coarse) {
+  .vote-seg { height: 40px; }
+  .vote-seg button { width: 40px; }
+  .coupon-card .vote-seg { height: 40px; }
+  .coupon-card .vote-seg button { width: 38px; }
+  .coupon-copy-btn { padding: 10px 12px; }
+  .fd-qty button { width: 34px; height: 34px; font-size: 1rem; }
+  .fd-qty .del { width: 30px; }
+  .fp-add { width: 44px; height: 44px; }
+  .deal-footer a { padding: 6px 2px; }
+  .sort-btn { padding-top: 9px; padding-bottom: 9px; }
+  .store-edit { padding: 6px 2px; display: inline-block; }
 }
 </style>
 </head>
