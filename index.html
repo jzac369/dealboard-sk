@@ -1695,15 +1695,20 @@
 .is-expired .ct-tile { filter: grayscale(1); opacity: .5; }
 
 /* Kód s prerušovaným rámčekom a tlačidlom na kopírovanie */
-.ct-code { width: 208px; flex: none; display: flex; align-items: center;
+/* Užšie okno s kódom. Dlhší kód sa oreže a nevadí to - kopíruje sa
+   tlačidlom, nie prepisovaním očami. Ušetrené miesto potrebuje text
+   vedľa, kde sa "Platnosť skončila 25. 6." inak nezmestilo. */
+.ct-code { width: 165px; flex: none; display: flex; align-items: center;
   gap: 8px; border: 1.5px dashed var(--orange); border-radius: 10px;
   background: var(--badge); padding: 6px 6px 6px 11px; }
 .ct-code code { flex: 1; min-width: 0; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size: .92rem; font-weight: 700; letter-spacing: .5px; color: var(--badge-t);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.coupon-copy-btn { flex: none; display: inline-flex; align-items: center; gap: 5px;
+.coupon-copy-btn { flex: none; display: inline-flex; align-items: center; gap: 4px;
   background: var(--orange); color: #fff; border: none; border-radius: 7px;
-  padding: 6px 10px; font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer; }
+  padding: 6px 8px; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer;
+  white-space: nowrap; }
+.coupon-copy-btn.is-copied { background: var(--green); }
 .coupon-copy-btn:hover { background: var(--orange-dk); }
 .coupon-copy-btn .ic { width: .85rem; height: .85rem; }
 .coupon-copy-btn:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
@@ -3802,9 +3807,16 @@ body.food-page { background: #FAF8F5; }
   window.copyCoupon = function(id, code) {
     navigator.clipboard.writeText(code).then(() => {
       const btn = document.getElementById('copy-btn-' + id);
-      const original = btn.textContent;
-      btn.textContent = 'Skopírované ✓';
-      setTimeout(() => { btn.textContent = original; }, 1800);
+      // Prepisujeme len text vo vnútornom span, nie celé tlačidlo.
+      // Pri btn.textContent by zmizla ikona a už by sa nevrátila.
+      const label = btn.querySelector('span') || btn;
+      const original = label.textContent;
+      label.textContent = 'Hotovo ✓';
+      btn.classList.add('is-copied');
+      setTimeout(() => {
+        label.textContent = original;
+        btn.classList.remove('is-copied');
+      }, 1600);
     });
   };
 
