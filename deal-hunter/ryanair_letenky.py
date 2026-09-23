@@ -6,24 +6,34 @@ letov na ryanair.com (services-api.ryanair.com/farfnd). Nie je to
 obchádzanie ochrany - je to ten istý zdroj, z ktorého číta ich stránka,
 keď na nej klikneš na "Fare Finder".
 
-KRITÉRIÁ
-  jednosmerne  do 30 € kamkoľvek
-  spiatočne    do 50 € spolu, pobyt 1 až 14 dní
+AKO DLHO SA NIEKDE ZDRŽÍ
+Dĺžka pobytu nie je jedno číslo pre všetko. Na Barcelonu, Rím či do
+Gdanska sa chodí na predĺžený víkend, k moru na týždeň. Preto sú
+destinácie rozdelené na dve skupiny a pre každú sa pýtame inú dĺžku
+pobytu - inak by vyhľadávanie ponúkalo dvojdňovú Mallorcu a
+desaťdňový Brusel.
 
-ČO SI PAMÄTÁME
-Bez pamäte by ti každé ráno prišla tá istá Barcelona za 14,99. Preto si
-odkladáme, čo sme už poslali, a hlásime len nové spojenie alebo také,
-ktoré odvtedy zlacnelo. Stačí na to súbor vedľa skriptu - je to osobné
-upozornenie, nie obsah stránky, do Firestore nepatrí.
+ODKIAĽ BERIEME "PÔVODNÚ CENU"
+Feed s ponukami udáva len tú najlacnejšiu cenu a nič, s čím by sa dala
+porovnať. Preto si pre každú trasu stiahneme ceny po dňoch v danom
+mesiaci (cheapestPerDay) a ako bežnú cenu berieme medián. Je to údaj z
+toho istého zdroja a dá sa obhájiť: "takto to na tejto trase vychádza
+bežne, dnes je to za toľkoto".
+
+ČO SA S NÁJDENÝM STANE
+Tri najlacnejšie ponuky sa zapíšu ako návrhy dealov (status pending,
+kategória Cestovanie) a pošlú sa do Telegramu s tlačidlami Schváliť a
+Zamietnuť - rovnako ako návrhy od agenta. Schválené sa objavia na
+stránke, zamietnuté nikde.
 
 Spúšťa to plánovaná úloha "HenKukaj - letenky" cez letenky.cmd.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import os
+import statistics
 from datetime import date, timedelta
 
 import requests
@@ -33,20 +43,18 @@ logger = logging.getLogger("letenky")
 API = "https://services-api.ryanair.com/farfnd/v4"
 LETISKO = os.environ.get("RYANAIR_ORIGIN", "BTS")
 
-MAX_JEDNOSMERNE = float(os.environ.get("RYANAIR_MAX_ONEWAY", 30))
 MAX_SPIATOCNE = float(os.environ.get("RYANAIR_MAX_RETURN", 50))
-POBYT_OD = int(os.environ.get("RYANAIR_STAY_FROM", 1))
-POBYT_DO = int(os.environ.get("RYANAIR_STAY_TO", 14))
+KOLKO_PONUK = int(os.environ.get("RYANAIR_DAILY_PICKS", 3))
 
 # Ako ďaleko dopredu sa pozeráme.
 DNI_DOPREDU = int(os.environ.get("RYANAIR_HORIZON_DAYS", 120))
 
 # Strop, ktorý si určuje Ryanair: spiatočné rozhranie odmietne limit
-# väčší než 20 chybou InvalidLimit. Jednosmerné znesie 200.
+# väčší než 20 chybou InvalidLimit.
 LIMIT_SPIATOCNE = 20
-LIMIT_JEDNOSMERNE = 200
 
-PAMAT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "letenky-poslane.json")
+KATEGORIA = "Cestovanie"
+OBCHOD = "Ryanair"
 
 HLAVICKY = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -54,6 +62,54 @@ HLAVICKY = {
     "Accept": "application/json",
     "Accept-Language": "en-GB,en;q=0.9",
 }
+
+
+# ── rozdelenie destinácií ─────────────────────────────────────────────
+# Zoznam vychádza zo skutočných destinácií, ktoré Ryanair z Bratislavy
+# lieta (overené 23. 9. 2026). Keď pribudne nová, spadne do MESTO -
+# predĺžený víkend je bezpečnejší odhad než týždeň pri mori.
+#
+# Delenie je podľa toho, na čo tam ľudia chodia, nie podľa zemepisu.
+# Barcelona, Rím aj Atény sú pri mori, ale chodí sa do nich za mestom -
+# preto sú medzi mestami, presne ako si ich zaradil ty.
+
+MESTO = {
+    "ATH": "Atény", "BCN": "Barcelona", "CIA": "Rím", "CRL": "Brusel",
+    "DUB": "Dublin", "EDI": "Edinburgh", "EIN": "Eindhoven", "GDN": "Gdansk",
+    "LBA": "Leeds", "MAN": "Manchester", "MXP": "Miláno", "NAP": "Neapol",
+    "PSA": "Pisa", "SKG": "Solún", "STN": "Londýn", "TIA": "Tirana",
+    "TRN": "Turín", "WMI": "Varšava",
+}
+
+MORE = {
+    "ACE": "Lanzarote", "AGA": "Agadir", "AGP": "Málaga", "AHO": "Alghero",
+    "ALC": "Alicante", "BOJ": "Burgas", "BRI": "Bari", "CFU": "Korfu",
+    "DLM": "Dalaman", "JSI": "Skiathos", "MLA": "Malta", "PFO": "Paphos",
+    "PMI": "Mallorca", "PMO": "Palermo", "SUF": "Lamezia", "TPS": "Trapani",
+    "ZAD": "Zadar",
+}
+
+# (od, do) dní pobytu pre každú skupinu.
+POBYT_MESTO = (int(os.environ.get("RYANAIR_CITY_FROM", 2)),
+               int(os.environ.get("RYANAIR_CITY_TO", 4)))
+POBYT_MORE = (int(os.environ.get("RYANAIR_SEA_FROM", 4)),
+              int(os.environ.get("RYANAIR_SEA_TO", 10)))
+
+
+def skupina(iata: str) -> str:
+    if iata in MORE:
+        return "more"
+    if iata not in MESTO:
+        # Nová destinácia. Spadne medzi mestá (predĺžený víkend je
+        # bezpečnejší odhad než týždeň), ale nech to nezostane ticho -
+        # Alghero takto raz skončilo medzi mestami, hoci je to Sardínia.
+        logger.warning("Neznáma destinácia %s — zaraďujem medzi mestá. "
+                       "Ak je prímorská, dopln ju do MORE.", iata)
+    return "mesto"
+
+
+def nazov_skupiny(druh: str) -> str:
+    return "pri mori" if druh == "more" else "mestský pobyt"
 
 
 # ── volanie Ryanairu ──────────────────────────────────────────────────
@@ -64,37 +120,8 @@ def _ziskaj(cesta: str, parametre: dict) -> dict:
     return r.json()
 
 
-def jednosmerne() -> list[dict]:
-    dnes = date.today()
-    data = _ziskaj("oneWayFares", {
-        "departureAirportIataCode": LETISKO,
-        "outboundDepartureDateFrom": dnes.isoformat(),
-        "outboundDepartureDateTo": (dnes + timedelta(days=DNI_DOPREDU)).isoformat(),
-        "priceValueTo": MAX_JEDNOSMERNE,
-        "currency": "EUR",
-        "limit": LIMIT_JEDNOSMERNE,
-        "offset": 0,
-    })
-    vysledok = []
-    for f in data.get("fares", []):
-        o = f.get("outbound") or {}
-        cena = (o.get("price") or {}).get("value")
-        if cena is None or float(cena) > MAX_JEDNOSMERNE:
-            continue
-        letisko = o.get("arrivalAirport") or {}
-        vysledok.append({
-            "druh": "one",
-            "kam": letisko.get("iataCode", "?"),
-            "mesto": letisko.get("name", ""),
-            "krajina": (letisko.get("countryName") or ""),
-            "odlet": (o.get("departureDate") or "")[:16],
-            "cena": round(float(cena), 2),
-            "dni": None,
-        })
-    return vysledok
-
-
-def spiatocne() -> list[dict]:
+def spiatocne_pre_pobyt(pobyt_od: int, pobyt_do: int) -> list[dict]:
+    """Spiatočné lety s danou dĺžkou pobytu, lacnejšie než strop."""
     dnes = date.today()
     do = dnes + timedelta(days=DNI_DOPREDU)
     data = _ziskaj("roundTripFares", {
@@ -102,14 +129,15 @@ def spiatocne() -> list[dict]:
         "outboundDepartureDateFrom": dnes.isoformat(),
         "outboundDepartureDateTo": do.isoformat(),
         "inboundDepartureDateFrom": dnes.isoformat(),
-        "inboundDepartureDateTo": (do + timedelta(days=POBYT_DO)).isoformat(),
-        "durationFrom": POBYT_OD,
-        "durationTo": POBYT_DO,
+        "inboundDepartureDateTo": (do + timedelta(days=pobyt_do)).isoformat(),
+        "durationFrom": pobyt_od,
+        "durationTo": pobyt_do,
         "priceValueTo": MAX_SPIATOCNE,
         "currency": "EUR",
         "limit": LIMIT_SPIATOCNE,
         "offset": 0,
     })
+
     vysledok = []
     for f in data.get("fares", []):
         o = f.get("outbound") or {}
@@ -121,88 +149,81 @@ def spiatocne() -> list[dict]:
         spolu = round(float(co) + float(ci), 2)
         if spolu > MAX_SPIATOCNE:
             continue
+
+        odlet = (o.get("departureDate") or "")[:16]
+        navrat = (i.get("departureDate") or "")[:16]
         try:
-            dni = (date.fromisoformat((i.get("departureDate") or "")[:10])
-                   - date.fromisoformat((o.get("departureDate") or "")[:10])).days
+            dni = (date.fromisoformat(navrat[:10]) - date.fromisoformat(odlet[:10])).days
         except ValueError:
-            dni = None
-        # Ryanair už filtruje podľa durationFrom/To, ale keby parametre
-        # ignoroval, nechceme ti poslať trojtýždňový pobyt.
-        if dni is not None and not (POBYT_OD <= dni <= POBYT_DO):
             continue
+        if not (pobyt_od <= dni <= pobyt_do):
+            continue
+
         letisko = o.get("arrivalAirport") or {}
         vysledok.append({
-            "druh": "return",
             "kam": letisko.get("iataCode", "?"),
-            "mesto": letisko.get("name", ""),
-            "krajina": (letisko.get("countryName") or ""),
-            "odlet": (o.get("departureDate") or "")[:16],
-            "navrat": (i.get("departureDate") or "")[:16],
-            "cena": spolu,
+            "letisko": letisko.get("name", ""),
+            "krajina": letisko.get("countryName") or "",
+            "odlet": odlet,
+            "navrat": navrat,
             "dni": dni,
+            "cena": spolu,
+            "cena_tam": round(float(co), 2),
+            "cena_spat": round(float(ci), 2),
         })
     return vysledok
 
 
-# ── pamäť už poslaného ────────────────────────────────────────────────
+def _median_trasy(odkial: str, kam: str, den: str) -> float | None:
+    """
+    Bežná cena jedného smeru na trase v mesiaci daného dátumu.
 
-def _kluc(let: dict) -> str:
-    return f"{let['druh']}|{let['kam']}|{let['odlet'][:10]}|{let.get('navrat', '')[:10]}"
-
-
-def _nacitaj_pamat() -> dict:
+    Medián, nie priemer: jeden let za 148 € by priemer vytiahol tak, že
+    by každá ponuka vyzerala ako zľava storočia.
+    """
+    mesiac = f"{den[:7]}-01"
     try:
-        with open(PAMAT, encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
+        data = _ziskaj(f"oneWayFares/{odkial}/{kam}/cheapestPerDay",
+                       {"outboundMonthOfDate": mesiac, "currency": "EUR"})
     except Exception as e:
-        # Poškodený súbor nesmie zhodiť ranné hlásenie. Radšej pošleme
-        # aj to, čo sme už poslali, než nič.
-        logger.warning("Pamäť poslaných leteniek sa nedá prečítať (%s) - začínam odznova", e)
-        return {}
+        logger.debug("Ceny po dňoch pre %s-%s (%s) sa nepodarili: %s", odkial, kam, mesiac, e)
+        return None
+
+    ceny = [f["price"]["value"] for f in (data.get("outbound") or {}).get("fares", [])
+            if f.get("price") and f["price"].get("value")]
+    if len(ceny) < 5:
+        # Z troch dní sa bežná cena určiť nedá.
+        return None
+    return round(float(statistics.median(ceny)), 2)
 
 
-def _uloz_pamat(pamat: dict) -> None:
-    # Staré záznamy zahadzujeme, inak by súbor rástol donekonečna a po
-    # čase by ti zamlčal aj ponuku, ktorá sa vrátila po mesiaci.
-    hranica = (date.today() - timedelta(days=7)).isoformat()
-    ocistena = {k: v for k, v in pamat.items() if v.get("kedy", "") >= hranica}
-    with open(PAMAT, "w", encoding="utf-8") as f:
-        json.dump(ocistena, f, ensure_ascii=False, indent=1)
+def dopln_beznu_cenu(let: dict) -> dict:
+    """Pripočíta bežnú cenu trasy tam aj späť. Keď ju nezistíme, nechá None."""
+    tam = _median_trasy(LETISKO, let["kam"], let["odlet"])
+    spat = _median_trasy(let["kam"], LETISKO, let["navrat"])
+    if tam is None or spat is None:
+        let["bezna"] = None
+        return let
+    bezna = round(tam + spat, 2)
+    # Bežná cena nižšia než dnešná ponuka nie je bežná cena. Vtedy radšej
+    # nepíšeme nič, než aby na stránke svietila záporná zľava.
+    let["bezna"] = bezna if bezna > let["cena"] else None
+    return let
 
 
-def novinky(lety: list[dict], pamat: dict) -> list[dict]:
-    """Nechá len to, čo sme ešte neposlali alebo čo odvtedy zlacnelo."""
-    von = []
-    for let in lety:
-        stare = pamat.get(_kluc(let))
-        if stare and let["cena"] >= float(stare.get("cena", 0)):
-            continue
-        if stare:
-            let["zlacnelo_z"] = float(stare["cena"])
-        von.append(let)
-    return von
-
-
-# ── správa do Telegramu ───────────────────────────────────────────────
+# ── zostavenie dealu ──────────────────────────────────────────────────
 
 def _odkaz(let: dict) -> str:
-    """Odkaz priamo na dané spojenie na ryanair.com."""
-    den = let["odlet"][:10]
-    zaklad = "https://www.ryanair.com/sk/sk/trip/flights/select?adults=1"
-    if let["druh"] == "return":
-        spat = let.get("navrat", "")[:10]
-        return (f"{zaklad}&dateOut={den}&dateIn={spat}&isReturn=true"
-                f"&originIata={LETISKO}&destinationIata={let['kam']}")
-    return (f"{zaklad}&dateOut={den}&isReturn=false"
+    return ("https://www.ryanair.com/sk/sk/trip/flights/select?adults=1"
+            f"&dateOut={let['odlet'][:10]}&dateIn={let['navrat'][:10]}&isReturn=true"
             f"&originIata={LETISKO}&destinationIata={let['kam']}")
 
 
-def _dni_slovom(n) -> str:
-    """1 deň, 2-4 dni, 5 a viac dní."""
-    if n is None:
-        return ""
+def _mesto(let: dict) -> str:
+    return MORE.get(let["kam"]) or MESTO.get(let["kam"]) or let["letisko"] or let["kam"]
+
+
+def _dni_slovom(n: int) -> str:
     if n == 1:
         return "1 deň"
     if 2 <= n <= 4:
@@ -210,81 +231,77 @@ def _dni_slovom(n) -> str:
     return f"{n} dní"
 
 
-def _riadok(let: dict) -> str:
-    import telegram_bot
-    e = telegram_bot._escape
-    kam = f"{e(let['mesto'])} ({e(let['kam'])})"
-    kedy = let["odlet"].replace("T", " ")
-    if let["druh"] == "return":
-        detail = (f"{kedy} - {let.get('navrat', '').replace('T', ' ')}"
-                  f" · {_dni_slovom(let['dni'])}")
-    else:
-        detail = f"{kedy} · jednosmerne"
-    cena = f"<b>{let['cena']:.2f} €</b>"
-    if "zlacnelo_z" in let:
-        cena += f" <i>(bolo {let['zlacnelo_z']:.2f})</i>"
-    return f'• <a href="{_odkaz(let)}">{kam}</a> - {cena}\n   <i>{e(detail)}</i>'
+def _sk_datum(iso: str) -> str:
+    try:
+        d = date.fromisoformat(iso[:10])
+    except ValueError:
+        return iso[:10]
+    return f"{d.day}.{d.month}.{d.year}"
 
 
-# Telegram odmietne správu nad 4096 znakov. Držíme sa pod tým s rezervou.
-LIMIT_SPRAVY = 3800
+def na_deal(let: dict) -> dict:
+    mesto = _mesto(let)
+    dni = _dni_slovom(let["dni"])
+    druh = nazov_skupiny(skupina(let["kam"]))
+
+    popis = (
+        f"Spiatočná letenka z Bratislavy do mesta {mesto} "
+        f"({let['krajina']}). Odlet {_sk_datum(let['odlet'])}, "
+        f"návrat {_sk_datum(let['navrat'])} — {dni} na mieste. "
+        f"Cena je za oba smery ({let['cena_tam']:.2f} € tam, "
+        f"{let['cena_spat']:.2f} € späť), batožina podľa podmienok Ryanairu."
+    )
+    if let.get("bezna"):
+        popis += (f" Bežne táto trasa v danom mesiaci vychádza okolo "
+                  f"{let['bezna']:.2f} €.")
+
+    zlava = 0
+    if let.get("bezna") and let["bezna"] > let["cena"]:
+        zlava = round((1 - let["cena"] / let["bezna"]) * 100)
+
+    deal = {
+        "title": f"{mesto} spiatočne za {let['cena']:.2f} € — {dni} ({druh})",
+        "store": OBCHOD,
+        "category": KATEGORIA,
+        "dealPrice": let["cena"],
+        "originalPrice": let.get("bezna"),
+        "discountPercent": zlava,
+        "currency": "€",
+        "url": _odkaz(let),
+        "imageUrl": None,
+        "description": popis,
+        "status": "pending",
+        "expired": False,
+        "autoGenerated": True,
+        "sourceSite": "ryanair.com",
+        # Platnosť ponuky končí odletom - potom je bezpredmetná.
+        "validUntil": _sk_datum(let["odlet"]),
+        "validUntilISO": let["odlet"][:10],
+        "dedupeKey": f"ryanair|{let['kam']}|{let['odlet'][:10]}|{let['navrat'][:10]}",
+    }
+    return deal
 
 
-def riadky_spravy(nove_one: list[dict], nove_ret: list[dict]) -> list[str]:
-    riadky = [f"✈️ <b>Lacné letenky z {LETISKO}</b> - {date.today().strftime('%d.%m.%Y')}"]
-    if nove_ret:
-        riadky.append(f"\n<b>Spiatočné do {MAX_SPIATOCNE:.0f} € ({POBYT_OD}-{POBYT_DO} dní)</b>")
-        riadky += [_riadok(x) for x in nove_ret]
-    if nove_one:
-        riadky.append(f"\n<b>Jednosmerné do {MAX_JEDNOSMERNE:.0f} €</b>")
-        riadky += [_riadok(x) for x in nove_one]
-    return riadky
+# ── hlavný beh ────────────────────────────────────────────────────────
 
+def najdi() -> list[dict]:
+    """Vráti lety oboch skupín, každú s jej vlastnou dĺžkou pobytu."""
+    vsetky: list[dict] = []
 
-def zostav_spravy(nove_one: list[dict], nove_ret: list[dict]) -> list[str]:
-    """
-    Rozdelí ponuky do viacerých správ.
+    for druh, (od, do) in (("mesto", POBYT_MESTO), ("more", POBYT_MORE)):
+        try:
+            lety = spiatocne_pre_pobyt(od, do)
+        except Exception as e:
+            logger.error("Lety pre %s (%d-%d dní) zlyhali: %s", nazov_skupiny(druh), od, do, e)
+            continue
+        # Z odpovede si necháme len destinácie tejto skupiny. Ryanair
+        # nevie, že Mallorcu chceme na týždeň a Brusel na víkend.
+        patria = [x for x in lety if skupina(x["kam"]) == druh]
+        logger.info("%s (%d-%d dní): %d letov, z toho do tejto skupiny %d",
+                    nazov_skupiny(druh), od, do, len(lety), len(patria))
+        vsetky.extend(patria)
 
-    Delíme po celých riadkoch, nikdy nie orezaním textu: riadok je HTML
-    s odkazom a rez uprostred značky Telegram odmietne chybou
-    "Unclosed start tag".
-    """
-    spravy: list[str] = []
-    aktualna: list[str] = []
-    dlzka = 0
-
-    for riadok in riadky_spravy(nove_one, nove_ret):
-        pridane = len(riadok) + 1
-        if aktualna and dlzka + pridane > LIMIT_SPRAVY:
-            spravy.append("\n".join(aktualna))
-            aktualna, dlzka = [], 0
-        aktualna.append(riadok)
-        dlzka += pridane
-
-    if aktualna:
-        spravy.append("\n".join(aktualna))
-    return spravy
-
-
-def posli(nove_one: list[dict], nove_ret: list[dict]) -> bool:
-    import telegram_bot
-    if not telegram_bot.is_configured():
-        logger.error("Telegram nie je nastavený - správu neposielam.")
-        return False
-
-    spravy = zostav_spravy(nove_one, nove_ret)
-    for poradie, text in enumerate(spravy, 1):
-        vysledok = telegram_bot._call("sendMessage", {
-            "chat_id": telegram_bot.config.TELEGRAM_CHAT_ID,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        })
-        if vysledok is None:
-            logger.error("Správa %d z %d sa neodoslala.", poradie, len(spravy))
-            return False
-    logger.info("Odoslaných správ: %d", len(spravy))
-    return True
+    return vsetky
 
 
 def main() -> int:
@@ -292,44 +309,47 @@ def main() -> int:
                         format="%(asctime)s [%(levelname)s] %(message)s")
     logger.info("=== Letenky z %s - začiatok ===", LETISKO)
 
-    try:
-        one = jednosmerne()
-    except Exception as e:
-        logger.error("Jednosmerné sa nepodarilo načítať: %s", e)
-        one = []
-    try:
-        ret = spiatocne()
-    except Exception as e:
-        logger.error("Spiatočné sa nepodarilo načítať: %s", e)
-        ret = []
-
-    logger.info("Nájdené: %d jednosmerných, %d spiatočných", len(one), len(ret))
-    if not one and not ret:
-        # Obe naraz prázdne neznamená, že nič nie je v akcii - skôr že sa
-        # zmenilo rozhranie. Nech to skončí nenulovým kódom a plánovaná
-        # úloha to vie ohlásiť.
-        logger.error("Ryanair nevrátil nič - buď je rozhranie mimo, alebo zmenili parametre.")
+    lety = najdi()
+    if not lety:
+        logger.error("Ryanair nevrátil nič - buď je rozhranie mimo, alebo nič nespĺňa kritériá.")
         return 1
 
-    pamat = _nacitaj_pamat()
-    nove_one = sorted(novinky(one, pamat), key=lambda x: x["cena"])
-    nove_ret = sorted(novinky(ret, pamat), key=lambda x: x["cena"])
-    logger.info("Z toho nových alebo zlacnených: %d + %d", len(nove_one), len(nove_ret))
+    import firestore_client
+    import telegram_bot
 
-    if not nove_one and not nove_ret:
-        logger.info("Nič nové oproti včerajšku - správu neposielam.")
+    db = firestore_client.get_client()
+    zname_kluce, zname_url = firestore_client.get_existing_keys(db)
+
+    # Čo sme už raz navrhli, nenavrhujeme znova - ani keď to zamietol.
+    nove = [x for x in lety
+            if f"ryanair|{x['kam']}|{x['odlet'][:10]}|{x['navrat'][:10]}" not in zname_kluce]
+    logger.info("Spolu %d letov, z toho ešte nenavrhnutých %d", len(lety), len(nove))
+    if not nove:
+        logger.info("Nič nové oproti minulým dňom - nič neposielam.")
         return 0
 
-    if not posli(nove_one, nove_ret):
-        logger.error("Odoslanie do Telegramu zlyhalo - pamäť nechávam nedotknutú.")
-        return 1
+    # Tri najlacnejšie. Bežnú cenu dopĺňame až tu, aby sme nerobili
+    # desiatky volaní navyše pre lety, ktoré aj tak neposielame.
+    vybrane = sorted(nove, key=lambda x: x["cena"])[:KOLKO_PONUK]
+    vybrane = [dopln_beznu_cenu(x) for x in vybrane]
 
-    dnes = date.today().isoformat()
-    for let in nove_one + nove_ret:
-        pamat[_kluc(let)] = {"cena": let["cena"], "kedy": dnes}
-    _uloz_pamat(pamat)
+    dealy = [na_deal(x) for x in vybrane]
+    for d in dealy:
+        logger.info("  %s | %.2f € | bežne %s", d["title"], d["dealPrice"],
+                    f"{d['originalPrice']:.2f} €" if d["originalPrice"] else "nezistené")
 
-    logger.info("=== Hotovo. Poslaných %d ponúk. ===", len(nove_one) + len(nove_ret))
+    zapisane = firestore_client.write_pending_deals(db, dealy)
+    logger.info("Zapísaných návrhov: %d", len(zapisane))
+
+    if not telegram_bot.is_configured():
+        logger.warning("Telegram nie je nastavený - návrhy sú v admine, správa nešla.")
+        return 0
+
+    poslane = 0
+    for deal_id, deal in zapisane:
+        if telegram_bot.send_deal_for_approval(deal_id, deal):
+            poslane += 1
+    logger.info("=== Hotovo. Poslaných na schválenie: %d z %d. ===", poslane, len(zapisane))
     return 0
 
 

@@ -66,12 +66,21 @@ def _call(method: str, payload: dict, quiet: bool = False,
 # ── odosielanie návrhov ───────────────────────────────────────────────
 
 def _format_caption(deal: dict) -> str:
+    # Pôvodná cena nemusí byť známa - letenky ju nemajú a pri feedoch ju
+    # zdroj neuvádza. Vtedy píšeme len aktuálnu cenu; formátovať None
+    # cez :.2f by spadlo na TypeError a správa by neodišla vôbec.
+    povodna = deal.get("originalPrice")
+    zlava = deal.get("discountPercent") or 0
+    cena = f"💰 <b>{deal.get('dealPrice', 0):.2f} €</b>"
+    if povodna:
+        cena += f"  <s>{float(povodna):.2f} €</s>"
+        if zlava:
+            cena += f"  (−{zlava} %)"
+
     lines = [
         f"<b>{_escape(deal.get('title', ''))}</b>",
         "",
-        f"💰 <b>{deal.get('dealPrice', 0):.2f} €</b>"
-        f"  <s>{deal.get('originalPrice', 0):.2f} €</s>"
-        f"  (−{deal.get('discountPercent', 0)} %)",
+        cena,
         f"🏬 {_escape(deal.get('store', ''))}   📂 {_escape(deal.get('category', ''))}",
     ]
     if deal.get("validUntil"):

@@ -35,6 +35,11 @@ REM Bez tohto pise Python do logu v kodovani konzoly (cp1252) a
 REM diakritika sa rozsype na "zaÄiatok".
 set PYTHONIOENCODING=utf-8
 
+REM Navrhy sa zapisuju do Firestore ako pending dealy, takze skript
+REM potrebuje aj pristup k databaze - nielen token bota.
+set FIRESTORE_PROJECT_ID=dealboard-e60bf
+set GOOGLE_APPLICATION_CREDENTIALS=%~dp0firebase-credentials.json
+
 REM Absolutna cesta k Pythonu zamerne: planovana uloha nema rovnaku
 REM PATH ako tvoj terminal a "python" by v nej nemusel existovat.
 "C:\Users\jaros\AppData\Local\Python\pythoncore-3.14-64\python.exe" ryanair_letenky.py >> "%~dp0letenky.log" 2>&1
