@@ -20,3 +20,4 @@ telegram.env.cmd
 
 # Pamat uz poslanych leteniek (osobne, nie obsah stranky)
 letenky-poslane.json
+ziar-zaloha-*.json

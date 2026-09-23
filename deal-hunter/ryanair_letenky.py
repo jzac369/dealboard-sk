@@ -31,6 +31,7 @@ Spúšťa to plánovaná úloha "HenKukaj - letenky" cez letenky.cmd.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import statistics
@@ -239,6 +240,53 @@ def _sk_datum(iso: str) -> str:
     return f"{d.day}.{d.month}.{d.year}"
 
 
+MESIACE = ("", "januári", "februári", "marci", "apríli", "máji", "júni",
+           "júli", "auguste", "septembri", "októbri", "novembri", "decembri")
+
+
+def _mesiac_slovom(iso: str) -> str:
+    """V titulku je mesiac užitočnejší než presný dátum - povie, na kedy
+    ponuka je, a nezaberie pol riadka."""
+    try:
+        d = date.fromisoformat(iso[:10])
+    except ValueError:
+        return ""
+    return f"{MESIACE[d.month]} {d.year}"
+
+
+def _cena_sk(hodnota: float) -> str:
+    """Slovenský zápis s desatinnou čiarkou."""
+    return f"{hodnota:.2f}".replace(".", ",")
+
+
+_FOTKY_JSON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "assets", "destinacie", "fotky.json")
+_FOTKY: dict | None = None
+
+
+def _fotka_popis(iata: str) -> dict | None:
+    """
+    Autor a licencia fotky. Väčšina obrázkov z Wikimedia Commons vyžaduje
+    uvedenie autora, takže to musí ísť spolu s dealom až na stránku.
+    """
+    global _FOTKY
+    if _FOTKY is None:
+        try:
+            with open(_FOTKY_JSON, encoding="utf-8") as f:
+                _FOTKY = json.load(f)
+        except Exception as e:
+            logger.warning("Popisy fotiek sa nedajú načítať (%s)", e)
+            _FOTKY = {}
+    zaznam = _FOTKY.get(iata)
+    if not zaznam:
+        return None
+    return {
+        "autor": zaznam.get("autor", "neuvedený"),
+        "licencia": zaznam.get("licencia", ""),
+        "zdroj": zaznam.get("zdroj", ""),
+    }
+
+
 def na_deal(let: dict) -> dict:
     mesto = _mesto(let)
     dni = _dni_slovom(let["dni"])
@@ -260,7 +308,11 @@ def na_deal(let: dict) -> dict:
         zlava = round((1 - let["cena"] / let["bezna"]) * 100)
 
     deal = {
-        "title": f"{mesto} spiatočne za {let['cena']:.2f} € — {dni} ({druh})",
+        # Titulok hovorí kam, na ako dlho, na kedy a za koľko. Mesiac je
+        # v ňom zámerne: bez neho sa ponuky na ten istý smer nedajú
+        # rozoznať a nevidno, či je to o dva týždne alebo o štyri mesiace.
+        "title": (f"{mesto} na {dni} v {_mesiac_slovom(let['odlet'])} "
+                  f"— spiatočne za {_cena_sk(let['cena'])} €"),
         "store": OBCHOD,
         "category": KATEGORIA,
         "dealPrice": let["cena"],
@@ -268,7 +320,12 @@ def na_deal(let: dict) -> dict:
         "discountPercent": zlava,
         "currency": "€",
         "url": _odkaz(let),
-        "imageUrl": None,
+        # Fotku destinácie máme stiahnutú vo vlastných súboroch (pozri
+        # fetch_destination_photos.py). Absolútna adresa zámerne: tú istú
+        # hodnotu posiela Telegram do sendPhoto a relatívna cesta by mu
+        # nič nepovedala.
+        "imageUrl": f"https://henkukaj.sk/assets/destinacie/{let['kam']}.webp",
+        "photoCredit": _fotka_popis(let["kam"]),
         "description": popis,
         "status": "pending",
         "expired": False,
