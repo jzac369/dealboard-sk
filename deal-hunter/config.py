@@ -74,11 +74,16 @@ DEDUPE_LOOKBACK_DAYS = _env_int("DEDUPE_LOOKBACK_DAYS", 30)
 # Zapnuté scrapery. Názvy zodpovedajú kľúčom v scrapers/__init__.py.
 ENABLED_SCRAPERS = _env_list("ENABLED_SCRAPERS") or ["zlacnene", "feeds", "shop_feeds"]
 
-# Kategórie, ktoré sa na stránku nedostanú, nech ich zdroj nájde koľko chce.
-# Potraviny sem patria zámerne: tvorili väčšinu návrhov agenta a takmer
-# všetky sa zamietali. Ceny základných potravín má stránka vo vlastnej
-# sekcii z národného porovnávača - tam dávajú zmysel, ako deal nie.
-BLOCKED_CATEGORIES = _env_list("BLOCKED_CATEGORIES") or ["Jedlo & Nápoje"]
+# Kategórie, ktoré sa na stránku nedostanú vôbec. Predvolene žiadna.
+BLOCKED_CATEGORIES = _env_list("BLOCKED_CATEGORIES")
+
+# Kategórie, ktoré smú tvoriť len obmedzený podiel jedného behu, a aký.
+# Potraviny sú tu preto, že ich zdroj nájde najviac (letáky reťazcov sú
+# prevažne potravinové) a bez stropu by zaplnili celý výber - presne to
+# sa dialo a väčšina takých návrhov končila zamietnutím. Strop ich
+# nezakazuje, len im nedovolí prevalcovať elektroniku a ostatné.
+CAPPED_CATEGORIES = _env_list("CAPPED_CATEGORIES") or ["Jedlo & Nápoje"]
+CAPPED_CATEGORY_SHARE = _env_float("CAPPED_CATEGORY_SHARE", 0.2)
 
 # Koľko strán všeobecného zoznamu prejsť na zlacnene.sk (20 položiek na stranu).
 ZLACNENE_MAX_PAGES = _env_int("ZLACNENE_MAX_PAGES", 2)

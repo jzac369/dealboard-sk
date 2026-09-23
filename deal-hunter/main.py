@@ -125,15 +125,25 @@ def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandida
     per_store: dict[str, int] = defaultdict(int)
     per_category: dict[str, int] = defaultdict(int)
 
+    # Koľko kusov smie mať obmedzená kategória v tomto behu. Aspoň
+    # jeden - pri malom limite by zaokrúhlenie nadol znamenalo nulu a
+    # strop by sa zmenil na zákaz.
+    strop_podielu = max(1, int(limit * config.CAPPED_CATEGORY_SHARE))
+
     preskocene_kategorie = 0
     for candidate in ranked:
         store = candidate.store or candidate.source
         category = guess_category(candidate.title, candidate.category_hint)
 
-        # Kategórie, ktoré na stránku nechceme. Potraviny tvorili väčšinu
-        # návrhov a takmer všetky končili zamietnutím - bežné ceny
-        # základných potravín ukazuje samostatná sekcia, deal z rožka nie je.
+        # Kategórie zakázané úplne.
         if category in config.BLOCKED_CATEGORIES:
+            preskocene_kategorie += 1
+            continue
+
+        # Kategórie so stropom podielu. Potraviny zdroj nájde najviac a
+        # bez stropu by zaplnili celý výber; takto sa do neho zmestia,
+        # ale nechajú miesto elektronike a ostatnému.
+        if category in config.CAPPED_CATEGORIES and per_category[category] >= strop_podielu:
             preskocene_kategorie += 1
             continue
 
@@ -150,8 +160,10 @@ def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandida
 
     if preskocene_kategorie:
         logger.info(
-            "Preskočených pre nechcenú kategóriu (%s): %d",
-            ", ".join(config.BLOCKED_CATEGORIES), preskocene_kategorie,
+            "Preskočených pre kategóriu (zakázané: %s; strop %d ks pre %s): %d",
+            ", ".join(config.BLOCKED_CATEGORIES) or "žiadne",
+            strop_podielu, ", ".join(config.CAPPED_CATEGORIES),
+            preskocene_kategorie,
         )
     return selected
 
