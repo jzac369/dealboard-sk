@@ -625,7 +625,20 @@ def refresh_food_prices(db: firestore.Client, snapshot_data: dict | None = None)
         except Exception as e:
             logger.warning("Stav cien potravín sa nepodarilo prečítať: %s", e)
 
-    data = snapshot_data if snapshot_data else food_prices.build_snapshot()
+    # Zber cien beží aj v cloude, kde ho zdroj blokuje a volanie vyprší.
+    # Keby to vyhodilo výnimku, zhodilo by to celý beh agenta - a dealy
+    # by neprišli len preto, že sa nepodarili potraviny. Preto sem, a nie
+    # k volajúcemu: sem patrí vedomosť o tom, že tento zdroj je krehký.
+    #
+    # Zároveň je to poistka do budúcna: keď cenyslovensko.sk dátové
+    # centrá odblokuje, cloud jednoducho začne uspievať a lokálna
+    # plánovaná úloha sa stane zbytočnou bez zásahu do kódu.
+    try:
+        data = snapshot_data if snapshot_data else food_prices.build_snapshot()
+    except Exception as e:
+        logger.warning("Ceny potravín sa nepodarilo stiahnuť (%s) — "
+                       "nechávam včerajšie.", e)
+        return False
     if data and data.get("items"):
         data["history"] = _food_history(ref, data)
     if not data or not data.get("items"):
