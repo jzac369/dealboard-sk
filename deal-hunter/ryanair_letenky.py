@@ -57,6 +57,18 @@ LIMIT_SPIATOCNE = 20
 KATEGORIA = "Cestovanie"
 OBCHOD = "Ryanair"
 
+# Odkiaľ sa letí. Na stránke to musí byť vidieť na prvý pohľad - deal
+# "Rím za 29,98 €" bez pôvodu je pre návštevníka na nič, kým nevie,
+# odkiaľ sa tam dostane.
+LETISKA_NAZOV = {
+    "BTS": "Bratislava", "VIE": "Viedeň", "BUD": "Budapešť",
+    "KSC": "Košice", "PRG": "Praha", "KRK": "Krakov",
+}
+
+
+def odkial_nazov() -> str:
+    return LETISKA_NAZOV.get(LETISKO, LETISKO)
+
 HLAVICKY = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                   "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
@@ -293,7 +305,7 @@ def na_deal(let: dict) -> dict:
     druh = nazov_skupiny(skupina(let["kam"]))
 
     popis = (
-        f"Spiatočná letenka z Bratislavy do mesta {mesto} "
+        f"Spiatočná letenka {odkial_nazov()} → {mesto} "
         f"({let['krajina']}). Odlet {_sk_datum(let['odlet'])}, "
         f"návrat {_sk_datum(let['navrat'])} — {dni} na mieste. "
         f"Cena je za oba smery ({let['cena_tam']:.2f} € tam, "
@@ -308,10 +320,13 @@ def na_deal(let: dict) -> dict:
         zlava = round((1 - let["cena"] / let["bezna"]) * 100)
 
     deal = {
-        # Titulok hovorí kam, na ako dlho, na kedy a za koľko. Mesiac je
-        # v ňom zámerne: bez neho sa ponuky na ten istý smer nedajú
-        # rozoznať a nevidno, či je to o dva týždne alebo o štyri mesiace.
-        "title": (f"{mesto} na {dni} v {_mesiac_slovom(let['odlet'])} "
+        # Titulok hovorí odkiaľ, kam, na ako dlho, na kedy a za koľko.
+        # Pôvod aj mesiac sú v ňom zámerne: bez pôvodu návštevník nevie,
+        # či sa ho deal týka, a bez mesiaca sa ponuky na ten istý smer
+        # nedajú rozoznať. Šípka namiesto predložky preto, že "do Ríma",
+        # "na Maltu" a "do Lamezie" by si pýtali skloňovanie každého
+        # mesta zvlášť.
+        "title": (f"{odkial_nazov()} → {mesto}, {dni} v {_mesiac_slovom(let['odlet'])} "
                   f"— spiatočne za {_cena_sk(let['cena'])} €"),
         "store": OBCHOD,
         "category": KATEGORIA,
