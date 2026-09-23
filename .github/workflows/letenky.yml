@@ -1,0 +1,60 @@
+name: Lacné letenky
+
+# Ranne hladanie leteniek Ryanair z Bratislavy. Bezi v cloude, takze
+# nepotrebuje zapnuty pocitac - na rozdiel od cien potravin, kde zdroj
+# blokuje datove centra a lokalny beh je jedina moznost.
+#
+# Vysledok: tri najlacnejsie ponuky sa zapisu ako pending dealy a poslu
+# do Telegramu s tlacidlami Schvalit / Zamietnut.
+
+on:
+  schedule:
+    # 05:30 UTC -> 07:30 SK (leto) / 06:30 SK (zima)
+    - cron: "30 5 * * *"
+  workflow_dispatch: {}
+
+# Dva behy naraz by navrhli tie iste lety dvakrat.
+concurrency:
+  group: letenky
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  letenky:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: deal-hunter
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: deal-hunter/requirements.txt
+
+      - name: Inštalácia závislostí
+        run: pip install -r requirements.txt
+
+      - name: Zápis Firebase kľúča
+        run: echo "$FIREBASE_SERVICE_ACCOUNT" > firebase-credentials.json
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Hľadanie leteniek
+        run: python ryanair_letenky.py
+        env:
+          FIRESTORE_PROJECT_ID: dealboard-e60bf
+          GOOGLE_APPLICATION_CREDENTIALS: firebase-credentials.json
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Zmazanie kľúča
+        if: always()
+        run: rm -f firebase-credentials.json
