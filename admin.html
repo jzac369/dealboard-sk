@@ -90,8 +90,45 @@
       document.getElementById('toggle-purge').checked = purge;
       document.getElementById('purge-months').value = mesiace;
       document.getElementById('purge-detail').style.display = purge ? 'block' : 'none';
+
+      // Denný žiar. Tiež predvolene vypnutý - sú to vymyslené hlasy a
+      // zapnúť sa to má vedome, nie samo od seba.
+      const ziar = data.dailyHeatBoost === true;
+      const zmin = Number(data.dailyHeatMin) >= 0 ? Number(data.dailyHeatMin) : 1;
+      const zmax = Number(data.dailyHeatMax) > 0 ? Number(data.dailyHeatMax) : 5;
+      document.getElementById('toggle-heat').checked = ziar;
+      document.getElementById('heat-min').value = zmin;
+      document.getElementById('heat-max').value = zmax;
+      document.getElementById('heat-detail').style.display = ziar ? 'block' : 'none';
     });
   }
+
+  window.toggleHeat = async function(checked) {
+    document.getElementById('heat-detail').style.display = checked ? 'block' : 'none';
+    try {
+      await setDoc(settingsRef, { dailyHeatBoost: checked }, { merge: true });
+    } catch (e) {
+      alert('Nepodarilo sa uložiť nastavenie: ' + e.message);
+    }
+  };
+
+  window.saveHeatRange = async function() {
+    let min = Math.max(0, Math.round(Number(document.getElementById('heat-min').value) || 0));
+    let max = Math.max(0, Math.round(Number(document.getElementById('heat-max').value) || 0));
+    // Prehodené hodnoty opravíme miesto toho, aby sme vypísali chybu -
+    // "od 5 do 1" je zjavný preklep, nie iný zámer.
+    if (max < min) { const p = min; min = max; max = p; }
+    document.getElementById('heat-min').value = min;
+    document.getElementById('heat-max').value = max;
+    try {
+      await setDoc(settingsRef, { dailyHeatMin: min, dailyHeatMax: max }, { merge: true });
+      const ok = document.getElementById('heat-saved');
+      ok.style.display = 'inline';
+      setTimeout(() => { ok.style.display = 'none'; }, 1800);
+    } catch (e) {
+      alert('Nepodarilo sa uložiť nastavenie: ' + e.message);
+    }
+  };
 
   window.togglePurge = async function(checked) {
     document.getElementById('purge-detail').style.display = checked ? 'block' : 'none';
@@ -1294,6 +1331,37 @@
           </label>
         </label>
         <p class="settings-hint">Keď je vypnutá, nové dealy sa zverejnia okamžite bez čakania na schválenie.</p>
+      </div>
+
+      <div class="settings-panel">
+        <label class="switch-label">
+          <span>Denne pridávať žiar</span>
+          <label class="switch">
+            <input type="checkbox" id="toggle-heat" onchange="toggleHeat(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <div id="heat-detail" style="display:none; margin-top:10px;">
+          <label style="font-size:.85rem; font-weight:600; display:block; margin-bottom:5px;">
+            Každému publikovanému dealu denne pridať
+          </label>
+          <span style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
+            <input type="number" id="heat-min" min="0" max="50" step="1"
+                   style="width:72px;" onchange="saveHeatRange()">
+            <span style="font-size:.85rem; color:var(--muted);">až</span>
+            <input type="number" id="heat-max" min="0" max="50" step="1"
+                   style="width:72px;" onchange="saveHeatRange()">
+            <span style="font-size:.85rem; color:var(--muted);">hlasov</span>
+            <span id="heat-saved" style="font-size:.8rem; color:var(--green); display:none;">uložené</span>
+          </span>
+        </div>
+        <p class="settings-hint">
+          Pomôcka na rozbeh: deal s nulou vyzerá, akoby si ho nikto nevšimol. Pridáva sa
+          len publikovaným dealom a pripočítava k doterajšej hodnote, takže skutočné hlasy
+          sa neprepíšu. <b>Sú to však vymyslené hlasy</b> — keď začnú chodiť pravidelní
+          návštevníci, vypni to, inak sa ich hlasy stratia v šume. Každý beh je zapísaný
+          v Zázname zmien.
+        </p>
       </div>
       <div class="tabs">
         <button class="tab-btn active" onclick="setTab('pending', this)">Na schválenie (<span id="count-pending">0</span>)</button>
