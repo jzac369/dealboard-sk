@@ -317,7 +317,21 @@ def diagnostika() -> int:
     else:
         logger.info("FB_PAGE_ID ukazuje na %r (kategória %r)", d3.get("name"), d3.get("category"))
 
-    # 4. Ak je to používateľský token, ukážeme, aké stránky spravuje.
+    # 4. Ktoré oprávnenia má účet aplikácii naozaj udelené. Odvodený
+    # token stránky ich dedí z používateľského, takže keď tu niečo
+    # chýba, publikovanie zlyhá bez ohľadu na to, čo je nastavené v
+    # aplikácii - udelenie je vec toho prihlásenia, nie nastavenia.
+    r5 = requests.get(f"{API}/me/permissions", params={"access_token": TOKEN}, timeout=30)
+    d5 = r5.json()
+    if "data" in d5:
+        udelene = {p["permission"] for p in d5["data"] if p.get("status") == "granted"}
+        logger.info("Udelené oprávnenia: %s", ", ".join(sorted(udelene)) or "žiadne")
+        for treba in ("pages_manage_posts", "pages_read_engagement", "pages_show_list"):
+            logger.info("   %-24s %s", treba, "OK" if treba in udelene else "CHÝBA")
+    else:
+        logger.warning("Zoznam oprávnení sa nepodarilo načítať.")
+
+    # 5. Ak je to používateľský token, ukážeme, aké stránky spravuje.
     r4 = requests.get(f"{API}/me/accounts", params={"fields": "id,name", "access_token": TOKEN}, timeout=30)
     d4 = r4.json()
     if "data" in d4:
