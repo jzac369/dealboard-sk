@@ -115,6 +115,12 @@ FEED_DIAGNOSTICS = os.environ.get("FEED_DIAGNOSTICS", "false").lower() == "true"
 # v poradí, v akom ich feed uvádza. To je náhodný výber, nie výber.
 FEED_MAX_ITEMS = _env_int("FEED_MAX_ITEMS", 25000)
 
+# Koľko položiek najviac pošleme do sledovania cien z jedného feedu,
+# ktorý zľavy sám neuvádza. Vedierka price_watch majú kapacitu rádovo
+# 216 000 produktov (limit 1 MiB na dokument ÷ ~97 B na záznam × 20);
+# pri desiatich takých feedoch zostane polovica rezervou.
+FEED_WATCH_MAX = _env_int("FEED_WATCH_MAX", 10000)
+
 
 # ── HTTP slušnosť ─────────────────────────────────────────────────────
 USER_AGENT = os.environ.get(

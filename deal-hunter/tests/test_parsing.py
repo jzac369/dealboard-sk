@@ -969,3 +969,49 @@ def test_known_merchants_cover_everything_we_scrape():
     for store in ('XXXLutz', 'SCONTO nábytok', 'STAVMAT', 'OBI', 'Tesco',
                   'BILLA', 'Jysk', 'INTERSPORT', 'IDEA nábytok', 'Kaufland', 'Lidl'):
         assert is_known(store), store
+
+
+# ── výber z feedu (kapacita sledovania cien) ─────────────────────────
+
+def _kandidat(nazov, cena, povodna=None):
+    from models import DealCandidate
+    return DealCandidate(title=nazov, deal_price=cena, original_price=povodna,
+                         url=f"https://a.sk/{nazov}", source="feed", direct_url=True)
+
+
+def test_feed_s_uvedenymi_zlavami_nic_nesleduje():
+    """
+    Keď obchod zľavy uvádza sám, položka bez zľavy nie je v akcii.
+    Do sledovania cien nesmie ísť - zaberala by miesto vo vedierkach,
+    ktoré majú tvrdý strop 1 MiB na dokument.
+    """
+    from scrapers.feeds import FeedsScraper
+    vyber = FeedsScraper._vyber([
+        _kandidat("akcia", 80.0, 120.0),
+        _kandidat("bez-akcie-1", 90.0),
+        _kandidat("bez-akcie-2", 95.0),
+    ])
+    assert [c.title for c in vyber] == ["akcia"]
+
+
+def test_feed_bez_zliav_sleduje_len_najdrahsie():
+    """Strop podľa poradia vo feede by bol náhodný výber - berieme najdrahšie."""
+    import config
+    from scrapers.feeds import FeedsScraper
+    povodne = config.FEED_WATCH_MAX
+    config.FEED_WATCH_MAX = 2
+    try:
+        vyber = FeedsScraper._vyber([_kandidat(f"p{i}", 20.0 + i * 10) for i in range(5)])
+        assert sorted(c.deal_price for c in vyber) == [50.0, 60.0]
+    finally:
+        config.FEED_WATCH_MAX = povodne
+
+
+def test_vyber_zahodi_lacne_polozky():
+    import config
+    from scrapers.feeds import FeedsScraper
+    vyber = FeedsScraper._vyber([
+        _kandidat("skrutka", config.MIN_DEAL_PRICE - 1),
+        _kandidat("vrtacka", config.MIN_DEAL_PRICE + 50),
+    ])
+    assert [c.title for c in vyber] == ["vrtacka"]

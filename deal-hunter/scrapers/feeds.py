@@ -74,7 +74,10 @@ class FeedsScraper(BaseScraper):
         xml_text = http_client.get(feed_url, check_robots=False)
         if not xml_text:
             return []
-        return self.parse_feed(xml_text, feed_url)
+        # Parsovanie a výber sú zámerne oddelené: parse_feed len číta,
+        # čo vo feede je (a tak sa dá testovať), _vyber rozhoduje, čo
+        # z toho pôjde ďalej.
+        return self._vyber(self.parse_feed(xml_text, feed_url), feed_url)
 
     # ── parsovanie (oddelené, aby sa dalo testovať offline) ───────────
 
@@ -100,30 +103,65 @@ class FeedsScraper(BaseScraper):
             parser = self._parse_google_item
 
         candidates: list[DealCandidate] = []
-        lacne = 0
         for item in items[: config.FEED_MAX_ITEMS]:
             try:
                 candidate = parser(item)
             except Exception as e:
                 logger.warning("Feed %s: preskakujem položku (%s)", feed_url, e)
                 continue
-            if not candidate:
-                continue
+            if candidate:
+                candidates.append(candidate)
 
-            # Lacné položky zahadzujeme hneď tu, nie až v is_sane.
-            # Dôvod je sledovanie cien: to beží PRED is_sane, takže bez
-            # tohto by sa do price_watch dostala každá pätnásťcentová
-            # skrutka. Jeden feed má 67 000 položiek; vedierka majú
-            # kapacitu rádovo 240 000 a zaplnili by sa nezmyslami.
-            if candidate.deal_price < config.MIN_DEAL_PRICE:
-                lacne += 1
-                continue
+        return candidates
 
-            candidates.append(candidate)
+    @staticmethod
+    def _vyber(candidates: list[DealCandidate], feed_url: str = "") -> list[DealCandidate]:
+        """
+        Rozhodne, čo z feedu pôjde ďalej.
 
-        if lacne:
-            logger.info("Feed: vynechaných %d položiek pod %.2f €",
-                        lacne, config.MIN_DEAL_PRICE)
+        PREČO TO JE POTREBNÉ
+        Položka bez ceny pred zľavou ide do sledovania cien (price_watch),
+        ktoré má tvrdý strop: Firestore dovolí dokument najviac 1 MiB a
+        do 20 vedierok sa zmestí rádovo 216 000 produktov. Schválené
+        feedy majú spolu vyše 800 000 položiek - keby išli všetky, strop
+        by sa prekročil a zápisy by začali zlyhávať.
+
+        PRAVIDLO
+        - Feed, ktorý zľavy uvádza sám (ORIGINAL_PRICE, sale_price):
+          obchod nám hovorí, čo je v akcii. Berieme len tie položky a
+          nič nesledujeme. Položka bez zľavy v takom feede jednoducho nie
+          je v akcii - merať jej cenu by stálo miesto a nič by neprinieslo.
+        - Feed, ktorý zľavy neuvádza: iná cesta nie je, treba sledovať.
+          Ale najviac FEED_WATCH_MAX najdrahších položiek - pri cenovom
+          prepade je to tovar, ktorý ľudí zaujíma. (Strop podľa poradia
+          vo feede by bol náhodný výber.)
+        """
+        zdroj = feed_url.split("/")[2] if feed_url.count("/") >= 2 else "feed"
+
+        # Lacné položky von ešte pred sledovaním cien - to beží PRED
+        # is_sane, takže bez tohto by sa do vedierok dostala každá
+        # pätnásťcentová skrutka.
+        pred = len(candidates)
+        candidates = [c for c in candidates if c.deal_price >= config.MIN_DEAL_PRICE]
+        if pred - len(candidates):
+            logger.info("%s: vynechaných %d položiek pod %.2f €",
+                        zdroj, pred - len(candidates), config.MIN_DEAL_PRICE)
+
+        so_zlavou = [c for c in candidates if c.original_price]
+
+        if so_zlavou:
+            logger.info("%s: uvádza zľavy — v akcii %d z %d, sledovanie netreba",
+                        zdroj, len(so_zlavou), len(candidates))
+            return so_zlavou
+
+        if len(candidates) > config.FEED_WATCH_MAX:
+            logger.info("%s: zľavy neuvádza — sledujem %d najdrahších z %d",
+                        zdroj, config.FEED_WATCH_MAX, len(candidates))
+            candidates = sorted(candidates, key=lambda c: c.deal_price,
+                                reverse=True)[: config.FEED_WATCH_MAX]
+        else:
+            logger.info("%s: zľavy neuvádza — sledujem všetkých %d",
+                        zdroj, len(candidates))
         return candidates
 
     def _parse_google_item(self, item: ET.Element) -> Optional[DealCandidate]:
