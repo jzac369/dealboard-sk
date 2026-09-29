@@ -294,7 +294,12 @@ def run_feed_diagnostics() -> int:
         return 1
 
     for index, url in enumerate(config.FEED_URLS, 1):
-        logger.info("=== Feed %d z %d ===", index, len(config.FEED_URLS))
+        # Doménu feedu vypísať môžeme - inzerenta aj tak poznáš, je to
+        # tvoja kampaň. Tajná je cesta a parametre, kde je partnerské ID,
+        # a tie sa do logu nedostanú.
+        from urllib.parse import urlparse as _up
+        logger.info("=== Feed %d z %d — %s ===", index, len(config.FEED_URLS),
+                    _up(url).netloc or "?")
         xml_text = http_client.get(url, check_robots=False)
         if not xml_text:
             logger.error("Feed sa nepodarilo stiahnuť.")
