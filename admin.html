@@ -304,6 +304,106 @@
     return `${m} min ${String(s % 60).padStart(2, '0')} s`;
   }
 
+  // ── Marketing ────────────────────────────────────────────────────
+  // Všetko stojí na jednom čísle: koľko z návštev skončí preklikom na
+  // deal. Návštevnosť sama o sebe nič nehovorí - stránka, kam príde
+  // tisíc ľudí a nikto neklikne, je horšia než stovka, ktorá kliká.
+
+  function _suhrn(zoznam) {
+    const navstev = zoznam.length;
+    const preklikov = zoznam.reduce((a, v) => a + (v.clicks || 0), 0);
+    const sklikom = zoznam.filter(v => (v.clicks || 0) > 0).length;
+    const sCasom = zoznam.filter(v => (v.duration || 0) > 0);
+    return {
+      navstev, preklikov, sklikom,
+      // Preklikovosť = podiel NÁVŠTEV, z ktorých niekto klikol. Zámerne
+      // nie počet preklikov delený návštevami - jeden nadšenec, čo
+      // klikne desaťkrát, by inak vyzeral ako desať spokojných ľudí.
+      miera: navstev ? Math.round(sklikom / navstev * 100) : 0,
+      cas: sCasom.length ? sCasom.reduce((a, v) => a + v.duration, 0) / sCasom.length : 0,
+    };
+  }
+
+  function _skupiny(visits, kluc) {
+    const m = {};
+    visits.forEach(v => {
+      const k = (typeof kluc === 'function' ? kluc(v) : v[kluc]) || '';
+      if (!k) return;
+      (m[k] = m[k] || []).push(v);
+    });
+    return Object.entries(m)
+      .map(([nazov, zoznam]) => [nazov, _suhrn(zoznam)])
+      .sort((a, b) => b[1].navstev - a[1].navstev);
+  }
+
+  function _mieraTrieda(m) {
+    return m >= 20 ? 'mi-dobra' : (m >= 8 ? 'mi-stredna' : 'mi-slaba');
+  }
+
+  function renderMarketing(visits) {
+    const c = _suhrn(visits);
+
+    // Lievik
+    const f = document.getElementById('funnel');
+    if (f) {
+      f.innerHTML = !c.navstev
+        ? '<p class="vis-empty">Zatiaľ žiadne návštevy.</p>'
+        : `<div class="funnel">
+             <div class="fn-step"><div class="fn-num">${c.navstev}</div><div class="fn-lab">návštev</div></div>
+             <div class="fn-arrow">→</div>
+             <div class="fn-step"><div class="fn-num">${c.sklikom}</div><div class="fn-lab">z toho kliklo na deal</div></div>
+             <div class="fn-arrow">→</div>
+             <div class="fn-step"><div class="fn-num ${_mieraTrieda(c.miera)}">${c.miera} %</div><div class="fn-lab">preklikovosť</div></div>
+             <div class="fn-arrow">·</div>
+             <div class="fn-step"><div class="fn-num">${c.preklikov}</div><div class="fn-lab">preklikov spolu</div></div>
+           </div>
+           <p class="vis-empty" style="margin-top:9px;">
+             Preklikovosť je podiel návštev, z ktorých niekto klikol na deal — nie počet
+             preklikov delený návštevami. Jeden nadšenec s desiatimi klikmi by inak
+             vyzeral ako desať spokojných ľudí.
+           </p>`;
+    }
+
+    const riadok = (nazov, s, extra) => `<tr>
+      <td>${escapeHtml(nazov)}</td>
+      <td>${s.navstev}</td>
+      ${extra || ''}
+      <td><span class="${_mieraTrieda(s.miera)}">${s.miera} %</span></td>
+    </tr>`;
+
+    // Zdroje
+    const zdroje = _skupiny(visits, 'referrer');
+    const tz = document.getElementById('source-quality');
+    if (tz) tz.innerHTML = zdroje.length
+      ? zdroje.slice(0, 12).map(([n, s]) => `<tr>
+          <td>${escapeHtml(n)}</td><td>${s.navstev}</td><td>${s.preklikov}</td>
+          <td><span class="${_mieraTrieda(s.miera)}">${s.miera} %</span></td>
+          <td>${s.cas ? _trvanie(s.cas) : '–'}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="vis-empty">Zatiaľ žiadne dáta.</td></tr>';
+
+    // Sekcie
+    const sekcie = _skupiny(visits, 'landing');
+    const ts = document.getElementById('landing-quality');
+    if (ts) ts.innerHTML = sekcie.length
+      ? sekcie.map(([n, s]) => riadok(n, s, `<td>${s.cas ? _trvanie(s.cas) : '–'}</td>`)).join('')
+      : '<tr><td colspan="4" class="vis-empty">Zatiaľ žiadne dáta.</td></tr>';
+
+    // Kampane
+    const kampane = _skupiny(visits, v => v.utmcampaign);
+    const tu = document.getElementById('utm-table');
+    if (tu) tu.innerHTML = kampane.length
+      ? kampane.map(([n, s]) => {
+          const vzorka = visits.find(v => v.utmcampaign === n) || {};
+          return `<tr>
+            <td>${escapeHtml(n)}</td>
+            <td>${escapeHtml(vzorka.utmsource || '–')}</td>
+            <td>${escapeHtml(vzorka.utmmedium || '–')}</td>
+            <td>${s.navstev}</td><td>${s.preklikov}</td>
+            <td><span class="${_mieraTrieda(s.miera)}">${s.miera} %</span></td></tr>`;
+        }).join('')
+      : '<tr><td colspan="6" class="vis-empty">Zatiaľ žiadna návšteva s UTM značkou. Skús odkaz s <code>?utm_source=facebook&amp;utm_campaign=test</code>.</td></tr>';
+  }
+
   function renderVisitsStats(visits) {
     const dnes = new Date().toISOString().slice(0, 10);
     const pred7 = (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); })();
@@ -327,6 +427,8 @@
     const vracajuci = Object.values(podlaUid).filter(n => n > 1).length;
     document.getElementById('visits-return').textContent = ludia
       ? `${Math.round(vracajuci / ludia * 100)} %` : '–';
+
+    renderMarketing(visits);
 
     _pruhy('visits-by-country', _pocty(visits, 'country'));
     _pruhy('visits-by-city', _pocty(visits, v => v.city ? (v.region ? `${v.city} (${v.region})` : v.city) : ''),
@@ -1407,6 +1509,21 @@
     .vis-grid { grid-template-columns: 1fr; }
   }
 
+  /* ── Lievik a hodnotenie zdrojov ─────────────────────────────── */
+  .funnel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .fn-step { background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 14px; min-width: 96px; }
+  .fn-num { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
+  .fn-lab { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+  .fn-arrow { color: var(--muted); font-size: 1.1rem; }
+
+  /* Farba miery je tu preto, aby sa slabe zdroje dali najst pohladom.
+     Hranice su odhad na rozbeh, nie zakon - pri dealovych strankach
+     byva preklikovost radovo v desiatkach percent. */
+  .mi-dobra   { color: var(--green); font-weight: 700; }
+  .mi-stredna { color: #B76E00; font-weight: 700; }
+  .mi-slaba   { color: var(--muted); font-weight: 700; }
+
   /* ── Dotykové ovládanie (telefón, tablet) ──────────────────────────
      Admin sa dá ovládať aj z mobilu, ale tlačidlá mali 26 px a polia
      dokonca 19 - prstom sa to trafí ťažko.
@@ -1683,6 +1800,51 @@
         <div class="converter-box">
           <h3>Kedy počas dňa chodia</h3>
           <div id="visits-by-hour"></div>
+        </div>
+      </div>
+
+      <div class="converter-box" style="margin-top:16px;">
+        <h3>Lievik: od návštevy k prekliku</h3>
+        <div id="funnel"></div>
+      </div>
+
+      <div class="vis-grid">
+        <div class="converter-box">
+          <h3>Zdroje návštev a ich kvalita</h3>
+          <p class="vis-empty" style="margin-bottom:8px;">
+            Nie je dôležité, kto pošle najviac ľudí, ale kto pošle ľudí, ktorí klikajú.
+          </p>
+          <div class="vis-table-wrap">
+            <table class="vis-table">
+              <thead><tr><th>Zdroj</th><th>Návštev</th><th>Preklikov</th><th>Preklikovosť</th><th>Ø čas</th></tr></thead>
+              <tbody id="source-quality"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="converter-box">
+          <h3>Ktorá sekcia drží ľudí najdlhšie</h3>
+          <p class="vis-empty" style="margin-bottom:8px;">
+            Podľa toho, kam návštevník prišiel ako na prvé.
+          </p>
+          <div class="vis-table-wrap">
+            <table class="vis-table">
+              <thead><tr><th>Sekcia</th><th>Návštev</th><th>Ø čas</th><th>Preklikovosť</th></tr></thead>
+              <tbody id="landing-quality"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="converter-box" style="margin-top:16px;">
+        <h3>Kampane (UTM značky)</h3>
+        <p class="vis-empty" style="margin-bottom:8px;">
+          Odkazu pridaj <code>?utm_source=facebook&amp;utm_campaign=nazov</code> a uvidíš ho tu oddelene.
+        </p>
+        <div class="vis-table-wrap">
+          <table class="vis-table">
+            <thead><tr><th>Kampaň</th><th>Zdroj</th><th>Médium</th><th>Návštev</th><th>Preklikov</th><th>Preklikovosť</th></tr></thead>
+            <tbody id="utm-table"></tbody>
+          </table>
         </div>
       </div>
 

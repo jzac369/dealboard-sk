@@ -176,11 +176,24 @@
     const sid = Math.random().toString(36).slice(2, 10);
     const ref = doc(db, "visits", `${today}_${uid}_${sid}`);
 
+    // UTM značky z adresy. Bez nich sa nedá oddeliť jeden príspevok na
+    // Facebooku od druhého - referrer povie len "facebook.com", nie
+    // ktorý odkaz to bol. Ukladáme len tri dohodnuté parametre, nie
+    // celý query string, ktorý si tam môže ktokoľvek dať čo chce.
+    const p = new URLSearchParams(location.search);
+    const utm = {};
+    ['utm_source', 'utm_medium', 'utm_campaign'].forEach(k => {
+      const v = (p.get(k) || '').trim().slice(0, 60);
+      if (v) utm[k.replace('utm_', 'utm')] = v;
+    });
+
     try {
       await setDoc(ref, {
         uid,
         date: today,
         timestamp: serverTimestamp(),
+        clicks: 0,
+        ...utm,
         country:  geo.country    || 'Neznáma',
         region:   geo.regionName || '',
         city:     geo.city       || '',
@@ -613,6 +626,17 @@
              { merge: true })
         .catch(() => { /* chýbajúce pravidlá alebo offline - nevadí */ });
     } catch (e) { /* ticho */ }
+
+    // Ten istý preklik zapíšeme aj k návšteve. deal_clicks vie, KTORÝ
+    // deal bol kliknutý, ale nie z akej návštevy - a bez toho sa nedá
+    // povedať, ktorý zdroj prináša ľudí, čo naozaj klikajú, a ktorý
+    // len prezerajú.
+    if (visitRef) {
+      try {
+        updateDoc(visitRef, { clicks: increment(1) })
+          .catch(() => { /* ticho */ });
+      } catch (e) { /* ticho */ }
+    }
   };
 
   window.vote = async (id, delta) => {

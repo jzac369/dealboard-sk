@@ -154,6 +154,19 @@ def render_deal_page(deal_id: str, d: dict) -> str:
       <p style="margin-top:24px;"><a class="home" href="{SITE_URL}/">← Späť na HenKukaj.sk</a></p>
     </div>
   </div>
+  <script>
+  /* Prenesieme UTM znacky na hlavnu stranku. Tato stranka merania
+     nema - je to staticky sublist pre vyhladavace a nahlady odkazov.
+     Keby sa znacky nepreniesli, navsteva z Facebooku by sa v prehlade
+     kampani objavila ako "priamo" a cely bod 4 by bol na nic. */
+  (function () {{
+    var q = location.search;
+    if (!q || q.indexOf('utm_') === -1) return;
+    document.querySelectorAll('a[href^="{SITE_URL}/"]').forEach(function (a) {{
+      a.href += (a.href.indexOf('?') === -1 ? '?' : '&') + q.slice(1);
+    }});
+  }})();
+  </script>
 </body>
 </html>
 """

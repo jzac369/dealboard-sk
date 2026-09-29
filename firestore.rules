@@ -137,12 +137,17 @@ service cloud.firestore {
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.country is string
                     && request.resource.data.date is string;
+      // Okrem dĺžky pribúda počas návštevy aj počet preklikov na dealy.
+      // Drží sa tu zámerne: kolekcia deal_clicks vie, KTORÝ deal bol
+      // kliknutý, ale nie z akej návštevy - a bez toho sa nedá povedať,
+      // ktorý zdroj návštevnosti prináša ľudí, čo naozaj klikajú.
       allow update: if request.auth != null
                     && resource.data.uid == request.auth.uid
                     && request.resource.data.diff(resource.data)
-                         .affectedKeys().hasOnly(['duration', 'lastSeen'])
-                    && request.resource.data.duration is int
-                    && request.resource.data.duration >= 0;
+                         .affectedKeys().hasOnly(['duration', 'lastSeen', 'clicks'])
+                    && (!('duration' in request.resource.data.diff(resource.data).affectedKeys())
+                        || (request.resource.data.duration is int
+                            && request.resource.data.duration >= 0));
       allow delete: if false;
     }
 
