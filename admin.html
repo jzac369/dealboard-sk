@@ -434,7 +434,13 @@
     return m >= 20 ? 'mi-dobra' : (m >= 8 ? 'mi-stredna' : 'mi-slaba');
   }
 
-  function renderMarketing(visits) {
+  function renderMarketing(vsetky) {
+    // Len návštevy, ktoré prekliky naozaj merali (nový formát má uid).
+    // Staré záznamy prekliky nemali vôbec - keby sa rátali, lievik by
+    // ukazoval 43 návštev a 0 % preklikovosť, hoci o nich jednoducho
+    // nič nevieme. To by viedlo k zlým rozhodnutiam.
+    const visits = vsetky.filter(v => v.uid);
+    const odKedy = visits.map(v => v.date).filter(Boolean).sort()[0];
     const c = _suhrn(visits);
 
     // Lievik
@@ -455,6 +461,7 @@
              Preklikovosť je podiel návštev, z ktorých niekto klikol na deal — nie počet
              preklikov delený návštevami. Jeden nadšenec s desiatimi klikmi by inak
              vyzeral ako desať spokojných ľudí.
+             ${odKedy ? `<br>Počíta sa od ${odKedy.slice(8)}.${odKedy.slice(5, 7)}. — staršie návštevy prekliky nemerali.` : ''}
            </p>`;
     }
 
@@ -1661,6 +1668,12 @@
      percentach. Kvoli styrom prehladom nema zmysel tahat 300 kB
      javascriptu, ked sa admin otvara aj z mobilu cez data. */
   .vis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  /* min-width: 0 je tu nutné: položka mriežky má predvolene min-width
+     auto, takže široká tabuľka roztiahla celú kartu mimo obrazovky (na
+     mobile chýbal pravý okraj). Takto sa tabuľka v karte posúva. */
+  .vis-grid > * { min-width: 0; }
+  .converter-box { min-width: 0; }
+  .converter-box code, .settings-hint code { overflow-wrap: anywhere; }
   .vis-empty { font-size: .82rem; color: var(--muted); }
 
   .vis-cols { display: flex; align-items: flex-end; gap: 2px; height: 96px;
@@ -1695,6 +1708,14 @@
   .fn-num { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
   .fn-lab { font-size: .72rem; color: var(--muted); margin-top: 2px; }
   .fn-arrow { color: var(--muted); font-size: 1.1rem; }
+  /* Na úzkej obrazovke sa kroky zalamovali a šípka skončila na začiatku
+     riadku. Tam ich radšej dáme do mriežky 2x2 bez šípok - poradie je
+     zrejmé z popisov. */
+  @media (max-width: 600px) {
+    .funnel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: stretch; }
+    .fn-arrow { display: none; }
+    .fn-step { min-width: 0; }
+  }
 
   /* Farba miery je tu preto, aby sa slabe zdroje dali najst pohladom.
      Hranice su odhad na rozbeh, nie zakon - pri dealovych strankach
