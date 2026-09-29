@@ -221,7 +221,12 @@ class DealCandidate:
         odkaz k predajcovi.
         """
         if self.direct_url:
-            return add_affiliate_tracking(self.url)
+            # Zámerne čistá adresa, nie odkaz cez Dognet. Do preklikávača
+            # ju balí až stránka (affiliateUrl v index.html) podľa
+            # settings/affiliate - vypínač v admine tak platí okamžite a
+            # vratne. Keby sa balilo tu, pri vypnutí by sa museli adresy
+            # v databáze odbaľovať a nové by sa balili dvakrát.
+            return self.url
         return build_merchant_url(self.store, self.title, self.url)
 
     @property

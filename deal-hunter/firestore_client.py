@@ -421,7 +421,12 @@ def expire_dead_deals(db: firestore.Client, limit: int = 30) -> int:
             continue
 
         checked += 1
-        if http_client.is_reachable(source, detect_soft_404=True):
+        # Mäkkú 404 (presmerovanie inam) hľadáme len na zlacnene.sk, kde
+        # skončená akcia naozaj presmeruje na kategóriu. U e-shopov je
+        # presmerovanie bežné aj pri živom produkte - variant sa presmeruje
+        # na hlavnú stránku produktu - a značili by sme živé dealy.
+        mekka = "zlacnene.sk" in source
+        if http_client.is_reachable(source, detect_soft_404=mekka):
             continue
 
         batch.update(doc.reference, {"expired": True})

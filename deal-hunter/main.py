@@ -73,6 +73,12 @@ def is_sane(candidate: DealCandidate) -> bool:
         return False
     if not candidate.title.strip() or not candidate.url:
         return False
+    # Vzorky nie sú deal. Stoja pár eur, v obchode sa dajú kúpiť len k
+    # inej objednávke a GymBeam ich má vo feede, hoci ich stránky na
+    # webe neexistujú - takto sa na stránku dostal deal vedúci na 404.
+    nazov = candidate.title.lower()
+    if any(slovo in nazov for slovo in config.EXCLUDED_TITLE_WORDS):
+        return False
     # Akcia, ktorej platnosť už uplynula, nemá čo robiť na stránke.
     if candidate.is_already_expired:
         return False
@@ -166,6 +172,40 @@ def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandida
             preskocene_kategorie,
         )
     return selected
+
+
+def drop_dead_links(candidates: list[DealCandidate]) -> list[DealCandidate]:
+    """
+    Vyradí dealy, ktorých stránka u predajcu neexistuje.
+
+    Feedy nie sú vždy aktuálne - obchod produkt z webu stiahne, ale vo
+    feede ho nechá. Takto sa na stránku dostal GymBeam "Vzorka FueRide"
+    vedúci na 404.
+
+    Overujeme PÔVODNÚ adresu obchodu (candidate.url), nikdy nie odkaz
+    zabalený do Dognetu. Kontrola cez preklikávač by sa rátala ako
+    preklik - kazila by štatistiky a v sieti by vyzerala ako podvodná
+    premávka.
+
+    Beží až na vybraných dealoch, teda najviac MAX_DEALS_PER_RUN
+    požiadaviek za beh.
+    """
+    import http_client
+
+    zive: list[DealCandidate] = []
+    for c in candidates:
+        # Len tvrdé 404/410. Presmerovanie za mŕtvy odkaz nepovažujeme:
+        # e-shopy bežne presmerujú variant produktu na jeho hlavnú
+        # stránku (GymBeam "Vitamín C 180 tbl" -> "Vitamín C") a
+        # heuristika na mäkké 404 by vyradila živý deal.
+        if http_client.is_reachable(c.url, detect_soft_404=False):
+            zive.append(c)
+        else:
+            logger.warning("Vyraďujem '%s' — stránka u predajcu neexistuje (%s)",
+                           c.title[:50], c.url[:80])
+    if len(zive) < len(candidates):
+        logger.info("Po kontrole odkazov: %d z %d", len(zive), len(candidates))
+    return zive
 
 
 def notify_telegram(written: list[tuple[str, dict]]) -> None:
@@ -391,6 +431,7 @@ def main() -> int:
         logger.info("DRY_RUN — do Firestore sa nezapisuje.")
         unique = deduplicate(sane, set(), set())
         selected = select_best(unique, config.MAX_DEALS_PER_RUN)
+        selected = drop_dead_links(selected)
         log_preview(selected)
         logger.info("=== Koniec (dry run). Zapísalo by sa %d návrhov. ===", len(selected))
         return 0
@@ -435,6 +476,7 @@ def main() -> int:
     logger.info("Po deduplikácii: %d", len(unique))
 
     selected = select_best(unique, config.MAX_DEALS_PER_RUN)
+    selected = drop_dead_links(selected)
 
     # Karta bez obrázka vyzerá ako chyba načítania. Skúsime ho dotiahnuť
     # z produktovej stránky skôr, než sa deal dostane do fronty.

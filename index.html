@@ -234,6 +234,17 @@
   });
   window.addEventListener('pagehide', () => ulozDlzku(true));
 
+  // ── Affiliate nastavenia ──────────────────────────────────────────
+  // V databáze sú čisté adresy obchodov; do preklikávača Dognetu ich
+  // balí až stránka, podľa settings/affiliate. Vypínač v admine tak
+  // platí okamžite a vratne - nič sa neprepisuje. Kým sa nastavenia
+  // nenačítajú, odkazy sú čisté; obal sa doplní pri kliknutí (viď
+  // affiliateUrl v klasickom bloku).
+  window.AFFILIATE = { enabled: false };
+  getDoc(doc(db, "settings", "affiliate"))
+    .then(s => { if (s.exists()) window.AFFILIATE = s.data(); })
+    .catch(() => { /* bez nastavení zostanú odkazy čisté - stránka funguje */ });
+
   // ── Nastavenia moderácie (čítané pri každom novom príspevku) ────────────────
   async function getInitialStatus(type) {
     // type: 'deals' | 'comments' | 'coupons'
@@ -2886,15 +2897,15 @@ body.food-page { background: #FAF8F5; }
             ${d.store ? `<span class="chip chip-store">${icon('building-store')}${escapeHtml(d.store)}</span>` : ''}
             ${cat ? `<span class="chip chip-cat">${icon(CAT_ICONS[cat] || 'dots')}${escapeHtml(cat)}</span>` : ''}
           </div>
-          <a class="deal-title" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
+          <a class="deal-title" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
           <div class="deal-price-row">
             <span class="price-now">${price(d.dealPrice, d.currency)}</span>
             ${orig}
             ${expired ? '' : badge}
           </div>
-          <a class="${ctaClass} btn-go-mobile" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
+          <a class="${ctaClass} btn-go-mobile" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
         </div>
-        <a class="${ctaClass} btn-go-desktop" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
+        <a class="${ctaClass} btn-go-desktop" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
       </div>
       <div class="deal-footer" onclick="event.stopPropagation()">
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
@@ -3888,7 +3899,7 @@ body.food-page { background: #FAF8F5; }
         <button class="vs-up" onclick="voteCoupon('${c.id}', 1)" title="Funguje" aria-label="Funguje">${icon('plus')}</button>
       </div>
 
-      <a class="coupon-go${expired ? ' btn-off' : ''}" href="${safeUrl(c.url)}" target="_blank" rel="noopener">
+      <a class="coupon-go${expired ? ' btn-off' : ''}" href="${outUrl(c.url, 'coupon')}" data-raw="${escapeAttr(c.url || '')}" data-kind="coupon" target="_blank" rel="noopener">
         ${expired ? 'Skúsiť obchod →' : 'Do e-shopu →'}
       </a>
     </div>`;
@@ -3905,6 +3916,41 @@ body.food-page { background: #FAF8F5; }
     if (!/^https?:\/\//i.test(raw)) return '#';
     return escapeAttr(raw);
   }
+
+  // ── Affiliate odkazy ──────────────────────────────────────────────
+  // Zabalí adresu obchodu do preklikávača Dognetu, ak to nastavenia
+  // dovolia. Obal len vtedy, keď:
+  //   - je affiliate zapnutý,
+  //   - doména obchodu je v zozname schválených kampaní (odkaz cez
+  //     Dognet na neschválenú kampaň by nezarobil a mohol skončiť chybou),
+  //   - pre daný druh odkazu (deal / kupón) máme kanál - kupóny idú cez
+  //     samostatný kanál s inou províziou,
+  //   - odkaz už cez preklikávač nevedie (dvojitý obal = stratená provízia).
+  function affiliateUrl(raw, kind) {
+    const a = window.AFFILIATE || {};
+    const url = (raw || '').trim();
+    if (!a.enabled || !/^https?:\/\//i.test(url)) return url;
+    let host;
+    try { host = new URL(url).hostname.toLowerCase(); } catch (e) { return url; }
+    if (/(^|\.)go\.dognet\.(com|sk)$/.test(host)) return url;
+    const domeny = Array.isArray(a.domains) ? a.domains : [];
+    if (!domeny.some(d => host === d || host.endsWith('.' + d))) return url;
+    const chid = kind === 'coupon' ? (a.couponsEnabled ? a.couponChid : '') : a.chid;
+    if (!chid) return url;
+    return `https://go.dognet.com/?chid=${encodeURIComponent(chid)}&url=${encodeURIComponent(url)}`;
+  }
+
+  function outUrl(raw, kind) { return safeUrl(affiliateUrl(raw, kind)); }
+
+  // Karty sa môžu vykresliť skôr, než sa načítajú nastavenia. Preto sa
+  // adresa zostaví znova tesne pred odchodom - pri kliknutí aj pri
+  // otvorení stredným tlačidlom myši do novej karty.
+  ['click', 'auxclick'].forEach(ev => document.addEventListener(ev, e => {
+    const a = e.target.closest && e.target.closest('a[data-raw]');
+    if (!a) return;
+    const cielova = affiliateUrl(a.dataset.raw, a.dataset.kind || 'deal');
+    if (/^https?:\/\//i.test(cielova)) a.href = cielova;
+  }, true));
 
   window.copyCoupon = function(id, code) {
     navigator.clipboard.writeText(code).then(() => {
@@ -4134,7 +4180,7 @@ body.food-page { background: #FAF8F5; }
           <span class="vs-num">${d.votes||0}°</span>
           <button class="vs-up" onclick="vote('${d.id}', 1)" title="Dobrý deal" aria-label="Dobrý deal">${icon('plus')}</button>
         </div>
-        <a class="btn-go${d.expired ? ' btn-off' : ''}" href="${safeUrl(d.url)}" target="_blank" rel="noopener" onclick="trackClick('${d.id}')">${d.expired ? 'Pozrieť u predajcu' : 'Zobraziť deal →'}</a>
+        <a class="btn-go${d.expired ? ' btn-off' : ''}" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="trackClick('${d.id}')">${d.expired ? 'Pozrieť u predajcu' : 'Zobraziť deal →'}</a>
         <a href="#" class="detail-link" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${cur}'); return false;">${icon('share')} Zdieľať</a>
         <a href="#" class="detail-link save-btn" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')} Uložiť</a>
       </div>

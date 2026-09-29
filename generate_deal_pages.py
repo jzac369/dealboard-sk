@@ -59,6 +59,34 @@ def escape(s) -> str:
     return html.escape(str(s or ""), quote=True)
 
 
+# Nastavenia affiliate (settings/affiliate). Načítajú sa raz v main().
+AFFILIATE: dict = {}
+
+
+def affiliate_url(url: str) -> str:
+    """
+    Rovnaké pravidlá ako affiliateUrl v index.html - musia sa zhodovať,
+    inak by odkaz z Facebooku (vedie sem) zarábal inak než ten istý deal
+    na hlavnej stránke. Obal len pri zapnutom affiliate, schválenej
+    doméne, známom kanáli a odkaze, ktorý ešte nevedie cez preklikávač.
+    """
+    from urllib.parse import quote, urlparse
+
+    a = AFFILIATE
+    if not a.get("enabled") or not url or not url.startswith("http"):
+        return url
+    host = (urlparse(url).hostname or "").lower()
+    if host in ("go.dognet.com", "go.dognet.sk") or host.endswith((".go.dognet.com", ".go.dognet.sk")):
+        return url
+    domeny = a.get("domains") or []
+    if not any(host == d or host.endswith("." + d) for d in domeny):
+        return url
+    chid = a.get("chid")
+    if not chid:
+        return url
+    return f"https://go.dognet.com/?chid={quote(chid, safe='')}&url={quote(url, safe='')}"
+
+
 def render_deal_page(deal_id: str, d: dict) -> str:
     title = d.get("title") or "Deal"
     store = d.get("store") or ""
@@ -69,7 +97,7 @@ def render_deal_page(deal_id: str, d: dict) -> str:
     original_price = d.get("originalPrice")
     currency_symbol = d.get("currency") or "€"
     currency_code = CURRENCY_MAP.get(currency_symbol, "EUR")
-    target_url = d.get("url") or SITE_URL
+    target_url = affiliate_url(d.get("url") or SITE_URL)
     slug = slugify(title)
     page_path = f"{slug}-{deal_id}"
     canonical_url = f"{SITE_URL}/{OUTPUT_ROOT}/{page_path}/"
@@ -191,6 +219,13 @@ def build_sitemap(deal_urls: list[str]) -> str:
 def main():
     logger.info("=== Generovanie statických SEO stránok pre dealy ===")
     db = get_client()
+
+    global AFFILIATE
+    try:
+        AFFILIATE = db.document("settings/affiliate").get().to_dict() or {}
+    except Exception as e:
+        logger.warning("Nastavenia affiliate sa nepodarilo načítať (%s) - odkazy budú čisté", e)
+        AFFILIATE = {}
 
     docs = db.collection("deals").where("status", "==", "approved").stream()
 

@@ -47,6 +47,7 @@
       startListeningComments();
       startListeningCoupons();
       startListeningSettings();
+      startListeningAffiliate();
       startListeningVisits();
       loadMerchants();
       loadAuditLog();
@@ -101,6 +102,92 @@
       document.getElementById('heat-max').value = zmax;
       document.getElementById('heat-detail').style.display = ziar ? 'block' : 'none';
     });
+  }
+
+  // ── Affiliate odkazy ───────────────────────────────────────────────
+  // Nastavenia číta stránka aj generátor statických stránok dealov.
+  // Samotné balenie odkazov robí stránka pri zobrazení, takže zmena tu
+  // platí okamžite pre všetky dealy.
+  const affiliateRef = doc(db, "settings", "affiliate");
+  let affiliate = {};
+
+  function startListeningAffiliate() {
+    onSnapshot(affiliateRef, (snap) => {
+      affiliate = snap.exists() ? snap.data() : {};
+      document.getElementById('aff-enabled').checked = affiliate.enabled === true;
+      document.getElementById('aff-coupons').checked = affiliate.couponsEnabled === true;
+      // Pole nechávame na pokoji, keď v ňom práve píšeš - inak by ti
+      // príchod dát z databázy prepísal rozpísaný text.
+      const ch = document.getElementById('aff-chid');
+      if (document.activeElement !== ch) ch.value = affiliate.chid || '';
+      const cch = document.getElementById('aff-coupon-chid');
+      if (document.activeElement !== cch) cch.value = affiliate.couponChid || '';
+      const dom = document.getElementById('aff-domains');
+      if (document.activeElement !== dom) dom.value = (affiliate.domains || []).join('\n');
+      renderAffiliateStats();
+    }, (e) => console.warn('Affiliate nastavenia sa nepodarilo načítať:', e));
+  }
+
+  window.saveAffiliate = async function(zmena) {
+    try {
+      await setDoc(affiliateRef, zmena, { merge: true });
+    } catch (e) {
+      alert('Nepodarilo sa uložiť nastavenie: ' + e.message);
+    }
+  };
+
+  window.saveAffiliateDomains = async function() {
+    // Očistíme, čo sa dá: https://, www., lomky a cesty. Inak by
+    // "https://www.gymbeam.sk/" nikdy nezodpovedalo doméne gymbeam.sk.
+    const domeny = [...new Set(
+      document.getElementById('aff-domains').value
+        .split(/[\s,;]+/)
+        .map(d => d.trim().toLowerCase()
+          .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''))
+        .filter(d => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d))
+    )].sort();
+    await window.saveAffiliate({ domains: domeny });
+    document.getElementById('aff-domains').value = domeny.join('\n');
+    const ok = document.getElementById('aff-saved');
+    ok.style.display = 'inline';
+    setTimeout(() => { ok.style.display = 'none'; }, 1800);
+  };
+
+  function _hostDealu(u) {
+    try { return new URL(u).hostname.toLowerCase(); } catch (e) { return ''; }
+  }
+
+  // Koľko publikovaných dealov zarába a ktoré obchody bez kampane by
+  // sa oplatilo v Dognete vyhľadať - podľa toho, koľko dealov z nich máš.
+  function renderAffiliateStats() {
+    const el = document.getElementById('aff-stats');
+    if (!el) return;
+    const domeny = affiliate.domains || [];
+    const zverejnene = allDeals.filter(d => d.status === 'approved');
+    const zarabaju = zverejnene.filter(d => {
+      const h = _hostDealu(d.url);
+      return h && domeny.some(x => h === x || h.endsWith('.' + x));
+    });
+    const bez = {};
+    zverejnene.forEach(d => {
+      const h = _hostDealu(d.url).replace(/^www\./, '');
+      if (!h || domeny.some(x => h === x || h.endsWith('.' + x))) return;
+      bez[h] = (bez[h] || 0) + 1;
+    });
+    const top = Object.entries(bez).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const vypnute = affiliate.enabled !== true;
+
+    el.innerHTML = `
+      <div class="as-box"><div class="as-num">${zarabaju.length} / ${zverejnene.length}</div>
+        <div class="as-lab">publikovaných dealov ${vypnute ? 'by zarábalo (affiliate je vypnutý)' : 'zarába'}</div></div>
+      <div class="as-box"><div class="as-num">${domeny.length}</div>
+        <div class="as-lab">obchodov so schválenou kampaňou</div></div>
+      <div class="as-box" style="flex:2 1 260px;">
+        <div class="as-lab" style="margin:0 0 4px;">Obchody bez kampane, z ktorých máš najviac dealov:</div>
+        <div style="font-size:.82rem;">${top.length
+          ? top.map(([h, n]) => `${escapeHtml(h)} <b>(${n})</b>`).join(' · ')
+          : 'žiadne'}</div>
+      </div>`;
   }
 
   window.toggleHeat = async function(checked) {
@@ -986,6 +1073,7 @@
     document.getElementById('count-archived').textContent = archived.length;
 
     renderAgentStats();
+    renderAffiliateStats();
     updateDocTitle();
 
     const map = { pending, approved, rejected, archived };
@@ -1524,6 +1612,14 @@
   .mi-stredna { color: #B76E00; font-weight: 700; }
   .mi-slaba   { color: var(--muted); font-weight: 700; }
 
+  /* ── Affiliate ────────────────────────────────────────────────── */
+  .aff-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .aff-stats .as-box { background: var(--card); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 13px; flex: 1 1 150px; }
+  .aff-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .aff-row label { font-size: .85rem; font-weight: 600; min-width: 170px; }
+  .aff-row input { flex: 1; min-width: 180px; font-family: ui-monospace, Consolas, monospace; }
+
   /* ── Dotykové ovládanie (telefón, tablet) ──────────────────────────
      Admin sa dá ovládať aj z mobilu, ale tlačidlá mali 26 px a polia
      dokonca 19 - prstom sa to trafí ťažko.
@@ -1736,6 +1832,74 @@
         <input type="text" id="test-url-input" class="test-url" placeholder="https://www.lidl.sk/p/produkt-123" style="width:100%; padding:9px 12px; border:1.5px solid var(--line); border-radius:6px;">
         <button class="btn btn-approve" style="margin-top:10px;" onclick="testConvertLink()">Skonvertovať (test)</button>
         <div id="test-result" style="margin-top:10px; font-size:.85rem;"></div>
+      </div>
+    </section>
+
+    <!-- ── Sekcia: Affiliate odkazy ───────────────────────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">💰 Affiliate odkazy</h2>
+
+      <div class="aff-stats" id="aff-stats"></div>
+
+      <div class="settings-panel">
+        <label class="switch-label">
+          <span>Affiliate odkazy na dealoch</span>
+          <label class="switch">
+            <input type="checkbox" id="aff-enabled" onchange="saveAffiliate({ enabled: this.checked })">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <p class="settings-hint">
+          Keď je zapnuté, odkazy na obchody so schválenou kampaňou vedú cez Dognet a z nákupu
+          ti ide provízia. Platí okamžite pre všetky dealy — nové aj staré — a vypnutím sa
+          všetko vráti na priame odkazy. V databáze sa nič neprepisuje.
+        </p>
+        <div class="aff-row">
+          <label for="aff-chid">Kód kanála (chid)</label>
+          <input id="aff-chid" type="text" placeholder="napr. BYWNgIrZ"
+                 onchange="saveAffiliate({ chid: this.value.trim() })">
+        </div>
+        <p class="settings-hint">
+          Nájdeš ho v Dognete: Generátor odkazov → vygeneruj hocijaký odkaz → hodnota za
+          <code>chid=</code>. Je rovnaký pre všetky obchody, kampaň si Dognet určí sám podľa domény.
+        </p>
+      </div>
+
+      <div class="settings-panel">
+        <label class="switch-label">
+          <span>Affiliate odkazy na zľavových kódoch</span>
+          <label class="switch">
+            <input type="checkbox" id="aff-coupons" onchange="saveAffiliate({ couponsEnabled: this.checked })">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <div class="aff-row">
+          <label for="aff-coupon-chid">Kód kanála pre kupóny</label>
+          <input id="aff-coupon-chid" type="text" placeholder="chid kanála „henkukaj.sk - kupóny“"
+                 onchange="saveAffiliate({ couponChid: this.value.trim() })">
+        </div>
+        <p class="settings-hint">
+          Kupóny idú cez <b>samostatný kanál</b> — inzerenti za ne platia inú províziu než za
+          obsah. Kým nevyplníš jeho chid, kupóny sa nebalia vôbec; použiť na ne obsahový kanál
+          by bola zlá evidencia.
+        </p>
+      </div>
+
+      <div class="settings-panel">
+        <label for="aff-domains" style="font-weight:600; font-size:.9rem; display:block; margin-bottom:6px;">
+          Obchody so schválenou kampaňou
+        </label>
+        <textarea id="aff-domains" rows="8" style="width:100%; font-family:ui-monospace,Consolas,monospace; font-size:.8rem;"
+                  placeholder="jedna doména na riadok, napr. gymbeam.sk"></textarea>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+          <button class="btn btn-approve" onclick="saveAffiliateDomains()">💾 Uložiť zoznam</button>
+          <span id="aff-saved" style="font-size:.8rem; color:var(--green); display:none;">uložené</span>
+        </div>
+        <p class="settings-hint">
+          Jedna doména na riadok, bez <code>www.</code> a <code>https://</code>. Pridávaj len
+          <b>schválené</b> kampane — odkaz cez Dognet na neschválenú nezarobí a môže skončiť chybou.
+          Keď ti Dognet schváli ďalšiu kampaň, stačí ju sem dopísať.
+        </p>
       </div>
     </section>
 

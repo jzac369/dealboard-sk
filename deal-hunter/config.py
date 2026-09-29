@@ -74,6 +74,10 @@ DEDUPE_LOOKBACK_DAYS = _env_int("DEDUPE_LOOKBACK_DAYS", 30)
 # Zapnuté scrapery. Názvy zodpovedajú kľúčom v scrapers/__init__.py.
 ENABLED_SCRAPERS = _env_list("ENABLED_SCRAPERS") or ["zlacnene", "feeds", "shop_feeds"]
 
+# Slová v názve, pri ktorých položku vôbec nezvažujeme. Zámerne krátky
+# zoznam: "tester" tu napríklad nie je, lebo by vyradil aj tester batérií.
+EXCLUDED_TITLE_WORDS = _env_list("EXCLUDED_TITLE_WORDS") or ["vzorka", "vzorky", "sample"]
+
 # Kategórie, ktoré sa na stránku nedostanú vôbec. Predvolene žiadna.
 BLOCKED_CATEGORIES = _env_list("BLOCKED_CATEGORIES")
 
