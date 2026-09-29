@@ -203,7 +203,74 @@ def posli(db) -> int:
     return poslane
 
 
+def diagnostika() -> int:
+    """
+    Zistí, prečo Facebook odmieta príspevky.
+
+    Zámerne nevypisuje token ani ID - len to, čo z nich vyplýva. Chyba
+    "Object with ID does not exist" má tri bežné príčiny a bez tohto sa
+    nedá rozlíšiť ktorú:
+      - FB_PAGE_ID je ID osobného profilu, nie stránky
+      - token patrí používateľovi, nie stránke
+      - token stránke patrí, ale chýba mu oprávnenie
+    """
+    if not (STRANKA and TOKEN):
+        logger.error("FB_PAGE_ID alebo FB_PAGE_TOKEN nie sú nastavené.")
+        return 1
+
+    logger.info("Dĺžka tokenu: %d znakov, dĺžka ID: %d znakov (samé číslice: %s)",
+                len(TOKEN), len(STRANKA), STRANKA.isdigit())
+
+    # 1. Komu token patrí
+    try:
+        r = requests.get(f"{API}/me", params={"fields": "id,name", "access_token": TOKEN}, timeout=30)
+        d = r.json()
+    except Exception as e:
+        logger.error("Volanie /me zlyhalo: %s", e)
+        return 1
+
+    if "error" in d:
+        logger.error("Token neprešiel: %s", str(d["error"].get("message"))[:200])
+        return 1
+
+    logger.info("Token patrí objektu s názvom: %r", d.get("name"))
+    logger.info("ID z tokenu sa rovná FB_PAGE_ID: %s", str(d.get("id")) == STRANKA)
+
+    # 2. Je to token stránky? Stránka má pole 'category', profil nie.
+    r2 = requests.get(f"{API}/me", params={"fields": "category,fan_count", "access_token": TOKEN}, timeout=30)
+    d2 = r2.json()
+    if "error" in d2:
+        logger.warning("Token nevie prečítať údaje stránky → vyzerá to na POUŽÍVATEĽSKÝ token, nie token stránky.")
+    else:
+        logger.info("Token vie čítať údaje stránky (kategória %r) → je to token stránky.",
+                    d2.get("category"))
+
+    # 3. Dá sa cez tento token načítať objekt, na ktorý publikujeme?
+    r3 = requests.get(f"{API}/{STRANKA}", params={"fields": "name,category", "access_token": TOKEN}, timeout=30)
+    d3 = r3.json()
+    if "error" in d3:
+        logger.error("FB_PAGE_ID sa cez tento token načítať nedá: %s",
+                     str(d3["error"].get("message"))[:200])
+    else:
+        logger.info("FB_PAGE_ID ukazuje na %r (kategória %r)", d3.get("name"), d3.get("category"))
+
+    # 4. Ak je to používateľský token, ukážeme, aké stránky spravuje.
+    r4 = requests.get(f"{API}/me/accounts", params={"fields": "id,name", "access_token": TOKEN}, timeout=30)
+    d4 = r4.json()
+    if "data" in d4:
+        logger.info("Stránky dostupné cez tento token: %d", len(d4["data"]))
+        for s in d4["data"][:5]:
+            zhoda = "  <-- toto ID máš v FB_PAGE_ID" if str(s.get("id")) == STRANKA else ""
+            logger.info("   %r%s", s.get("name"), zhoda)
+        if d4["data"] and not any(str(s.get("id")) == STRANKA for s in d4["data"]):
+            logger.error("ŽIADNA z týchto stránok nemá ID, ktoré je vo FB_PAGE_ID.")
+    return 0
+
+
 def main() -> int:
+    if os.environ.get("FB_DIAGNOSTICS", "").lower() == "true":
+        logger.info("=== Diagnostika Facebooku ===")
+        return diagnostika()
     logger.info("=== Zdieľanie na Facebook ===")
     db = firestore_client.get_client()
     posli(db)

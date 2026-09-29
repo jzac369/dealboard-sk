@@ -11,7 +11,12 @@ on:
     # 07:00 a 15:00 UTC -> 09:00 a 17:00 SK (leto)
     - cron: "0 7 * * *"
     - cron: "0 15 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      diag:
+        description: "Len diagnostika - zisti, preco Facebook odmieta prispevky"
+        type: boolean
+        default: false
 
 concurrency:
   group: facebook
@@ -53,6 +58,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: firebase-credentials.json
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_DIAGNOSTICS: ${{ inputs.diag }}
 
       - name: Zmazanie kľúča
         if: always()
