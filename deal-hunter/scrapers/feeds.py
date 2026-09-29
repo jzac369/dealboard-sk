@@ -144,7 +144,15 @@ class FeedsScraper(BaseScraper):
         # NEZAHADZUJEME - pošleme ju na sledovanie ceny (price_watch)
         # a zverejní sa, keď cena reálne spadne. Zahadzovanie by pri
         # feedoch znamenalo, že neprejde takmer nič.
-        original = parse_price(_first(item, "PRICE_BEFORE_DISCOUNT", "STANDARD_PRICE", "LIST_PRICE"))
+        # ORIGINAL_PRICE je tu zámerne prvé: presne tak volá bežnú cenu
+        # feed GymBeamu a bez neho by sa jeho 9 500 položiek tvárilo, že
+        # cenu pred zľavou neuvádzajú, a museli by roky čakať na
+        # sledovanie cien. Ostatné názvy používajú iné e-shopy.
+        original = parse_price(_first(
+            item,
+            "ORIGINAL_PRICE", "PRICE_BEFORE_DISCOUNT",
+            "STANDARD_PRICE", "LIST_PRICE", "PRICE_STANDARD",
+        ))
         if original is not None and original <= price:
             original = None
 

@@ -109,7 +109,11 @@ FEED_MIN_DROP_PERCENT = _env_float("FEED_MIN_DROP_PERCENT", 20)
 FEED_DIAGNOSTICS = os.environ.get("FEED_DIAGNOSTICS", "false").lower() == "true"
 
 # Koľko položiek maximálne načítať z jedného feedu (feedy bývajú obrovské).
-FEED_MAX_ITEMS = _env_int("FEED_MAX_ITEMS", 5000)
+# Strop na počet položiek z jedného feedu. Zvýšené z 5 000: feed
+# GymBeamu má 9 522 položiek a pri starom strope sa polovica ani
+# nepozrela - pritom sa neberie najlepších 5 000, ale prvých 5 000
+# v poradí, v akom ich feed uvádza. To je náhodný výber, nie výber.
+FEED_MAX_ITEMS = _env_int("FEED_MAX_ITEMS", 25000)
 
 
 # ── HTTP slušnosť ─────────────────────────────────────────────────────
