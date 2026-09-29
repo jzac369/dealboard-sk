@@ -266,42 +266,122 @@
     }, (err) => console.error('Visits query error:', err));
   }
 
-  function renderVisitsStats(visits) {
-    const today = new Date().toISOString().slice(0, 10);
-    const sevenDaysAgoStr = (() => {
-      const d = new Date();
-      d.setDate(d.getDate() - 7);
-      return d.toISOString().slice(0, 10);
-    })();
+  // ── Vyhodnotenie návštev ─────────────────────────────────────────
+  // Zámerne bez grafovej knižnice: stĺpce sú obyčajné divy so šírkou v
+  // percentách. Načítať kvôli štyrom prehľadom 300 kB javascriptu by
+  // bolo zbytočné a admin sa otvára z mobilu aj cez dáta.
 
-    const todayCount = visits.filter(v => v.date === today).length;
-    const last7Count = visits.filter(v => v.date >= sevenDaysAgoStr).length;
-    const totalCount = visits.length;
-
-    document.getElementById('visits-today').textContent = todayCount;
-    document.getElementById('visits-7d').textContent = last7Count;
-    document.getElementById('visits-total').textContent = totalCount;
-
-    const countryCounts = {};
-    visits.forEach(v => {
-      const c = v.country || 'Neznáma';
-      countryCounts[c] = (countryCounts[c] || 0) + 1;
+  function _pocty(zoznam, kluc) {
+    const m = {};
+    zoznam.forEach(v => {
+      const k = (typeof kluc === 'function' ? kluc(v) : v[kluc]) || '';
+      if (!k) return;
+      m[k] = (m[k] || 0) + 1;
     });
-    const sorted = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
-    const maxCount = sorted.length ? sorted[0][1] : 1;
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  }
 
-    const el = document.getElementById('visits-by-country');
-    if (!sorted.length) {
-      el.innerHTML = '<p style="font-size:.85rem; color:var(--muted);">Zatiaľ žiadne dáta o návštevnosti.</p>';
+  function _pruhy(el, dvojice, prazdne) {
+    const cil = document.getElementById(el);
+    if (!cil) return;
+    if (!dvojice.length) {
+      cil.innerHTML = `<p class="vis-empty">${prazdne || 'Zatiaľ žiadne dáta.'}</p>`;
       return;
     }
-    el.innerHTML = sorted.map(([country, count]) => `
+    const max = dvojice[0][1] || 1;
+    cil.innerHTML = dvojice.slice(0, 12).map(([nazov, pocet]) => `
       <div class="country-row">
-        <span>${escapeHtml(country)}</span>
-        <div class="country-bar-wrap"><div class="country-bar" style="width:${(count/maxCount*100).toFixed(0)}%;"></div></div>
-        <strong>${count}</strong>
-      </div>
-    `).join('');
+        <span>${escapeHtml(nazov)}</span>
+        <div class="country-bar-wrap"><div class="country-bar" style="width:${(pocet / max * 100).toFixed(0)}%;"></div></div>
+        <strong>${pocet}</strong>
+      </div>`).join('');
+  }
+
+  function _trvanie(sekundy) {
+    const s = Math.max(0, Math.round(sekundy || 0));
+    if (s < 60) return `${s} s`;
+    const m = Math.floor(s / 60);
+    return `${m} min ${String(s % 60).padStart(2, '0')} s`;
+  }
+
+  function renderVisitsStats(visits) {
+    const dnes = new Date().toISOString().slice(0, 10);
+    const pred7 = (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); })();
+
+    document.getElementById('visits-today').textContent = visits.filter(v => v.date === dnes).length;
+    document.getElementById('visits-7d').textContent = visits.filter(v => v.date >= pred7).length;
+    document.getElementById('visits-total').textContent = visits.length;
+
+    // Priemer počítame len z návštev, pri ktorých sa dĺžka stihla uložiť.
+    // Keby sme do priemeru rátali aj nuly, vyzeralo by to, že ľudia
+    // odchádzajú okamžite - pritom len zavreli kartu skôr než prvý zápis.
+    const sTrvanim = visits.filter(v => (v.duration || 0) > 0);
+    document.getElementById('visits-avg').textContent = sTrvanim.length
+      ? _trvanie(sTrvanim.reduce((a, v) => a + v.duration, 0) / sTrvanim.length)
+      : '–';
+
+    // Vracajúci sa = rovnaké uid vo viac než jednej návšteve.
+    const podlaUid = {};
+    visits.forEach(v => { if (v.uid) podlaUid[v.uid] = (podlaUid[v.uid] || 0) + 1; });
+    const ludia = Object.keys(podlaUid).length;
+    const vracajuci = Object.values(podlaUid).filter(n => n > 1).length;
+    document.getElementById('visits-return').textContent = ludia
+      ? `${Math.round(vracajuci / ludia * 100)} %` : '–';
+
+    _pruhy('visits-by-country', _pocty(visits, 'country'));
+    _pruhy('visits-by-city', _pocty(visits, v => v.city ? (v.region ? `${v.city} (${v.region})` : v.city) : ''),
+           'Mestá sa začnú zbierať až pri nových návštevách.');
+    _pruhy('visits-by-referrer', _pocty(visits, 'referrer'), 'Zatiaľ nevieme, odkiaľ ľudia chodia.');
+    _pruhy('visits-by-device', _pocty(visits, 'device'));
+    _pruhy('visits-by-landing', _pocty(visits, 'landing'));
+
+    // Po dňoch, posledných 30 - vrátane dní s nulou, aby bolo vidieť diery.
+    const dni = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const k = d.toISOString().slice(0, 10);
+      dni.push([k.slice(8) + '.' + k.slice(5, 7) + '.', visits.filter(v => v.date === k).length]);
+    }
+    const maxDen = Math.max(1, ...dni.map(d => d[1]));
+    document.getElementById('visits-by-day').innerHTML =
+      `<div class="vis-cols">` + dni.map(([popis, n]) => `
+        <div class="vis-col" title="${popis} — ${n} návštev">
+          <div class="vis-col-bar" style="height:${Math.max(2, n / maxDen * 100)}%"></div>
+        </div>`).join('') + `</div>
+      <div class="vis-cols-legend"><span>${dni[0][0]}</span><span>${dni[dni.length - 1][0]}</span></div>`;
+
+    // Po hodinách. Berieme čas prehliadača admina, nie návštevníka -
+    // pre marketing je podstatné, kedy sú ľudia online u nás.
+    const hodiny = new Array(24).fill(0);
+    visits.forEach(v => {
+      const t = v.timestamp && v.timestamp.toDate ? v.timestamp.toDate() : null;
+      if (t) hodiny[t.getHours()]++;
+    });
+    const maxHod = Math.max(1, ...hodiny);
+    document.getElementById('visits-by-hour').innerHTML =
+      `<div class="vis-cols">` + hodiny.map((n, h) => `
+        <div class="vis-col" title="${h}:00 — ${n} návštev">
+          <div class="vis-col-bar" style="height:${Math.max(2, n / maxHod * 100)}%"></div>
+        </div>`).join('') + `</div>
+      <div class="vis-cols-legend"><span>0:00</span><span>12:00</span><span>23:00</span></div>`;
+
+    // Posledné návštevy
+    const telo = document.getElementById('visits-recent');
+    const posledne = visits.slice(0, 40);
+    telo.innerHTML = posledne.length ? posledne.map(v => {
+      const t = v.timestamp && v.timestamp.toDate ? v.timestamp.toDate() : null;
+      const kedy = t ? `${String(t.getDate()).padStart(2,'0')}.${String(t.getMonth()+1).padStart(2,'0')}. ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}` : '–';
+      return `<tr>
+        <td>${kedy}</td>
+        <td>${escapeHtml(v.city || '–')}</td>
+        <td>${escapeHtml(v.region || '–')}</td>
+        <td>${escapeHtml(v.country || '–')}</td>
+        <td class="vis-ip">${escapeHtml(v.ipPrefix || '–')}${v.isp ? `<span>${escapeHtml(v.isp)}</span>` : ''}</td>
+        <td>${escapeHtml(v.referrer || '–')}</td>
+        <td>${escapeHtml(v.device || '–')}</td>
+        <td>${v.duration ? _trvanie(v.duration) : '–'}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="8" class="vis-empty">Zatiaľ žiadne návštevy.</td></tr>`;
   }
 
   function startListening() {
@@ -878,21 +958,22 @@
           ` : ''}
           ${d.status === 'rejected' ? `
             <button class="btn btn-approve" onclick="approveDeal('${d.id}')">✓ Schváliť</button>
-            <button class="btn btn-archive" onclick="archiveDeal('${d.id}')">📦 Archivovať</button>
+            <button class="btn btn-ic btn-archive" onclick="archiveDeal('${d.id}')" title="Archivovať">📦</button>
           ` : ''}
           ${d.status === 'approved' ? `
             <button class="btn btn-reject" onclick="rejectDeal('${d.id}')">Skryť</button>
-            <button class="btn btn-archive" onclick="archiveDeal('${d.id}')">📦 Archivovať</button>
-            <button class="btn ${d.expired ? 'btn-restore' : 'btn-expired'}" onclick="toggleExpiredDeal('${d.id}', ${!d.expired})">
-              ${d.expired ? '↩ Zrušiť exspiráciu' : '⏰ Označiť exspirované'}
-            </button>
+            <button class="btn btn-ic btn-archive" onclick="archiveDeal('${d.id}')" title="Archivovať">📦</button>
+            <button class="btn btn-ic ${d.expired ? 'btn-restore' : 'btn-expired'}"
+                    onclick="toggleExpiredDeal('${d.id}', ${!d.expired})"
+                    title="${d.expired ? 'Zrušiť exspiráciu' : 'Označiť ako exspirované'}">${d.expired ? '↩' : '⏰'}</button>
           ` : ''}
           ${d.status === 'archived' ? `
-            <button class="btn btn-restore" onclick="restoreDeal('${d.id}')">↩ Obnoviť</button>
+            <button class="btn btn-ic btn-restore" onclick="restoreDeal('${d.id}')" title="Obnoviť">↩</button>
           ` : ''}
-          <button class="btn btn-delete" onclick="deleteDeal('${d.id}')">🗑 Vymazať</button>
-          <button class="btn btn-edit" onclick="toggleEdit('${d.id}')">✎ Upraviť</button>
-          <button class="btn" onclick="togglePreview('${d.id}')">👁 Náhľad</button>
+          <button class="btn btn-ic btn-edit" onclick="toggleEdit('${d.id}')" title="Upraviť">✎</button>
+          <button class="btn btn-ic" onclick="togglePreview('${d.id}')" title="Náhľad tak, ako to uvidí návštevník">👁</button>
+          <a class="btn btn-ic" href="${safeUrl(d.url)}" target="_blank" rel="noopener" title="Otvoriť ponuku u predajcu">↗</a>
+          <button class="btn btn-ic btn-delete" onclick="deleteDeal('${d.id}')" title="Vymazať natrvalo">🗑</button>
         </div>
       </div>
       <div class="preview-panel" id="preview-${d.id}">
@@ -1094,6 +1175,14 @@
   function escapeAttr(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
   }
+
+  // Adresa dealu ide do href. Prepustíme len http(s) - odkaz typu
+  // "javascript:" by sa v admine spustil s tvojimi právami, a adresy
+  // pri dealoch pochádzajú aj od návštevníkov.
+  function safeUrl(u) {
+    const adresa = String(u || '').trim();
+    return /^https?:\/\//i.test(adresa) ? escapeAttr(adresa) : '#';
+  }
 </script>
 
 <style>
@@ -1190,9 +1279,21 @@
   .row-info { flex: 1; min-width: 160px; }
   .row-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .row-sub { font-size: .8rem; color: var(--muted); margin-top: 4px; }
-  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  /* Akcie pri deale. Doteraz to bol dlhy rad sirokych tlacidiel, ktory
+     na uzsom okne roztiahol kazdy riadok. Teraz su drobne, hlavne dve
+     maju text a ostatne su ikony s popiskom po najdeni mysou; max-width
+     ich zalomi do dvoch riadkov namiesto jedneho dlheho. */
+  .row-actions { display: flex; gap: 5px; flex-wrap: wrap;
+    justify-content: flex-end; max-width: 216px; flex: none; }
   .test-url { font-size: .85rem; }
-  .btn { border: none; padding: 6px 12px; border-radius: 6px; font-size: .78rem; font-weight: 700; cursor: pointer; }
+  .btn { border: none; padding: 5px 10px; border-radius: 6px; font-size: .74rem;
+    font-weight: 700; cursor: pointer; line-height: 1.5; }
+  .btn:hover { filter: brightness(.95); }
+  /* Ikonove tlacidlo: stvorec, aby sa ich do riadka zmestilo viac. */
+  .btn-ic { width: 29px; height: 29px; padding: 0; display: inline-flex;
+    align-items: center; justify-content: center; font-size: .86rem;
+    text-decoration: none; background: var(--bg); color: var(--ink);
+    box-sizing: border-box; }
   .btn-approve { background: #e3f3e6; color: var(--green); }
   .btn-reject  { background: #fdeceb; color: var(--red); }
   .btn-delete  { background: #fdeceb; color: var(--red); }
@@ -1274,6 +1375,38 @@
   .as-lab { font-size: .73rem; color: var(--muted); margin-top: 2px; }
   .as-hint { font-size: .75rem; color: var(--muted); margin: -6px 0 14px; }
 
+  /* ── Prehlady navstevnosti ────────────────────────────────────────
+     Bez grafovej kniznice: stlpce su divy so sirkou/vyskou v
+     percentach. Kvoli styrom prehladom nema zmysel tahat 300 kB
+     javascriptu, ked sa admin otvara aj z mobilu cez data. */
+  .vis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .vis-empty { font-size: .82rem; color: var(--muted); }
+
+  .vis-cols { display: flex; align-items: flex-end; gap: 2px; height: 96px;
+    padding-top: 6px; }
+  .vis-col { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+  .vis-col-bar { width: 100%; background: var(--orange); border-radius: 2px 2px 0 0;
+    min-height: 2px; transition: background .15s; }
+  .vis-col:hover .vis-col-bar { background: var(--ink); }
+  .vis-cols-legend { display: flex; justify-content: space-between;
+    font-size: .7rem; color: var(--muted); margin-top: 5px; }
+
+  .vis-table-wrap { overflow-x: auto; }
+  .vis-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+  .vis-table th { text-align: left; font-weight: 700; color: var(--muted);
+    padding: 7px 9px; border-bottom: 1.5px solid var(--line); white-space: nowrap; }
+  .vis-table td { padding: 7px 9px; border-bottom: 1px solid var(--line);
+    white-space: nowrap; }
+  .vis-table tr:hover td { background: var(--bg); }
+  .vis-ip { font-family: ui-monospace, Consolas, monospace; font-size: .74rem; }
+  .vis-ip span { display: block; font-family: inherit; font-size: .68rem;
+    color: var(--muted); max-width: 150px; overflow: hidden;
+    text-overflow: ellipsis; }
+
+  @media (max-width: 900px) {
+    .vis-grid { grid-template-columns: 1fr; }
+  }
+
   /* ── Dotykové ovládanie (telefón, tablet) ──────────────────────────
      Admin sa dá ovládať aj z mobilu, ale tlačidlá mali 26 px a polia
      dokonca 19 - prstom sa to trafí ťažko.
@@ -1287,6 +1420,8 @@
        na 13 px. Nie je to ozdoba, bez toho to nefunguje. */
     input:not([type=checkbox]), select, textarea { font-size: 16px; padding: 9px 11px; }
     .btn { padding: 11px 16px; font-size: .84rem; }
+    .btn-ic { width: 40px; height: 40px; padding: 0; }
+    .row-actions { max-width: none; }
     .switch { transform: scale(1.25); transform-origin: right center; }
     .tab-btn { padding-top: 11px; padding-bottom: 11px; }
     button { min-height: 42px; }
@@ -1531,10 +1666,67 @@
           <div class="visit-stat-number" id="visits-total">–</div>
           <div class="visit-stat-label">Celkovo</div>
         </div>
+        <div class="visit-stat-box">
+          <div class="visit-stat-number" id="visits-avg">–</div>
+          <div class="visit-stat-label">Priemerný čas na stránke</div>
+        </div>
+        <div class="visit-stat-box">
+          <div class="visit-stat-number" id="visits-return">–</div>
+          <div class="visit-stat-label">Vracajúci sa</div>
+        </div>
       </div>
+      <div class="vis-grid">
+        <div class="converter-box">
+          <h3>Návštevy po dňoch (30 dní)</h3>
+          <div id="visits-by-day"></div>
+        </div>
+        <div class="converter-box">
+          <h3>Kedy počas dňa chodia</h3>
+          <div id="visits-by-hour"></div>
+        </div>
+      </div>
+
+      <div class="vis-grid">
+        <div class="converter-box">
+          <h3>Mestá a kraje</h3>
+          <div id="visits-by-city"></div>
+        </div>
+        <div class="converter-box">
+          <h3>Odkiaľ prišli</h3>
+          <div id="visits-by-referrer"></div>
+        </div>
+      </div>
+
+      <div class="vis-grid">
+        <div class="converter-box">
+          <h3>Krajiny</h3>
+          <div id="visits-by-country"><p class="vis-empty">Načítavam…</p></div>
+        </div>
+        <div class="converter-box">
+          <h3>Zariadenia</h3>
+          <div id="visits-by-device"></div>
+          <h3 style="margin-top:14px;">Kam prišli najprv</h3>
+          <div id="visits-by-landing"></div>
+        </div>
+      </div>
+
       <div class="converter-box" style="margin-top:16px;">
-        <h3>Návštevy podľa krajiny</h3>
-        <div id="visits-by-country"><p style="font-size:.85rem; color:var(--muted);">Načítavam…</p></div>
+        <h3>Posledné návštevy</h3>
+        <p class="vis-empty" style="margin-bottom:8px;">
+          IP adresa sa neukladá celá — posledná časť je nahradená nulou, aby sa
+          z nej nedal určiť konkrétny človek.
+        </p>
+        <div class="vis-table-wrap">
+          <table class="vis-table">
+            <thead>
+              <tr>
+                <th>Kedy</th><th>Mesto</th><th>Kraj</th><th>Krajina</th>
+                <th>Sieť / IP</th><th>Odkiaľ</th><th>Zariadenie</th><th>Čas na stránke</th>
+              </tr>
+            </thead>
+            <tbody id="visits-recent"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 

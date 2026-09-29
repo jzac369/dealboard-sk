@@ -116,39 +116,110 @@
     return new Date().toISOString().slice(0, 10);
   }
 
+  // ── Meranie návštev ───────────────────────────────────────────────
+  // Zaznamenáva sa JEDNA návšteva = jedno otvorenie stránky (session),
+  // nie jeden deň. Bez toho sa nedá povedať, ako dlho tu kto bol ani
+  // kedy počas dňa chodia ľudia.
+  //
+  // Čo o návštevníkovi ukladáme a čo nie:
+  //   - IP adresu NEUKLADÁME celú. Poslednú časť nahradíme nulou
+  //     (188.123.45.7 -> 188.123.45.0). Na rozlíšenie poskytovateľa
+  //     alebo približného miesta to stačí, konkrétneho človeka už
+  //     identifikovať nedá.
+  //   - Z odkazujúcej stránky ukladáme len doménu, nie celú adresu -
+  //     tá môže obsahovať vyhľadávaný výraz aj osobné údaje.
+  //   - Nič sa nezaznamená bez súhlasu s meraním. O to sa stará
+  //     applyConsent vyššie, ktorý túto funkciu volá až po súhlase.
+  let visitRef = null;
+  let visitStart = 0;
+  let visitLastSaved = 0;
+
+  function skratIp(ip) {
+    if (!ip) return '';
+    if (ip.includes(':')) {                  // IPv6 - necháme prvé tri bloky
+      const c = ip.split(':');
+      return c.slice(0, 3).join(':') + '::';
+    }
+    const c = ip.split('.');
+    return c.length === 4 ? `${c[0]}.${c[1]}.${c[2]}.0` : '';
+  }
+
+  function typZariadenia() {
+    const w = window.innerWidth || 0;
+    if (w && w < 768) return 'mobil';
+    if (w && w < 1100) return 'tablet';
+    return 'počítač';
+  }
+
+  function odkialPrisiel() {
+    try {
+      const r = document.referrer;
+      if (!r) return 'priamo';
+      const host = new URL(r).hostname.replace(/^www\./, '');
+      if (host === location.hostname.replace(/^www\./, '')) return 'priamo';
+      return host;
+    } catch (e) { return 'priamo'; }
+  }
+
   async function recordVisit(uid) {
     const today = todayKeyVisit();
-    const lastRecorded = sessionStorage.getItem('hk_visit_recorded');
-    if (lastRecorded === today) return; // už zaznamenané v tomto session/dni
-    try {
-      // Zámerne si dokument NEČÍTAME. Pravidlá dovoľujú čítať kolekciu
-      // visits len adminovi, takže getDoc tu vždy skončil chybou a
-      // návšteva sa nezapísala nikdy. Duplicite bráni jednak príznak v
-      // sessionStorage, jednak samotné ID dokumentu (dátum + uid) -
-      // druhý zápis v ten istý deň pravidlá odmietnu a to je v poriadku.
-      const visitRef = doc(db, "visits", `${today}_${uid}`);
-      let country = 'Neznáma';
-      try {
-        const res = await fetch('https://ip-api.com/json/?fields=country');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.country) country = data.country;
-        }
-      } catch(e) { /* geolokácia zlyhala, zaznamenáme aspoň návštevu bez krajiny */ }
+    if (visitRef) return;                     // v tomto otvorení už beží
 
-      await setDoc(visitRef, {
-        country,
+    let geo = {};
+    try {
+      const res = await fetch('https://ip-api.com/json/?fields=country,regionName,city,query,isp');
+      if (res.ok) geo = await res.json();
+    } catch (e) { /* geolokácia zlyhala - návštevu zapíšeme aj bez nej */ }
+
+    // Náhodná časť ID: jeden návštevník môže prísť viackrát za deň a
+    // každá návšteva je samostatný záznam.
+    const sid = Math.random().toString(36).slice(2, 10);
+    const ref = doc(db, "visits", `${today}_${uid}_${sid}`);
+
+    try {
+      await setDoc(ref, {
+        uid,
         date: today,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
+        country:  geo.country    || 'Neznáma',
+        region:   geo.regionName || '',
+        city:     geo.city       || '',
+        ipPrefix: skratIp(geo.query),
+        isp:      geo.isp        || '',
+        referrer: odkialPrisiel(),
+        landing:  (location.hash || '#dealy').slice(1),
+        device:   typZariadenia(),
+        duration: 0
       });
-      sessionStorage.setItem('hk_visit_recorded', today);
-    } catch(e) {
-      // Najčastejšie "už zaznamenané dnes" - druhý zápis toho istého
-      // dokumentu pravidlá odmietnu. Nie je to porucha, len to označíme
-      // ako hotové, nech to neskúšame znova.
-      sessionStorage.setItem('hk_visit_recorded', today);
+      visitRef = ref;
+      visitStart = Date.now();
+      visitLastSaved = 0;
+    } catch (e) {
+      // Zamietnutý zápis nesmie nič pokaziť - meranie je doplnok,
+      // nie funkcia stránky.
     }
   }
+
+  // Dĺžka návštevy. Neposielame ju každú sekundu - stačí raz po pol
+  // minúte a potom pri odchode zo stránky. Sú to dva zápisy na
+  // návštevu; heartbeat každých pár sekúnd by pri stovke návštevníkov
+  // znamenal tisíce zbytočných zápisov denne.
+  async function ulozDlzku(force) {
+    if (!visitRef || !visitStart) return;
+    const sekundy = Math.round((Date.now() - visitStart) / 1000);
+    if (sekundy < 5) return;
+    if (!force && sekundy - visitLastSaved < 30) return;
+    visitLastSaved = sekundy;
+    try {
+      await updateDoc(visitRef, { duration: sekundy, lastSeen: serverTimestamp() });
+    } catch (e) { /* ticho - viď vyššie */ }
+  }
+
+  setInterval(() => ulozDlzku(false), 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') ulozDlzku(true);
+  });
+  window.addEventListener('pagehide', () => ulozDlzku(true));
 
   // ── Nastavenia moderácie (čítané pri každom novom príspevku) ────────────────
   async function getInitialStatus(type) {

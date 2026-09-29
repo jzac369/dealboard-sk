@@ -122,13 +122,28 @@ service cloud.firestore {
 
     // Návštevnosť – 1 záznam na deň a návštevníka. ID dokumentu obsahuje
     // dátum aj uid, takže si nikto neprepíše cudzí záznam.
+    // Návštevy. Jeden dokument = jedno otvorenie stránky, nie jeden deň:
+    // ID je "datum_uid_nahodnecislo", aby sa dala zaznamenať aj opakovaná
+    // návšteva toho istého človeka a jej dĺžka.
+    //
+    // Dĺžku dopĺňa prehliadač až počas návštevy, preto je tu povolený
+    // update - ale len vlastnému záznamu a len na dve polia. Bez toho
+    // obmedzenia by si ktokoľvek mohol prepísať mesto alebo krajinu
+    // v cudzom zázname a štatistiky by boli na nič.
     match /visits/{visitId} {
       allow read: if isAdmin();
       allow create: if request.auth != null
-                    && visitId == request.resource.data.date + '_' + request.auth.uid
+                    && visitId.split('_')[1] == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
                     && request.resource.data.country is string
                     && request.resource.data.date is string;
-      allow update, delete: if false;
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['duration', 'lastSeen'])
+                    && request.resource.data.duration is int
+                    && request.resource.data.duration >= 0;
+      allow delete: if false;
     }
 
     // ═══════════════════════════════════════════════════════════════
