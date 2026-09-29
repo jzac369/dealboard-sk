@@ -85,6 +85,61 @@ def adresa_dealu(deal_id: str, titul: str) -> str:
     return f"{SITE}/deal/{_slug(titul)}-{deal_id}/"
 
 
+def token_stranky() -> str | None:
+    """
+    Vráti token, ktorým sa dá publikovať na stránku.
+
+    PREČO TO NIE JE JEDNODUCHO FB_PAGE_TOKEN
+    Vyžiadať v Graph API Explorerovi token stránky a ešte ho aj predĺžiť
+    je prekvapivo ľahké pokaziť - Access Token Debugger predlžuje token,
+    ktorý mu dáš, a keď mu dáš používateľský, dostaneš späť predĺžený
+    používateľský. Tým sa na stránku publikovať nedá.
+
+    Preto to neriešime návodom, ale kódom: keď je nastavený používateľský
+    token, vypýtame si zoznam stránok, ktoré spravuje, a použijeme token
+    tej našej. Token stránky odvodený z dlhodobého používateľského
+    nevyprší.
+
+    Odvodený token sa nikde nezapisuje ani nevypisuje - žije len v pamäti
+    počas behu.
+    """
+    try:
+        r = requests.get(f"{API}/me", params={"fields": "id", "access_token": TOKEN}, timeout=30)
+        d = r.json()
+    except Exception as e:
+        logger.error("Nepodarilo sa overiť token: %s", e)
+        return None
+
+    if "error" in d:
+        logger.error("Token neprešiel: %s", str(d["error"].get("message"))[:200])
+        return None
+
+    if str(d.get("id")) == STRANKA:
+        logger.info("Nastavený token patrí priamo stránke.")
+        return TOKEN
+
+    logger.info("Nastavený token patrí používateľovi — odvodzujem z neho token stránky.")
+    try:
+        r2 = requests.get(f"{API}/me/accounts",
+                          params={"fields": "id,access_token", "access_token": TOKEN}, timeout=30)
+        d2 = r2.json()
+    except Exception as e:
+        logger.error("Zoznam stránok sa nepodarilo načítať: %s", e)
+        return None
+
+    if "error" in d2:
+        logger.error("Zoznam stránok odmietnutý: %s", str(d2["error"].get("message"))[:200])
+        return None
+
+    for s in d2.get("data", []):
+        if str(s.get("id")) == STRANKA and s.get("access_token"):
+            logger.info("Token stránky odvodený.")
+            return s["access_token"]
+
+    logger.error("Medzi stránkami tohto účtu nie je žiadna s ID z FB_PAGE_ID.")
+    return None
+
+
 def _je_dostupna(url: str) -> bool:
     try:
         r = requests.head(url, timeout=20, allow_redirects=True)
@@ -117,6 +172,11 @@ def sprava(d: dict) -> str:
 def posli(db) -> int:
     if not (STRANKA and TOKEN):
         logger.info("FB_PAGE_ID alebo FB_PAGE_TOKEN nie sú nastavené — nezdieľam nič.")
+        return 0
+
+    token = token_stranky()
+    if not token:
+        logger.error("Bez tokenu stránky sa publikovať nedá — končím.")
         return 0
 
     try:
@@ -168,7 +228,7 @@ def posli(db) -> int:
         try:
             r = requests.post(
                 f"{API}/{STRANKA}/feed",
-                data={"message": sprava(d), "link": odkaz, "access_token": TOKEN},
+                data={"message": sprava(d), "link": odkaz, "access_token": token},
                 timeout=40,
             )
         except Exception as e:
@@ -178,7 +238,10 @@ def posli(db) -> int:
         if r.status_code != 200:
             # Chybu vypisujeme celú okrem tokenu - bez nej sa nedá zistiť,
             # či ide o vypršaný token alebo o chýbajúce oprávnenie.
-            text = r.text.replace(TOKEN, "***") if TOKEN else r.text
+            text = r.text
+            for tajne in (TOKEN, token):
+                if tajne:
+                    text = text.replace(tajne, "***")
             logger.error("Facebook odmietol príspevok (HTTP %s): %s",
                          r.status_code, text[:300])
             continue
