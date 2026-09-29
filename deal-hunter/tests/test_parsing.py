@@ -1049,3 +1049,65 @@ def test_feed_kde_je_v_akcii_skoro_vsetko_nema_verohodne_zlavy():
     )
     assert vyber, "feed sa nesmie zahodiť, len prejsť na sledovanie cien"
     assert all(c.original_price is None for c in vyber)
+
+
+# ── plánovač ──────────────────────────────────────────────────────────
+
+def _cas(den, h, m=0):
+    from datetime import datetime
+    from planovac import ZONA
+    return datetime(2026, 10, den, h, m, tzinfo=ZONA)
+
+
+def test_planovac_spusti_termin_ktory_prave_nastal():
+    from planovac import na_rade
+    t = na_rade(["07:30", "12:30"], None, _cas(5, 7, 40), okno_h=3)
+    assert t == _cas(5, 7, 30)
+
+
+def test_planovac_ten_isty_termin_nespusti_dvakrat():
+    """GitHub kontrolu niekedy pustí dvakrát alebo s oneskorením."""
+    from planovac import na_rade
+    uz_bezal = _cas(5, 7, 30).isoformat()
+    assert na_rade(["07:30", "12:30"], uz_bezal, _cas(5, 7, 55), okno_h=3) is None
+
+
+def test_planovac_pred_prvym_terminom_nic():
+    from planovac import na_rade
+    # 6:00, včerajší posledný termín 12:30 je 17,5 h dozadu - mimo okna
+    assert na_rade(["07:30", "12:30"], None, _cas(5, 6, 0), okno_h=3) is None
+
+
+def test_planovac_nedobieha_stare_terminy():
+    """Po výpadku nesmú naraz dobehnúť všetky zmeškané behy."""
+    from planovac import na_rade
+    assert na_rade(["07:30"], None, _cas(5, 11, 0), okno_h=3) is None
+
+
+def test_planovac_polnoc_berie_vcerajsi_termin():
+    from planovac import na_rade
+    t = na_rade(["23:50"], None, _cas(6, 0, 10), okno_h=3)
+    assert t == _cas(5, 23, 50)
+
+
+def test_planovac_zmena_casu_nic_neposunie():
+    """25. 10. 2026 končí letný čas - 7:30 musí zostať 7:30."""
+    from planovac import na_rade
+    for den in (24, 26):
+        assert na_rade(["07:30"], None, _cas(den, 7, 35), okno_h=3) == _cas(den, 7, 30)
+
+
+def test_planovac_zly_cas_nezhodi_ostatne():
+    from planovac import na_rade
+    assert na_rade(["nezmysel", "25:99", "07:30"], None, _cas(5, 7, 40), okno_h=3) == _cas(5, 7, 30)
+
+
+def test_planovac_rucne_spustenie_a_vypnuta_uloha():
+    from planovac import co_spustit, PREDVOLENY
+    import copy
+    rozvrh = {"jobs": copy.deepcopy(PREDVOLENY), "runNow": {"letenky": True}, "stav": {}}
+    rozvrh["jobs"]["agent"]["enabled"] = False
+    mena = {m for m, _, _ in co_spustit(rozvrh, _cas(5, 7, 40))}
+    assert "letenky" in mena            # ručne, hoci termín 7:30 by aj tak prešiel
+    assert "agent" not in mena          # vypnutý v admine
+    assert "potraviny" not in mena      # lokálna úloha, cloud ju nespúšťa

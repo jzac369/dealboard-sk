@@ -48,6 +48,7 @@
       startListeningCoupons();
       startListeningSettings();
       startListeningAffiliate();
+      startListeningSchedule();
       startListeningVisits();
       loadMerchants();
       loadAuditLog();
@@ -103,6 +104,106 @@
       document.getElementById('heat-detail').style.display = ziar ? 'block' : 'none';
     });
   }
+
+  // ── Plánovač úloh ──────────────────────────────────────────────────
+  // Rozvrh je v settings/schedule. Na GitHube ho každých 15 minút číta
+  // planovac.py a spúšťa, čo je na rade; ceny potravín číta úloha na
+  // počítači. Admin len zapisuje časy - nič nespúšťa priamo, na to by
+  // potreboval GitHub token, ktorý do verejnej stránky nepatrí.
+  const scheduleRef = doc(db, "settings", "schedule");
+  const PLAN_ULOHY = [
+    { id: 'agent',     nazov: 'Hľadanie dealov',       popis: 'Prejde feedy, letáky a obchody, nové návrhy pošle do Telegramu.' },
+    { id: 'letenky',   nazov: 'Lacné letenky',         popis: 'Ryanair z Bratislavy — tri najlacnejšie na schválenie.' },
+    { id: 'ziar',      nazov: 'Denný žiar',            popis: 'Pridá hlasy publikovaným dealom. Rozsah a hlavný vypínač sú pri Dealoch.' },
+    { id: 'facebook',  nazov: 'Zdieľanie na Facebook', popis: 'Najviac 2 čerstvé dealy na jeden beh.' },
+    { id: 'potraviny', nazov: 'Ceny potravín',         popis: 'Beží na tvojom počítači — musí byť zapnutý (nie uspatý).', lokalne: true },
+  ];
+  let plan = {};
+
+  function _kedy(ts) {
+    const d = ts && ts.toDate ? ts.toDate() : null;
+    if (!d) return 'ešte nebežala';
+    return `${d.getDate()}.${d.getMonth() + 1}. o ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function startListeningSchedule() {
+    onSnapshot(scheduleRef, (snap) => {
+      plan = snap.exists() ? snap.data() : {};
+      renderPlan();
+    }, (e) => console.warn('Rozvrh sa nepodarilo načítať:', e));
+  }
+
+  function renderPlan() {
+    const el = document.getElementById('plan-list');
+    if (!el) return;
+    // Keď práve píšeš čas, neprekresľujeme - zápis stavu z plánovača
+    // (každých 15 minút) by ti rozpísaný text zmazal. Prekreslí sa pri
+    // ďalšej zmene, alebo keď pole opustíš a uloží sa.
+    if (el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT'
+        && document.activeElement.type === 'text') return;
+    const jobs = plan.jobs || {}, stav = plan.stav || {}, runNow = plan.runNow || {};
+    el.innerHTML = PLAN_ULOHY.map(u => {
+      const j = jobs[u.id] || {}, s = stav[u.id] || {};
+      const zap = j.enabled !== false;
+      const posledny = s.lastRun
+        ? `Naposledy ${_kedy(s.lastRun)}${s.manual ? ' (ručne)' : ''}` : 'Ešte nebežala cez plánovač';
+      const caka = runNow[u.id]
+        ? `<span class="plan-caka">čaká na spustenie${u.lokalne ? ' (keď bude počítač zapnutý)' : ', do 15 min'}</span>` : '';
+      return `
+      <div class="plan-row${zap ? '' : ' plan-off'}">
+        <div class="plan-info">
+          <div class="plan-nazov">${u.nazov} <span class="plan-kde">${u.lokalne ? '💻 počítač' : '☁️ cloud'}</span></div>
+          <div class="plan-popis">${u.popis}</div>
+          <div class="plan-stav">${posledny} ${caka}</div>
+        </div>
+        <input class="plan-casy" type="text" value="${escapeAttr((j.times || []).join(', '))}"
+               placeholder="07:30, 12:30" onchange="savePlanTimes('${u.id}', this)" title="Časy v slovenskom čase">
+        <button class="btn btn-edit" onclick="runJobNow('${u.id}')" ${runNow[u.id] ? 'disabled' : ''}>▶ Spustiť teraz</button>
+        <label class="switch" title="${zap ? 'Vypnúť' : 'Zapnúť'}">
+          <input type="checkbox" ${zap ? 'checked' : ''} onchange="savePlan('${u.id}', { enabled: this.checked })">
+          <span class="slider"></span>
+        </label>
+      </div>`;
+    }).join('');
+  }
+
+  window.savePlan = async function(id, zmena) {
+    try {
+      await setDoc(scheduleRef, { jobs: { [id]: zmena } }, { merge: true });
+    } catch (e) {
+      alert('Nepodarilo sa uložiť rozvrh: ' + e.message);
+    }
+  };
+
+  window.savePlanTimes = async function(id, input) {
+    // Prijmeme aj "7:30" a "7.30"; neplatné časy odmietneme hneď tu, nie
+    // až potichu v plánovači.
+    const casy = [], zle = [];
+    input.value.split(/[,;\s]+/).filter(Boolean).forEach(t => {
+      const m = t.replace('.', ':').match(/^(\d{1,2}):(\d{2})$/);
+      if (m && +m[1] < 24 && +m[2] < 60) casy.push(`${m[1].padStart(2, '0')}:${m[2]}`);
+      else zle.push(t);
+    });
+    if (zle.length) {
+      alert(`Tieto časy nerozumiem: ${zle.join(', ')}\nPouži tvar HH:MM, napr. 07:30.`);
+      renderPlan();
+      return;
+    }
+    const zoradene = [...new Set(casy)].sort();
+    if (!zoradene.length && !confirm('Bez časov táto úloha nepobeží vôbec (okrem ručného spustenia). Pokračovať?')) {
+      renderPlan();
+      return;
+    }
+    await window.savePlan(id, { times: zoradene });
+  };
+
+  window.runJobNow = async function(id) {
+    try {
+      await setDoc(scheduleRef, { runNow: { [id]: true } }, { merge: true });
+    } catch (e) {
+      alert('Nepodarilo sa zadať spustenie: ' + e.message);
+    }
+  };
 
   // ── Affiliate odkazy ───────────────────────────────────────────────
   // Nastavenia číta stránka aj generátor statických stránok dealov.
@@ -1518,6 +1619,23 @@
   .aff-row label { font-size: .85rem; font-weight: 600; min-width: 170px; }
   .aff-row input { flex: 1; min-width: 180px; font-family: ui-monospace, Consolas, monospace; }
 
+  /* ── Plánovač ─────────────────────────────────────────────────── */
+  .plan-row { display: grid; grid-template-columns: 1fr 190px auto auto; gap: 12px;
+    align-items: center; padding: 12px 14px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--card); margin-bottom: 8px; }
+  .plan-off { opacity: .55; }
+  .plan-nazov { font-weight: 700; font-size: .92rem; }
+  .plan-kde { font-weight: 500; font-size: .72rem; color: var(--muted); margin-left: 6px; }
+  .plan-popis { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .plan-stav { font-size: .74rem; color: var(--muted); margin-top: 4px; }
+  .plan-caka { color: #B76E00; font-weight: 700; margin-left: 6px; }
+  .plan-casy { font-family: ui-monospace, Consolas, monospace; font-size: .82rem;
+    padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 6px; width: 100%; }
+  @media (max-width: 720px) {
+    .plan-row { grid-template-columns: 1fr auto; }
+    .plan-info { grid-column: 1 / -1; }
+  }
+
   /* ── Dotykové ovládanie (telefón, tablet) ──────────────────────────
      Admin sa dá ovládať aj z mobilu, ale tlačidlá mali 26 px a polia
      dokonca 19 - prstom sa to trafí ťažko.
@@ -1699,6 +1817,22 @@
         <button class="tab-btn comment-tab-btn" onclick="setCommentTab('rejected', this)">Zamietnuté (<span id="ccount-rejected">0</span>)</button>
       </div>
       <div id="comment-list"></div>
+    </section>
+
+    <!-- ── Sekcia: Plánovač ───────────────────────────────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">⏱ Plánovač úloh</h2>
+      <p class="settings-hint" style="margin:-6px 0 14px;">
+        Časy sú v <b>slovenskom čase</b> — zmena letného a zimného času nič neposunie.
+        Viac časov oddeľ čiarkou, napr. <code>07:30, 12:30, 18:30</code>. Úlohy sa kontrolujú
+        každých 15 minút, takže beh môže začať pár minút po zadanom čase.
+      </p>
+      <div id="plan-list"></div>
+      <p class="settings-hint" style="margin-top:10px;">
+        Tu nie sú dve úlohy zámerne: <b>schvaľovanie z Telegramu</b> beží nepretržite (bez neho by
+        tlačidlá Schváliť/Zamietnuť nefungovali) a <b>stránky dealov</b> sa generujú každú hodinu
+        a hneď po schválení. Obe sú súčasť chodu stránky, nie úlohy na plánovanie.
+      </p>
     </section>
 
     <!-- ── Sekcia: Affiliate odkazy ───────────────────────────────────── -->

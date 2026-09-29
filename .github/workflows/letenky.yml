@@ -8,9 +8,8 @@ name: Lacné letenky
 # do Telegramu s tlacidlami Schvalit / Zamietnut.
 
 on:
-  schedule:
-    # 05:30 UTC -> 07:30 SK (leto) / 06:30 SK (zima)
-    - cron: "30 5 * * *"
+  # Kedy sa to spusti, urcuje planovac (planovac.yml) podla
+  # rozvrhu v admin zone. Pevny cron tu zamerne nie je.
   workflow_dispatch: {}
 
 # Dva behy naraz by navrhli tie iste lety dvakrat.

@@ -1,32 +1,35 @@
-name: Zdieľanie na Facebook
+name: Plánovač
 
-# Zdiela cerstvo schvalene dealy na facebookovu stranku. Dvakrat denne,
-# najviac dva prispevky na beh - viac by z casovej osi urobilo spam.
+# Kazdych 15 minut sa pozrie do settings/schedule, co je na rade, a
+# spusti to. Casy sa menia v admin zone - nie tu. Cron v jednotlivych
+# workflow zamerne nie je: casy v nich by sa z admina menit nedali.
 #
-# Bez FB_PAGE_ID a FB_PAGE_TOKEN skript nic neurobi a skonci v poriadku,
-# takze workflow moze bezat aj pred nastavenim tokenu.
+# Repozitar je verejny, takze GitHub Actions minuty su zadarmo a tato
+# casta kontrola nic nestoji.
 
 on:
-  # Kedy sa to spusti, urcuje planovac (planovac.yml) podla
-  # rozvrhu v admin zone. Pevny cron tu zamerne nie je.
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
-      diag:
-        description: "Len diagnostika - zisti, preco Facebook odmieta prispevky"
+      nasucho:
+        description: "Len vypisat, co by sa spustilo"
         type: boolean
         default: false
 
+# Dve kontroly naraz by mohli spustit tu istu ulohu dvakrat.
 concurrency:
-  group: facebook
+  group: planovac
   cancel-in-progress: false
 
 permissions:
   contents: read
+  actions: write      # spustanie ostatnych workflow
 
 jobs:
-  zdielat:
+  planovac:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     defaults:
       run:
@@ -49,14 +52,12 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Zdieľanie
-        run: python facebook_post.py
+      - name: Kontrola rozvrhu
+        run: python planovac.py ${{ inputs.nasucho && '--nasucho' || '' }}
         env:
           FIRESTORE_PROJECT_ID: dealboard-e60bf
           GOOGLE_APPLICATION_CREDENTIALS: firebase-credentials.json
-          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
-          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
-          FB_DIAGNOSTICS: ${{ inputs.diag }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Zmazanie kľúča
         if: always()

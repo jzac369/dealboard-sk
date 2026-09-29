@@ -2,3 +2,7 @@ requests>=2.31.0
 beautifulsoup4>=4.12.0
 google-cloud-firestore>=2.16.0
 Pillow>=10.0.0
+
+# Databaza casovych zon pre zoneinfo. Linux ju ma v systeme, Windows nie -
+# bez nej by planovac (a tym aj lokalna uloha na ceny potravin) spadol.
+tzdata

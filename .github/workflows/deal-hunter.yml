@@ -1,14 +1,8 @@
 name: Deal Hunter
 
 on:
-  schedule:
-    # 3x denne. Časy sú v UTC; Slovensko je +2 h v lete, +1 h v zime.
-    # 05:30 UTC -> 07:30 SK (leto) / 06:30 SK (zima)
-    - cron: "30 5 * * *"
-    # 10:30 UTC -> 12:30 SK (leto)
-    - cron: "30 10 * * *"
-    # 16:30 UTC -> 18:30 SK (leto)
-    - cron: "30 16 * * *"
+  # Kedy sa to spusti, urcuje planovac (planovac.yml) podla
+  # rozvrhu v admin zone. Pevny cron tu zamerne nie je.
   workflow_dispatch:
     # Umožní manuálne spustenie z GitHub UI (záložka Actions).
     inputs:

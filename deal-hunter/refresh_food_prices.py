@@ -24,8 +24,48 @@ logging.basicConfig(
 logger = logging.getLogger("food")
 
 
+def _podla_planu() -> tuple[bool, str | None, bool, object]:
+    """
+    Pri spustení s --plan rozhodne rozvrh z admin zóny, či sa má bežať.
+
+    Plánovaná úloha vo Windows sa spúšťa často (každých 30 minút) a sama
+    nevie, kedy má ceny naozaj stiahnuť - to je v settings/schedule a
+    mení sa v admine. Keď nie je na rade, skončí okamžite, bez jediného
+    volania na cenyslovensko.sk.
+
+    Vracia (bežať?, termín, ručne?, db).
+    """
+    from datetime import datetime
+    import firestore_client
+    import planovac
+
+    db = firestore_client.get_client()
+    rozvrh = planovac.nacitaj(db)
+    na_rade = planovac.co_spustit(rozvrh, datetime.now(planovac.ZONA), lokalne=True)
+    for meno, termin, rucne in na_rade:
+        if meno == "potraviny":
+            return True, termin, rucne, db
+    return False, None, False, db
+
+
 def main() -> int:
     dry_run = "--skuska" in sys.argv or "--dry-run" in sys.argv
+
+    plan = None
+    if "--plan" in sys.argv:
+        bezat, termin, rucne, db_plan = _podla_planu()
+        if not bezat:
+            logger.info("Podľa rozvrhu nie je na rade — končím.")
+            return 0
+        plan = (termin, rucne, db_plan)
+        logger.info("Podľa rozvrhu na rade (%s).",
+                    "ručne z admina" if rucne else f"termín {termin[11:16]}")
+        # Termín zapisujeme HNEĎ, nie až po úspechu. cenyslovensko.sk sa
+        # nedávno bránilo útoku a pri zlyhaní by sme ho inak skúšali každých
+        # 30 minút až 12 hodín - to je spôsob, ako si zablokovať IP adresu.
+        # Jeden pokus na termín, druhý denný termín je poistka.
+        import planovac
+        planovac.zapis_beh(db_plan, "potraviny", termin, rucne)
 
     import food_prices
 

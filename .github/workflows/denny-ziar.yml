@@ -8,10 +8,8 @@ name: Denný žiar dealom
 # Bezi v cloude, takze nepotrebuje zapnuty pocitac.
 
 on:
-  schedule:
-    # 04:10 UTC -> 06:10 SK (leto) / 05:10 SK (zima). Zamerne pred
-    # rannym behom agenta, nech su cisla na stranke cerstve uz rano.
-    - cron: "10 4 * * *"
+  # Kedy sa to spusti, urcuje planovac (planovac.yml) podla
+  # rozvrhu v admin zone. Pevny cron tu zamerne nie je.
   workflow_dispatch: {}
 
 concurrency:
