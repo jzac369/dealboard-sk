@@ -89,7 +89,15 @@ class FeedsScraper(BaseScraper):
         if shop_items:
             items, parser = shop_items, self._parse_heureka_item
         else:
-            items, parser = root.findall(".//item"), self._parse_google_item
+            # Google Merchant chodí v dvoch obaloch: RSS 2.0 s <item> a
+            # Atom s <entry>. Polia vnútri sú rovnaké. CBelektro posiela
+            # Atom a bez tejto vetvy by sme z jeho 67 000 položiek
+            # nenašli ani jednu - feed by vyzeral ako prázdny.
+            items = root.findall(".//item")
+            if not items:
+                items = (root.findall(".//{http://www.w3.org/2005/Atom}entry")
+                         or root.findall(".//entry"))
+            parser = self._parse_google_item
 
         candidates: list[DealCandidate] = []
         for item in items[: config.FEED_MAX_ITEMS]:
