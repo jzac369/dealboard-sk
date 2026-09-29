@@ -100,15 +100,30 @@ class FeedsScraper(BaseScraper):
             parser = self._parse_google_item
 
         candidates: list[DealCandidate] = []
+        lacne = 0
         for item in items[: config.FEED_MAX_ITEMS]:
             try:
                 candidate = parser(item)
             except Exception as e:
                 logger.warning("Feed %s: preskakujem položku (%s)", feed_url, e)
                 continue
-            if candidate:
-                candidates.append(candidate)
+            if not candidate:
+                continue
 
+            # Lacné položky zahadzujeme hneď tu, nie až v is_sane.
+            # Dôvod je sledovanie cien: to beží PRED is_sane, takže bez
+            # tohto by sa do price_watch dostala každá pätnásťcentová
+            # skrutka. Jeden feed má 67 000 položiek; vedierka majú
+            # kapacitu rádovo 240 000 a zaplnili by sa nezmyslami.
+            if candidate.deal_price < config.MIN_DEAL_PRICE:
+                lacne += 1
+                continue
+
+            candidates.append(candidate)
+
+        if lacne:
+            logger.info("Feed: vynechaných %d položiek pod %.2f €",
+                        lacne, config.MIN_DEAL_PRICE)
         return candidates
 
     def _parse_google_item(self, item: ET.Element) -> Optional[DealCandidate]:
