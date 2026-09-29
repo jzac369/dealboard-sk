@@ -261,7 +261,9 @@ def diagnostika() -> int:
         logger.info("Stránky dostupné cez tento token: %d", len(d4["data"]))
         for s in d4["data"][:5]:
             zhoda = "  <-- toto ID máš v FB_PAGE_ID" if str(s.get("id")) == STRANKA else ""
-            logger.info("   %r%s", s.get("name"), zhoda)
+            # ID stránky je verejný údaj (je v adrese stránky), takže ho
+            # vypísať môžeme - a bez neho by sa chyba opravovala naslepo.
+            logger.info("   %r  ID: %s%s", s.get("name"), s.get("id"), zhoda)
         if d4["data"] and not any(str(s.get("id")) == STRANKA for s in d4["data"]):
             logger.error("ŽIADNA z týchto stránok nemá ID, ktoré je vo FB_PAGE_ID.")
     return 0
