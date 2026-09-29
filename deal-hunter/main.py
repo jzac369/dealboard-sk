@@ -326,7 +326,18 @@ def run_feed_diagnostics() -> int:
 
         polozky = koren.findall(".//SHOPITEM") or koren.findall(".//item")
         if not polozky:
-            logger.warning("  žiadne položky sa nenašli")
+            # Feed môže byť platné XML v inom tvare, než čakáme. Nech
+            # nekončíme pri "0 položiek" - vypíšeme, ako naozaj vyzerá,
+            # aby sa dalo rozhodnúť, či ho vieme dorobiť.
+            deti = _Counter(d.tag.split("}")[-1] for d in koren)
+            logger.warning("  žiadne SHOPITEM ani item — koreň je <%s>, priame deti: %s",
+                           koren.tag.split("}")[-1],
+                           ", ".join(f"{t} ({n})" for t, n in deti.most_common(6)) or "žiadne")
+            prve = list(koren)[:1]
+            if prve:
+                vnutro = _Counter(d.tag.split("}")[-1] for d in prve[0])
+                logger.warning("  polia v prvom prvku: %s",
+                               ", ".join(sorted(vnutro)) or "žiadne")
             continue
 
         polia = _Counter()
