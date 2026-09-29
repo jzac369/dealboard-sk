@@ -173,7 +173,17 @@ def load_overrides(db) -> int:
 # ── affiliate tracking ────────────────────────────────────────────────
 
 # Parametre, podľa ktorých spoznáme, že odkaz už tracking nesie.
-_TRACKING_PARAMS = {"a_aid", "a_bid", "a_cid", "aff", "affid", "pid", "clickref", "utm_source"}
+# "chid" používa Dognet 2.0 - bez neho by sa už otagovaný odkaz zabalil
+# druhýkrát a vznikol by preklik cez sieť na sieť. Provízia by sa
+# stratila a adresa by narástla do nezmyselnej dĺžky.
+_TRACKING_PARAMS = {
+    "a_aid", "a_bid", "a_cid", "chid",
+    "aff", "affid", "pid", "clickref", "utm_source",
+}
+
+# Domény preklikávačov. Poistka pre prípad, že sieť raz premenuje
+# parameter: odkaz, ktorý už vedie cez preklikávač, nikdy nebalíme.
+_TRACKING_HOSTS = ("go.dognet.com", "go.dognet.sk", "track.dognet.sk")
 
 
 def add_affiliate_tracking(url: str) -> str:
@@ -198,8 +208,11 @@ def add_affiliate_tracking(url: str) -> str:
     if not template or "{url}" not in template:
         return url
 
-    if _TRACKING_PARAMS & set(parse_qs(urlparse(url).query)):
+    rozobrane = urlparse(url)
+    if _TRACKING_PARAMS & set(parse_qs(rozobrane.query)):
         return url   # už otagované sieťou, druhýkrát by to tracking rozbilo
+    if any(h in (rozobrane.netloc or "").lower() for h in _TRACKING_HOSTS):
+        return url   # už vedie cez preklikávač
 
     return template.replace("{url}", quote(url, safe=""))
 
