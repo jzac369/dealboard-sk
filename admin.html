@@ -7,7 +7,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, orderBy, limit, setDoc, getDoc, addDoc, getDocs, serverTimestamp }
+  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, where, orderBy, limit, setDoc, getDoc, addDoc, getDocs, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -628,10 +628,14 @@
   // admin panel musí fungovať ďalej.
   async function logChange(dealId, action, detail) {
     try {
+      // Názov dealu zapisujeme vždy - aj keď ho volajúci nepošle. Doteraz
+      // ho malo len 49 zo 125 záznamov a pri vymazanom deale sa už potom
+      // nedal dohľadať vôbec.
+      const nazov = detail || (allDeals.find(d => d.id === dealId) || {}).title || null;
       await addDoc(collection(db, "audit_log"), {
         dealId,
         action,
-        detail: detail || null,
+        detail: nazov,
         by: auth.currentUser?.email || 'neznámy',
         timestamp: serverTimestamp()
       });
@@ -1336,35 +1340,123 @@
   }
 
   // ── Záznam zmien ────────────────────────────────────────────────────
+  // ── Záznam zmien ─────────────────────────────────────────────────
+  // Jeden záznam = jeden riadok. Obdobie sa načíta z databázy, akcia a
+  // hľadanie filtrujú už načítané, a CSV stiahne presne to, čo vidíš.
+  const LOG_AKCIE = {
+    approved: 'schválil', rejected: 'zamietol', archived: 'archivoval',
+    pending: 'vrátil na schválenie', expired: 'označil exspirované',
+    unexpired: 'zrušil exspiráciu', deleted: 'vymazal', 'denny-ziar': 'denný žiar',
+  };
+  const LOG_OBDOBIE = { 1: 'den', 7: 'tyzden', 30: 'mesiac', 365: 'rok', 0: 'od-zaciatku' };
+  let auditRows = [];
+
+  function _logCas(a) {
+    return a.timestamp && a.timestamp.toDate ? a.timestamp.toDate() : null;
+  }
+  function _logCasText(d) {
+    if (!d) return '';
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  // Názov dealu: najprv zo záznamu, potom z aktuálnych dealov. Staršie
+  // záznamy názov nemajú a vymazaný deal sa už dohľadať nedá.
+  function _logDeal(a) {
+    if (a.action === 'denny-ziar') return '';
+    if (a.detail) return a.detail;
+    const d = allDeals.find(x => x.id === a.dealId);
+    if (d && d.title) return d.title;
+    if (!a.dealId) return '';
+    return a.action === 'deleted' ? '(vymazaný deal)' : `ID ${a.dealId.slice(0, 8)}…`;
+  }
+  function _logPoznamka(a) {
+    return a.action === 'denny-ziar' ? (a.detail || '') : '';
+  }
+
   async function loadAuditLog() {
     const el = document.getElementById('audit-list');
     if (!el) return;
-    const NAZVY = { approved:'schválil', rejected:'zamietol', archived:'archivoval',
-                    pending:'vrátil na schválenie', expired:'označil exspirované',
-                    unexpired:'zrušil exspiráciu', deleted:'vymazal' };
+    const dni = Number(document.getElementById('log-obdobie').value);
+    el.innerHTML = '<tr><td colspan="5" class="vis-empty">Načítavam…</td></tr>';
     try {
-      const qy = query(collection(db, "audit_log"), orderBy("timestamp", "desc"), limit(50));
-      const snap = await getDocs(qy);
-      if (snap.empty) {
-        el.innerHTML = '<div class="empty" style="font-size:.85rem;">Zatiaľ žiadne zaznamenané zmeny.</div>';
-        return;
-      }
-      el.innerHTML = snap.docs.map(d => {
-        const a = d.data();
-        const when = a.timestamp?.seconds
-          ? new Date(a.timestamp.seconds * 1000).toLocaleString('sk-SK')
-          : '';
-        return `<div class="row">
-          <div class="row-main">
-            <div class="row-title">${escapeHtml(a.by||'neznámy')} <strong>${escapeHtml(NAZVY[a.action] || a.action || '')}</strong> deal</div>
-            <div class="row-sub">${escapeHtml(when)} · ${escapeHtml(a.dealId||'')}</div>
-          </div>
-        </div>`;
-      }).join('');
+      // Strop 5 000 je len poistka proti nečakanému nafúknutiu.
+      const podmienky = [orderBy("timestamp", "desc"), limit(5000)];
+      if (dni > 0) podmienky.unshift(where("timestamp", ">=", new Date(Date.now() - dni * 86400000)));
+      const snap = await getDocs(query(collection(db, "audit_log"), ...podmienky));
+      auditRows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Ponuka akcií len z tých, čo v období naozaj sú.
+      const sel = document.getElementById('log-akcia');
+      const aktualna = sel.value;
+      const akcie = [...new Set(auditRows.map(a => a.action).filter(Boolean))];
+      sel.innerHTML = '<option value="">Všetky akcie</option>' + akcie.map(a =>
+        `<option value="${escapeAttr(a)}">${escapeHtml(LOG_AKCIE[a] || a)}</option>`).join('');
+      if (akcie.includes(aktualna)) sel.value = aktualna;
+
+      window.renderAuditLog();
     } catch (e) {
-      el.innerHTML = '<div class="empty" style="font-size:.85rem;">Záznam sa nepodarilo načítať — pravdepodobne chýbajú Firestore pravidlá pre kolekciu <code>audit_log</code>.</div>';
+      el.innerHTML = '<tr><td colspan="5" class="vis-empty">Záznam sa nepodarilo načítať: ' + escapeHtml(e.message) + '</td></tr>';
     }
   }
+  window.loadAuditLog = loadAuditLog;
+
+  function _logFiltrovane() {
+    const akcia = document.getElementById('log-akcia').value;
+    const q = document.getElementById('log-hladaj').value.trim().toLowerCase();
+    return auditRows.filter(a => {
+      if (akcia && a.action !== akcia) return false;
+      if (!q) return true;
+      return `${_logDeal(a)} ${a.by || ''} ${_logPoznamka(a)}`.toLowerCase().includes(q);
+    });
+  }
+
+  window.renderAuditLog = function() {
+    const el = document.getElementById('audit-list');
+    const riadky = _logFiltrovane();
+    const n = riadky.length;
+    const slovo = n === 1 ? 'záznam' : (n >= 2 && n <= 4 ? 'záznamy' : 'záznamov');
+    document.getElementById('log-pocet').textContent =
+      `${n} ${slovo}` + (n > 500 ? ' — zobrazených prvých 500, CSV obsahuje všetky' : '');
+    if (!n) {
+      el.innerHTML = '<tr><td colspan="5" class="vis-empty">V tomto období nie sú žiadne záznamy.</td></tr>';
+      return;
+    }
+    el.innerHTML = riadky.slice(0, 500).map(a => {
+      const deal = _logDeal(a);
+      return `<tr>
+        <td class="log-kedy">${_logCasText(_logCas(a))}</td>
+        <td class="log-kto">${escapeHtml(a.by || 'neznámy')}</td>
+        <td><span class="log-akcia log-${escapeAttr(a.action || '')}">${escapeHtml(LOG_AKCIE[a.action] || a.action || '')}</span></td>
+        <td class="log-deal" title="${escapeAttr(deal)}">${escapeHtml(deal)}</td>
+        <td class="log-pozn">${escapeHtml(_logPoznamka(a))}</td>
+      </tr>`;
+    }).join('');
+  };
+
+  // CSV pre Excel: bodkočiarka (slovenský Excel berie čiarku ako desatinnú)
+  // a BOM na začiatku, inak Excel rozbije diakritiku.
+  window.downloadAuditLog = function() {
+    const riadky = _logFiltrovane();
+    if (!riadky.length) { alert('V zvolenom období nie je čo stiahnuť.'); return; }
+    const bunka = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const hlavicka = ['Kedy', 'Kto', 'Akcia', 'Deal', 'Poznámka', 'ID dealu'].map(bunka).join(';');
+    const telo = riadky.map(a => [
+      _logCasText(_logCas(a)), a.by || '', LOG_AKCIE[a.action] || a.action || '',
+      _logDeal(a), _logPoznamka(a), a.dealId || '',
+    ].map(bunka).join(';'));
+    const csv = [hlavicka, ...telo].join('\r\n');
+    const dni = document.getElementById('log-obdobie').value;
+    const dnes = new Date().toISOString().slice(0, 10);
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const odkaz = document.createElement('a');
+    odkaz.href = URL.createObjectURL(blob);
+    odkaz.download = `zaznam-zmien-${LOG_OBDOBIE[dni] || dni}-${dnes}.csv`;
+    document.body.appendChild(odkaz);
+    odkaz.click();
+    odkaz.remove();
+    setTimeout(() => URL.revokeObjectURL(odkaz.href), 1000);
+  };
+
 
   function escapeHtml(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1635,6 +1727,27 @@
     .plan-row { grid-template-columns: 1fr auto; }
     .plan-info { grid-column: 1 / -1; }
   }
+
+  /* ── Záznam zmien ─────────────────────────────────────────────── */
+  .log-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .log-bar select, .log-bar input { padding: 7px 10px; border: 1.5px solid var(--line);
+    border-radius: 6px; font: inherit; font-size: .84rem; background: var(--card); }
+  .log-bar input { flex: 1 1 200px; min-width: 160px; }
+  .log-pocet { font-size: .78rem; color: var(--muted); margin: 0 0 8px; }
+  .log-wrap { max-height: 520px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .log-table thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
+  /* Jeden záznam = jeden riadok: dlhý názov dealu sa oreže a celý je v
+     bublinke po nabehnutí myšou. */
+  .log-table td { white-space: nowrap; }
+  .log-deal { max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+  .log-kto { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+  .log-kedy { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .log-pozn { color: var(--muted); }
+  .log-akcia { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    background: var(--bg); color: var(--muted); }
+  .log-approved { background: #e3f3e6; color: var(--green); }
+  .log-rejected, .log-deleted { background: #fdeceb; color: var(--red); }
+  .log-archived { background: #f1ecff; color: #6b3fc9; }
 
   /* ── Dotykové ovládanie (telefón, tablet) ──────────────────────────
      Admin sa dá ovládať aj z mobilu, ale tlačidlá mali 26 px a polia
@@ -1926,10 +2039,28 @@
     <!-- ── Záznam zmien ────────────────────────────────────────────── -->
     <section class="admin-section">
       <h2 class="section-title">🕘 Záznam zmien</h2>
-      <p style="font-size:.85rem; color:var(--muted); margin:0 0 12px;">
-        Posledných 50 zmien stavu dealov — kto a kedy.
-      </p>
-      <div id="audit-list"></div>
+      <div class="log-bar">
+        <select id="log-obdobie" onchange="loadAuditLog()" aria-label="Obdobie">
+          <option value="1">Posledný deň</option>
+          <option value="7" selected>Posledný týždeň</option>
+          <option value="30">Posledný mesiac</option>
+          <option value="365">Posledný rok</option>
+          <option value="0">Od začiatku</option>
+        </select>
+        <select id="log-akcia" onchange="renderAuditLog()" aria-label="Akcia">
+          <option value="">Všetky akcie</option>
+        </select>
+        <input id="log-hladaj" type="search" placeholder="Hľadať v názve dealu alebo kto…"
+               oninput="renderAuditLog()" aria-label="Hľadať">
+        <button class="btn btn-edit" onclick="downloadAuditLog()">⬇ Stiahnuť CSV</button>
+      </div>
+      <p class="log-pocet" id="log-pocet"></p>
+      <div class="vis-table-wrap log-wrap">
+        <table class="vis-table log-table">
+          <thead><tr><th>Kedy</th><th>Kto</th><th>Akcia</th><th>Deal</th><th>Poznámka</th></tr></thead>
+          <tbody id="audit-list"></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="admin-section">

@@ -263,6 +263,20 @@ def _apply_decision(db, callback: dict) -> bool:
             doc_ref.update({"status": status})
             answer = "Schválené ✅" if status == "approved" else "Zamietnuté ❌"
             logger.info("Deal %s -> %s", deal_id, status)
+            # Do záznamu zmien. Doteraz sa tam zapisovali len rozhodnutia
+            # z admina - väčšina schválení ide cez Telegram a v zázname
+            # chýbala, takže nebolo vidno, kto a kedy deal zverejnil.
+            try:
+                from google.cloud import firestore
+                db.collection("audit_log").add({
+                    "dealId": deal_id,
+                    "action": status,
+                    "detail": (snapshot.to_dict() or {}).get("title"),
+                    "by": "Telegram",
+                    "timestamp": firestore.SERVER_TIMESTAMP,
+                })
+            except Exception as e:
+                logger.warning("Záznam zmeny sa nepodaril: %s", e)
     except Exception as e:
         logger.error("Rozhodnutie o deale %s zlyhalo: %s", deal_id, e)
         answer = "Nepodarilo sa, skús to v admin paneli."
