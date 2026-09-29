@@ -137,7 +137,16 @@ def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandida
     strop_podielu = max(1, int(limit * config.CAPPED_CATEGORY_SHARE))
 
     preskocene_kategorie = 0
+    videne_skupiny: set[tuple[str, str]] = set()
     for candidate in ranked:
+        # Z variantov (veľkosti, farby) necháme len ten s najväčšou
+        # zľavou - poradie je už zoradené, takže prvý je najlepší.
+        if candidate.group_id:
+            skupina = ((candidate.store or candidate.source).lower(), candidate.group_id)
+            if skupina in videne_skupiny:
+                continue
+            videne_skupiny.add(skupina)
+
         store = candidate.store or candidate.source
         category = guess_category(candidate.title, candidate.category_hint)
 

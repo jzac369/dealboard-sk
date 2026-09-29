@@ -171,6 +171,10 @@ class DealCandidate:
     # Taký odkaz sa nesmie prepísať na vyhľadávanie u predajcu — bol by
     # to krok späť a pri affiliate odkaze by sa stratil aj tracking.
     direct_url: bool = False
+    # Skupina variantov (ITEMGROUP_ID / item_group_id). Tá istá mikina
+    # vo veľkostiach XS, S, L má tri položky s rôznym názvom, ale jednu
+    # skupinu - bez nej by šli na stránku tri takmer rovnaké dealy.
+    group_id: Optional[str] = None
     currency: str = "€"
     found_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()

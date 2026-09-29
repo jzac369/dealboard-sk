@@ -267,7 +267,9 @@ def test_heureka_feed_parsing():
     kavovar = next(c for c in candidates if c.title == "Kavovar DeLonghi")
     assert kavovar.deal_price == 199.0
     assert kavovar.original_price == 349.0
-    assert kavovar.store == "DeLonghi"
+    # Obchod je predajca podľa domény odkazu, nie výrobca z MANUFACTURER.
+    # Inak by sa na stránke písalo "DeLonghi", hoci kávovar predáva e-shop.
+    assert kavovar.store == "Partner"
 
     # Polozka bez povodnej ceny prejde, ale zlavu zatial nema.
     bez = next(c for c in candidates if c.title == "Bez povodnej ceny")
@@ -1015,3 +1017,35 @@ def test_vyber_zahodi_lacne_polozky():
         _kandidat("vrtacka", config.MIN_DEAL_PRICE + 50),
     ])
     assert [c.title for c in vyber] == ["vrtacka"]
+
+
+
+def test_obchod_je_predajca_nie_vyrobca():
+    from scrapers.feeds import obchod_z_url
+    assert obchod_z_url("https://www.4home.sk/stolik-hanah-home") == "4Home"
+    assert obchod_z_url("https://printstudio.faxcopy.sk/x") == "Faxcopy"
+    assert obchod_z_url("https://www.neznamy-obchod.sk/p") == "Neznamy-obchod"
+
+
+def test_z_variantov_prejde_len_jeden():
+    """Tá istá mikina v troch veľkostiach nesmie byť tri dealy."""
+    import main
+    from models import DealCandidate
+    def mikina(velkost, zlava):
+        return DealCandidate(title=f"STRIX mikina {velkost}", deal_price=15.0,
+                             explicit_discount_percent=zlava, url=f"https://gymbeam.sk/{velkost}",
+                             source="feed", store="GymBeam", direct_url=True, group_id="STRIX-1")
+    vybrane = main.select_best([mikina("XS", 60), mikina("L", 67), mikina("S", 50)], 10)
+    assert [c.title for c in vybrane] == ["STRIX mikina L"]   # ten s najväčšou zľavou
+
+
+
+def test_feed_kde_je_v_akcii_skoro_vsetko_nema_verohodne_zlavy():
+    """4Home tvrdí zľavu pri 81 % sortimentu - to nie je akcia, to je cenník."""
+    from scrapers.feeds import FeedsScraper
+    vyber = FeedsScraper._vyber(
+        [_kandidat(f"stolik{i}", 33.0, 293.0) for i in range(8)]
+        + [_kandidat(f"bez{i}", 40.0) for i in range(2)]
+    )
+    assert vyber, "feed sa nesmie zahodiť, len prejsť na sledovanie cien"
+    assert all(c.original_price is None for c in vyber)

@@ -37,6 +37,34 @@ def _text(node: Optional[ET.Element]) -> Optional[str]:
     return value or None
 
 
+# Ako sa obchod volá na stránke. Kľúč je doména z odkazu na produkt.
+# Obchod NEBERIEME z MANUFACTURER / brand - to je výrobca, nie predajca,
+# a na stránke by sa potom písalo "Hanah Home", hoci to predáva 4Home.
+_OBCHODY = {
+    "4home.sk": "4Home", "gymbeam.sk": "GymBeam", "emos.sk": "EMOS",
+    "cbelektro.sk": "CBelektro", "e-spotrebice.sk": "E-spotrebice",
+    "merkurymarket.sk": "MerkuryMarket", "mikona.sk": "Mikona",
+    "kinekus.sk": "Kinekus", "efarby.sk": "eFarby", "lidl.sk": "Lidl",
+    "iprobio.sk": "iProbio", "lieky24.sk": "Lieky24",
+    "benulekaren.sk": "BENU lekáreň", "pantarhei.sk": "Panta Rhei",
+    "inlibri.online": "inLibri", "knihyprekazdeho.sk": "Knihy pre každého",
+    "preskoly.sk": "PreŠkoly", "chutnekytice.sk": "Chutné kytice",
+    "faxcopy.sk": "Faxcopy", "colorland.com": "Colorland",
+}
+
+
+def obchod_z_url(url: str) -> str:
+    """Názov predajcu podľa domény odkazu; neznámu doménu aspoň učeše."""
+    from urllib.parse import urlparse
+
+    host = (urlparse(url or "").hostname or "").lower()
+    for domena, nazov in _OBCHODY.items():
+        if host == domena or host.endswith("." + domena):
+            return nazov
+    zaklad = host.removeprefix("www.").split(".")[0] if host else ""
+    return zaklad[:1].upper() + zaklad[1:]
+
+
 def _first(item: ET.Element, *paths: str) -> Optional[str]:
     """Vráti text prvého tagu, ktorý v položke existuje. Skratka pre feedy,
     ktoré ten istý údaj volajú rôzne (URL vs LINK vs link)."""
@@ -149,6 +177,20 @@ class FeedsScraper(BaseScraper):
 
         so_zlavou = [c for c in candidates if c.original_price]
 
+        # Feed, v ktorom je "v akcii" väčšina sortimentu, nemá skutočnú
+        # pôvodnú cenu - má trvalo prečiarknutú. 4Home tvrdí zľavu pri
+        # 81 % produktov a stolík za 33 € "zlacnený z 293 €" by bol na
+        # stránke najväčší deal dňa. Takému feedu v zľavách neveríme a
+        # zistíme ich sami sledovaním cien, rovnako ako pri feede bez zliav.
+        if candidates and len(so_zlavou) / len(candidates) > config.FEED_MAX_SALE_SHARE:
+            logger.warning("%s: v akcii %d %% sortimentu — prečiarknutým cenám neverím, "
+                           "zľavy overím sledovaním cien",
+                           zdroj, round(len(so_zlavou) / len(candidates) * 100))
+            for c in candidates:
+                c.original_price = None
+                c.explicit_discount_percent = None
+            so_zlavou = []
+
         if so_zlavou:
             logger.info("%s: uvádza zľavy — v akcii %d z %d, sledovanie netreba",
                         zdroj, len(so_zlavou), len(candidates))
@@ -187,7 +229,8 @@ class FeedsScraper(BaseScraper):
             url=url,
             source=self.source_name,
             direct_url=True,   # feed dáva odkaz rovno na produkt
-            store=_first(item, f"{_G_NS}brand", "brand") or "",
+            store=obchod_z_url(url),
+            group_id=_first(item, f"{_G_NS}item_group_id", "item_group_id"),
             image_url=_first(item, f"{_G_NS}image_link", "image_link"),
             description=_first(item, f"{_G_NS}description", "description") or "",
         )
@@ -224,7 +267,8 @@ class FeedsScraper(BaseScraper):
             url=url,
             source=self.source_name,
             direct_url=True,   # feed dáva odkaz rovno na produkt
-            store=_first(item, "MANUFACTURER") or "",
+            store=obchod_z_url(url),
+            group_id=_first(item, "ITEMGROUP_ID"),
             image_url=_first(item, "IMGURL"),
             description=_first(item, "DESCRIPTION") or "",
         )

@@ -125,6 +125,11 @@ FEED_MAX_ITEMS = _env_int("FEED_MAX_ITEMS", 25000)
 # pri desiatich takých feedoch zostane polovica rezervou.
 FEED_WATCH_MAX = _env_int("FEED_WATCH_MAX", 10000)
 
+# Keď je vo feede "v akcii" väčší podiel sortimentu, prečiarknutej cene
+# neveríme. Pri 50 %: GymBeam (45 %, naozaj robí veľa akcií) prejde,
+# 4Home (81 %, trvalo prečiarknuté ceny) nie.
+FEED_MAX_SALE_SHARE = _env_float("FEED_MAX_SALE_SHARE", 0.5)
+
 
 # ── HTTP slušnosť ─────────────────────────────────────────────────────
 USER_AGENT = os.environ.get(

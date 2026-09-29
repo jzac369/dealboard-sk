@@ -86,7 +86,11 @@ def _format_caption(deal: dict) -> str:
     if deal.get("validUntil"):
         lines.append(f"📅 Platí do {deal['validUntil']}")
 
-    description = deal.get("description") or ""
+    # Popis fotky má v Telegrame limit 1 024 znakov. Popisy z feedov bývajú
+    # celé články; celý by Telegram odmietol a návrh by prišiel bez fotky.
+    description = (deal.get("description") or "").strip()
+    if len(description) > 400:
+        description = description[:400].rsplit(" ", 1)[0] + " …"
     if description:
         lines += ["", _escape(description)]
 
