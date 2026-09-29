@@ -299,8 +299,55 @@ def run_feed_diagnostics() -> int:
         if not xml_text:
             logger.error("Feed sa nepodarilo stiahnuť.")
             continue
-        popis = describe_feed(xml_text)
-        logger.info("%s", json.dumps(popis, ensure_ascii=False, indent=2))
+
+        # Vypisujeme po riadkoch, nie ako jeden blok JSON. GitHub Actions
+        # zamaskuje celý riadok, v ktorom nájde hodnotu secretu, a pri
+        # jednom veľkom bloku tak zmizne aj to, čo je neškodné.
+        import re as _re
+        import xml.etree.ElementTree as _ET
+        from collections import Counter as _Counter
+        from urllib.parse import urlparse as _urlparse
+
+        heureka = xml_text.count("<SHOPITEM")
+        google = xml_text.count("<item>")
+        logger.info("  formát: %s", "Heureka XML" if heureka else ("Google Merchant" if google else "neznámy"))
+        logger.info("  položiek: %d", heureka or google)
+
+        try:
+            koren = _ET.fromstring(xml_text)
+        except _ET.ParseError as e:
+            logger.error("  nie je platné XML: %s", e)
+            continue
+
+        polozky = koren.findall(".//SHOPITEM") or koren.findall(".//item")
+        if not polozky:
+            logger.warning("  žiadne položky sa nenašli")
+            continue
+
+        polia = _Counter()
+        for p in polozky[:200]:
+            for dieta in p:
+                polia[dieta.tag.split("}")[-1]] += 1
+        logger.info("  polia: %s", ", ".join(sorted(polia)))
+
+        # Najdôležitejšia otázka: vedie odkaz cez sieť (a teda zarába),
+        # alebo rovno do e-shopu? Vypisujeme len doménu, nikdy celú
+        # adresu - tá obsahuje partnerské ID.
+        domeny = _Counter()
+        for p in polozky[:50]:
+            for tag in ("URL", "link", "{http://base.google.com/ns/1.0}link"):
+                uzol = p.find(tag)
+                if uzol is not None and uzol.text:
+                    domeny[(_urlparse(uzol.text.strip()).netloc or "?")] += 1
+                    break
+        for d, n in domeny.most_common(3):
+            trackovane = any(k in d.lower() for k in ("dognet", "go.", "track", "click"))
+            logger.info("  odkazy vedú na: %-34s %s", d,
+                        "<- cez sieť, zarábajú" if trackovane else "<- priamo do e-shopu")
+
+        # Máme z čoho spočítať zľavu?
+        cenove = [t for t in polia if _re.search(r"price|cena|PRICE", t, _re.I)]
+        logger.info("  cenové polia: %s", ", ".join(sorted(cenove)) or "žiadne")
 
     return 0
 
