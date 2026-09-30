@@ -1602,6 +1602,12 @@
      blok pri prvom vykreslení, a po otočení na výšku by ňou roztiahol
      stránku, kým sa sám neprekreslí. */
   .ad-slot { display: none; max-width: 100%; overflow: hidden; }
+  /* Keď Google reklamu nedoručí (data-ad-status="unfilled"), zmenší ju
+     na nulovú výšku - ale okraj jej zostane a vznikne dvojitá medzera.
+     V pravom stĺpci tak bolo medzi kartou a bannerom 32 px namiesto 16.
+     Prázdnu reklamu preto skryjeme celú. !important preto, lebo miesto
+     zapína JS cez inline style="display:block". */
+  .ad-slot:has(ins[data-ad-status="unfilled"]) { display: none !important; }
   .ad-label { display: block; font-size: .64rem; letter-spacing: .06em;
     text-transform: uppercase; color: #B3ADA4; margin-bottom: 5px; }
 
@@ -1614,13 +1620,16 @@
     border-radius: var(--r); padding: 12px; margin-top: 16px; }
   #leaflets-main .ad-sidebar, #food-main .ad-sidebar { border-radius: 18px; padding: 16px; }
 
-  /* Banner partnera v pravom stĺpci. Obrázok má pevných 250 px, v užšom
-     stĺpci sa zmenší - nikdy nepretečie. */
-  .sponzor-box { text-align: center; padding-top: 10px; }
-  .sponzor-stitok { display: block; text-align: left; font-size: .66rem; font-weight: 700;
-    letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-  .sponzor-box img { display: block; margin: 0 auto; max-width: 100%; height: auto;
-    border-radius: 8px; }
+  /* Banner partnera v pravom stĺpci - bez rámčeka, na celú šírku
+     stĺpca. Štítok "Reklama" je ten istý ako pri AdSense, nech obe
+     reklamy vyzerajú jednotne a ani jedna sa nepomýli s dealom. */
+  .sponzor-box { margin: 0 0 16px; }
+  .sponzor-box img { display: block; width: 100%; height: auto; border-radius: 8px; }
+
+  /* Rovnaké medzery v pravom stĺpci: každý prvok má 16 px pod sebou a
+     nič nad sebou. Reklama AdSense mala naopak okraj len hore, takže
+     keď sa začne zobrazovať, banner pod ňou by sa k nej prilepil. */
+  aside.sidebar .ad-sidebar { margin-top: 0; margin-bottom: 16px; }
 
   .ad-footer-wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
   .ad-footer { background: var(--card); border: 1px solid var(--line);
@@ -2514,8 +2523,8 @@ body.food-page { background: #FAF8F5; }
          z Dognetu bez úprav okrem rel: "sponsored" hovorí vyhľadávačom,
          že ide o platený odkaz, "noopener" chráni pred prístupom
          otvorenej stránky k tejto. -->
-    <div class="sidebar-box sponzor-box">
-      <span class="sponzor-stitok">Reklama</span>
+    <div class="sponzor-box">
+      <span class="ad-label">Reklama</span>
       <a href="https://go.dognet.com/?chid=BYWNg1rZ&amp;url=https%3A%2F%2Fsledovanietv.sk%2Fott%2Fwelcome"
          rel="nofollow sponsored noopener" target="_blank">
         <img src="https://login.dognet.sk/accounts/default1/banners/ccb20f25.jpg"
