@@ -17,3 +17,4 @@ desirel.sk            server nas odmietol
 homepoint.sk          server nas odmietol
 medosviecky.sk        server nas odmietol
 real-soft.sk          server nas odmietol
+viptel.sk             logo sa nenaslo (2026-09-30)

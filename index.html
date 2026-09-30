@@ -1755,6 +1755,11 @@
 .chip { display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 600; }
 .chip-store { background: var(--badge); color: var(--badge-t); }
+/* Logo obchodu v bublinke: biely podklad, aby tmavé logá boli vidieť
+   aj v tmavom režime. */
+.chip-logo { width: 16px; height: 16px; border-radius: 4px; object-fit: contain;
+  background: #fff; flex-shrink: 0; margin-left: -4px; }
+.is-expired .chip-logo { filter: grayscale(1); opacity: .7; }
 .chip-cat { background: color-mix(in srgb, var(--cat-color, #868E96) 14%, transparent);
   color: var(--cat-color, var(--muted)); }
 .is-expired .chip { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
@@ -2951,6 +2956,39 @@ body.food-page { background: #FAF8F5; }
     return '';
   }
 
+  // Logá obchodov: súbory stiahne fetch_shop_logos.py k nám, mapa
+  // "kľúč obchodu -> súbor" je v obchody.json. Kľúč je z názvu obchodu,
+  // takže "Lidl" aj "Lidl.sk" majú to isté logo. Pravidlo musí byť
+  // rovnaké ako kluc_obchodu() v Pythone.
+  window.LOGA_OBCHODOV = {};
+  function storeKey(nazov) {
+    return (nazov || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .trim().replace(/\.(sk|cz|com|eu|digital|net|org)$/, '').replace(/[^a-z0-9]/g, '');
+  }
+  function storeMark(kluc) {
+    const subor = window.LOGA_OBCHODOV[kluc];
+    return subor
+      ? `<img class="chip-logo" src="assets/eshopy/${escapeAttr(subor)}" alt="" width="16" height="16" loading="lazy" onerror="this.remove()">`
+      : icon('building-store');
+  }
+  function storeChip(nazov) {
+    if (!nazov) return '';
+    const kluc = storeKey(nazov);
+    return `<span class="chip chip-store" data-obchod="${escapeAttr(kluc)}">${storeMark(kluc)}${escapeHtml(nazov)}</span>`;
+  }
+  // Mapa môže doraziť až po vykreslení prvých kariet - vtedy ikonku
+  // v už zobrazených bublinkách vymeníme za logo.
+  fetch('assets/eshopy/obchody.json')
+    .then(r => r.ok ? r.json() : {})
+    .then(m => {
+      window.LOGA_OBCHODOV = m || {};
+      document.querySelectorAll('.chip-store[data-obchod]').forEach(ch => {
+        const ic = ch.querySelector('svg.ic');
+        if (ic && window.LOGA_OBCHODOV[ch.dataset.obchod]) ic.outerHTML = storeMark(ch.dataset.obchod);
+      });
+    })
+    .catch(() => {});
+
   function icon(name) {
     return `<svg class="ic" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
   }
@@ -3009,7 +3047,7 @@ body.food-page { background: #FAF8F5; }
         </div>
         <div class="deal-main">
           <div class="chips">
-            ${d.store ? `<span class="chip chip-store">${icon('building-store')}${escapeHtml(d.store)}</span>` : ''}
+            ${storeChip(d.store)}
             ${cat ? `<span class="chip chip-cat">${icon(CAT_ICONS[cat] || 'dots')}${escapeHtml(cat)}</span>` : ''}
           </div>
           <a class="deal-title" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
@@ -4274,7 +4312,7 @@ body.food-page { background: #FAF8F5; }
       ${img}
       ${kredit}
       <div class="chips" style="margin-top:12px;">
-        ${d.store ? `<span class="chip chip-store">${icon('building-store')}${escapeHtml(d.store)}</span>` : ''}
+        ${storeChip(d.store)}
         ${cat ? `<span class="chip chip-cat" style="--cat-color:${color}">${icon(CAT_ICONS[cat] || 'dots')}${escapeHtml(cat)}</span>` : ''}
       </div>
       <h2 style="font-size:1.2rem; margin:8px 0 12px; color:var(--ink);">${escapeHtml(d.title||'')}</h2>

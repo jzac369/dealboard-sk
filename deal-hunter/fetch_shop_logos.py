@@ -8,9 +8,18 @@ otvorení stránky ide požiadavka k tretej strane a tá sa dozvie, ktoré
 kupóny si kto pozerá. Radšej ich stiahneme raz sem a servírujeme
 z vlastnej domény.
 
+Logá sa sťahujú pre obchody z kupónov aj z dealov. Pre dealy navyše
+vznikne assets/eshopy/obchody.json - mapa "kľúč obchodu" -> súbor loga.
+Deal sa s logom páruje cez názov obchodu, nie cez doménu odkazu: odkaz
+môže byť presmerovanie (tidd.ly) alebo subdoména (leaflets.kaufland.com),
+kým "Lidl" a "Lidl.sk" sú ten istý obchod.
+
 Spustenie:  python fetch_shop_logos.py
 Len výpis:  python fetch_shop_logos.py --skuska
 """
+
+import json
+import unicodedata
 
 import io
 import logging
@@ -36,9 +45,12 @@ CANDIDATES = [
     "/favicon.ico",
 ]
 
+# Bežný prehliadač: časť obchodov robotov s vlastným menom odmieta,
+# hoci logo je verejne na ich úvodnej stránke.
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; HenKukajBot/1.0; +https://henkukaj.sk)",
-    "Accept": "image/*,*/*;q=0.8",
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/128.0 Safari/537.36"),
+    "Accept": "*/*",
 }
 
 
@@ -81,16 +93,89 @@ def _from_html(domain: str) -> list[str]:
     return found
 
 
-def fetch_logo(domain: str) -> bytes | None:
-    for path in CANDIDATES:
-        data = _get(f"https://{domain}{path}", expect_image=True)
-        if data:
-            return data
-    for url in _from_html(domain):
-        data = _get(url, expect_image=True)
-        if data:
+def _je_obrazok(data: bytes) -> bool:
+    zaciatok = data[:400].lstrip()
+    if zaciatok.startswith(b"<svg") or (zaciatok.startswith(b"<?xml") and b"<svg" in data[:2000]):
+        return True
+    return _dost_velke(data, 16)
+
+
+def _dost_velke(data: bytes, minimum: int) -> bool:
+    from PIL import Image
+    try:
+        return min(Image.open(io.BytesIO(data)).size) >= minimum
+    except Exception:
+        return False
+
+
+def _velkost(data: bytes) -> int:
+    """Kratšia strana obrázka; SVG je ostré v každej veľkosti."""
+    zaciatok = data[:400].lstrip()
+    if zaciatok.startswith(b"<svg") or (zaciatok.startswith(b"<?xml") and b"<svg" in data[:2000]):
+        return 10_000
+    from PIL import Image
+    try:
+        return min(Image.open(io.BytesIO(data)).size)
+    except Exception:
+        return 0
+
+
+def _zo_stranky(domain: str) -> bytes | None:
+    # Časť obchodov beží len na www. a holá doména im nič nevráti.
+    for host in (domain, f"www.{domain}"):
+        for path in CANDIDATES:
+            data = _get(f"https://{host}{path}", expect_image=True)
+            if data and _je_obrazok(data):
+                return data
+        for url in _from_html(host):
+            # data: je zástupný obrázok (napr. 1 px GIF), nie logo.
+            if url.startswith("data:"):
+                continue
+            data = _get(url, expect_image=True)
+            if data and _je_obrazok(data):
+                return data
+    return None
+
+
+def _od_googlu(domain: str) -> bytes | None:
+    # Veľké obchody (Alza, Dr.Max...) robotov na svojej stránke odmietajú
+    # a iné majú len 16 px favicon. Googlova služba ikon pozná väčšiu
+    # verziu; stiahneme ju raz a servírujeme od nás, takže návštevníci
+    # ku Googlu nechodia. Neznámej doméne vráti 16 px zemeguľu - tú
+    # nechceme, preto minimum 32 px.
+    for host in (domain, f"www.{domain}"):
+        data = _get(f"https://www.google.com/s2/favicons?domain={host}&sz=128", expect_image=True)
+        if data and _dost_velke(data, 32):
             return data
     return None
+
+
+def fetch_logo(domain: str) -> bytes | None:
+    data = _zo_stranky(domain)
+    if data and _velkost(data) >= SIZE:
+        return data
+    zaloha = _od_googlu(domain)
+    kandidati = [d for d in (data, zaloha) if d]
+    return max(kandidati, key=_velkost) if kandidati else None
+
+
+def _orez(im):
+    """Odreže prázdny (priehľadný alebo biely) okraj okolo značky.
+
+    Viaceré obchody majú v ikone malú značku uprostred veľkej bielej
+    plochy - v 20 px bublinke by z nej zostala bodka.
+    """
+    from PIL import ImageChops
+    plne = im.getchannel("A").point(lambda a: 255 if a > 24 else 0)
+    biele = ImageChops.invert(im.convert("L").point(lambda v: 255 if v > 245 else 0))
+    obsah = ImageChops.multiply(plne, biele).getbbox()
+    if not obsah:
+        return im
+    x0, y0, x1, y1 = obsah
+    okraj = round(max(x1 - x0, y1 - y0) * 0.06)
+    x0, y0 = max(0, x0 - okraj), max(0, y0 - okraj)
+    x1, y1 = min(im.width, x1 + okraj), min(im.height, y1 + okraj)
+    return im.crop((x0, y0, x1, y1))
 
 
 def save(domain: str, data: bytes) -> bool:
@@ -120,7 +205,13 @@ def save(domain: str, data: bytes) -> bool:
         im = im.convert("RGBA")
         if min(im.size) < 16:
             return False          # príliš malé, vyzeralo by rozmazane
-        im.thumbnail((SIZE, SIZE), Image.LANCZOS)
+        im = _orez(im)
+        if max(im.size) < 32:
+            return False          # zväčšená 16 px ikona je len kopa štvorčekov
+        # Na veľkosť štvorca - aj nahor, inak by malá ikona zostala
+        # bodkou uprostred prázdnej plochy.
+        mierka = SIZE / max(im.size)
+        im = im.resize((max(1, round(im.width * mierka)), max(1, round(im.height * mierka))), Image.LANCZOS)
 
         # Na štvorec, aby všetky logá sedeli v rovnakom krúžku.
         plocha = Image.new("RGBA", (SIZE, SIZE), (255, 255, 255, 0))
@@ -134,9 +225,58 @@ def save(domain: str, data: bytes) -> bool:
         return False
 
 
-def domains_from_firestore() -> list[str]:
-    import firestore_client
-    db = firestore_client.get_client()
+MAPA = os.path.join(OUT_DIR, "obchody.json")
+
+# Odkazy, z ktorých sa doména obchodu vyčítať nedá.
+PRESMEROVANIA = {"tidd.ly", "go.dognet.com", "bit.ly", "t.co", "l.facebook.com",
+                 "zlacnene.sk", "kompaszliav.sk"}
+
+# Obchody, ktorých odkazy vedú inde než na hlavnú stránku so značkou.
+DOMENA_OBCHODU = {
+    "kaufland": "kaufland.com",
+    "tesco": "tesco.sk",
+    "hebe": "hebe.sk",
+    "momondo": "momondo.com",
+    "dennikn": "dennikn.sk",
+}
+
+
+def kluc_obchodu(nazov: str) -> str:
+    """Rovnaké pravidlo ako storeKey() v index.html - musia sa zhodovať."""
+    t = unicodedata.normalize("NFD", (nazov or "").lower())
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    t = re.sub(r"\.(sk|cz|com|eu|digital|net|org)$", "", t.strip())
+    return re.sub(r"[^a-z0-9]", "", t)
+
+
+def _hlavna_domena(host: str) -> str:
+    host = host.lower().removeprefix("www.")
+    casti = host.split(".")
+    return ".".join(casti[-2:]) if len(casti) > 2 else host
+
+
+def obchody_z_dealov(db) -> dict[str, str]:
+    """kľúč obchodu -> doména, z ktorej stiahneme logo."""
+    hlasy: dict[str, dict[str, int]] = {}
+    for doc in db.collection("deals").stream():
+        d = doc.to_dict() or {}
+        if d.get("status") not in ("approved", "pending"):
+            continue
+        kluc = kluc_obchodu(d.get("store", ""))
+        if not kluc:
+            continue
+        host = (urlparse(d.get("url", "")).hostname or "").lower().removeprefix("www.")
+        if not host or host in PRESMEROVANIA:
+            continue
+        dom = _hlavna_domena(host)
+        hlasy.setdefault(kluc, {})
+        hlasy[kluc][dom] = hlasy[kluc].get(dom, 0) + 1
+    out = {k: max(v, key=v.get) for k, v in hlasy.items()}
+    out.update({k: v for k, v in DOMENA_OBCHODU.items() if k in out or k in hlasy})
+    return out
+
+
+def domains_from_firestore(db) -> list[str]:
     out = set()
     for doc in db.collection("coupons").stream():
         c = doc.to_dict() or {}
@@ -152,7 +292,10 @@ def domains_from_firestore() -> list[str]:
 
 def main() -> int:
     dry = "--skuska" in sys.argv
-    domeny = domains_from_firestore()
+    import firestore_client
+    db = firestore_client.get_client()
+    obchody = obchody_z_dealov(db)
+    domeny = sorted(set(domains_from_firestore(db)) | set(obchody.values()))
     logger.info("Domén na spracovanie: %d\n", len(domeny))
 
     # Domény, ktorých logo vedome nepoužívame (prázdne, cudzia značka
@@ -186,8 +329,29 @@ def main() -> int:
         else:
             logger.info(" - %s (logo sa nenašlo)", d)
             zlyhalo += 1
+            # Zapíšeme, aby sa hodinový beh v cloude nepokúšal stále
+            # znova. Kto chce skúsiť znova, riadok zo súboru zmaže.
+            from datetime import date
+            with open(zoznam, "a", encoding="utf-8") as f:
+                f.write(f"{d:<21} logo sa nenaslo ({date.today().isoformat()})\n")
+            vynechane.add(d)
 
     logger.info("\nStiahnutých %d, bez loga %d, preskočených %d.", ok, zlyhalo, preskocene)
+
+    # Mapa pre karty dealov: len obchody, ktorých logo naozaj máme.
+    mapa = {}
+    for kluc, dom in sorted(obchody.items()):
+        if dom in vynechane:
+            continue
+        for pripona in (".svg", ".png"):
+            if os.path.exists(os.path.join(OUT_DIR, dom + pripona)):
+                mapa[kluc] = dom + pripona
+                break
+    if not dry:
+        with open(MAPA, "w", encoding="utf-8") as f:
+            json.dump(mapa, f, ensure_ascii=False, indent=0, sort_keys=True)
+            f.write("\n")
+    logger.info("Obchodov z dealov: %d, s logom: %d.", len(obchody), len(mapa))
     return 0
 
 

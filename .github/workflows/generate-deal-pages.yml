@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install google-cloud-firestore
+        run: pip install google-cloud-firestore Pillow
 
       - name: Write Firebase credentials
         run: echo "$FIREBASE_SERVICE_ACCOUNT" > firebase-credentials.json
@@ -36,6 +36,14 @@ jobs:
         env:
           FIRESTORE_PROJECT_ID: dealboard-e60bf
 
+      # Logá nových obchodov: už stiahnuté sa preskočia, takže bežne to
+      # netrvá ani sekundu. Chyba tu nesmie zastaviť stránky dealov.
+      - name: Download logos of new shops
+        continue-on-error: true
+        run: python deal-hunter/fetch_shop_logos.py
+        env:
+          FIRESTORE_PROJECT_ID: dealboard-e60bf
+
       - name: Cleanup credentials file
         if: always()
         run: rm -f firebase-credentials.json
@@ -44,6 +52,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add deal/ sitemap.xml
+          git add deal/ sitemap.xml assets/eshopy/
           git diff --cached --quiet || git commit -m "Auto-generovanie SEO stránok dealov"
           git push
