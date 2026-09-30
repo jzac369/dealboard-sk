@@ -59,6 +59,20 @@ DESTINACIE = {
     "DLM": "Dalaman", "JSI": "Skiathos", "MLA": "Malta", "PFO": "Paphos",
     "PMI": "Palma de Mallorca", "PMO": "Palermo", "SUF": "Lamezia Terme",
     "TPS": "Trapani", "ZAD": "Zadar",
+    # z Viedne a Košíc (letenková mapa)
+    "AMM": "Amman", "ARN": "Stockholm", "BGY": "Bergamo", "BLQ": "Bologna",
+    "BNX": "Banja Luka", "BVA": "Paris", "CGN": "Cologne", "CPH": "Copenhagen",
+    "FCO": "Colosseum", "HEL": "Helsinki", "INI": "Niš", "KRK": "Kraków",
+    "LIS": "Lisbon", "LPL": "Liverpool", "MAD": "Madrid", "MRS": "Marseille",
+    "OPO": "Porto", "OTP": "Bucharest", "PRG": "Prague", "SOF": "Sofia",
+    "TSF": "Treviso", "VCE": "Venice", "VLC": "Valencia", "VNO": "Vilnius",
+    "WAW": "Warsaw",
+    "CAG": "Cagliari", "CHQ": "Chania", "CTA": "Catania", "DBV": "Dubrovnik",
+    "EFL": "Kefalonia", "FAO": "Faro, Portugal", "FUE": "Morro Jable",
+    "HER": "Heraklion", "IBZ": "Ibiza (town)", "JMK": "Panagia Paraportiani", "JTR": "Oia, Greece",
+    "KGS": "Kos", "KLX": "Kalamata", "LCA": "Larnaca", "LPA": "Las Palmas",
+    "OLB": "Olbia", "PUY": "Pula", "PVK": "Preveza", "QSR": "Amalfi Coast",
+    "RHO": "Lindos", "RMI": "Rimini", "TFS": "Los Cristianos", "ZTH": "Zakynthos",
 }
 
 

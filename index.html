@@ -297,6 +297,10 @@
   // nenačítajú, odkazy sú čisté; obal sa doplní pri kliknutí (viď
   // affiliateUrl v klasickom bloku).
   window.AFFILIATE = { enabled: false };
+  // Letenková záložka: zapína sa v admine (settings/letenky).
+  getDoc(doc(db, "settings", "letenky"))
+    .then(s => window.nastavLetenky && window.nastavLetenky(s.exists() ? s.data() : {}))
+    .catch(() => window.nastavLetenky && window.nastavLetenky({}));
   getDoc(doc(db, "settings", "affiliate"))
     .then(s => { if (s.exists()) window.AFFILIATE = s.data(); })
     .catch(() => { /* bez nastavení zostanú odkazy čisté - stránka funguje */ });
@@ -1977,6 +1981,165 @@
 .sort-btn.filter-btn.active { border-bottom-color: rgba(46,139,61,.45); }
 #btn-saved-only.active { border-bottom-color: rgba(232,89,12,.45); }
 
+/* ── Letenky: mapa lacných letov ─────────────────────────────────────
+   Tmavomodrá (nebo, noc nad letiskom) a oranžová zo značky stránky.
+   Mapa nemá dlaždice od cudzej služby - obrys Európy je náš súbor,
+   takže návštevník nikam inam nechodí a mapa vyzerá ako ilustrácia. */
+.lt-hero { position: relative; overflow: hidden; border-radius: 18px; color: #fff;
+  padding: 34px 38px 30px; margin-bottom: 16px;
+  background: radial-gradient(120% 140% at 100% 0%, #2B5EA7 0%, #13315C 45%, #0B2545 100%);
+  box-shadow: 0 10px 30px rgba(11,37,69,.25); }
+.lt-hero-art { position: absolute; right: -10px; top: 0; width: 460px; height: 100%;
+  opacity: .9; pointer-events: none; }
+.lt-hero-text { position: relative; max-width: 620px; }
+.lt-kicker { display: inline-flex; align-items: center; gap: 6px; font-size: .74rem;
+  font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: #FFB74D;
+  background: rgba(255,183,77,.14); border: 1px solid rgba(255,183,77,.35);
+  padding: 4px 11px; border-radius: 999px; margin-bottom: 12px; }
+.lt-hero h1 { font-size: 2.6rem; line-height: 1.05; letter-spacing: -1px; margin-bottom: 10px; }
+.lt-hero p { font-size: 1.02rem; color: rgba(255,255,255,.82); line-height: 1.5; }
+.lt-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.lt-stat { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+  border-radius: 12px; padding: 7px 12px; font-size: .8rem; color: rgba(255,255,255,.8); }
+.lt-stat b { display: block; font-size: 1.1rem; color: #fff; }
+
+/* Skupiny volieb sú široké podľa obsahu a radia sa za sebou - v
+   pevnej mriežke sa dlhšie skupiny lámali do stĺpčeka. */
+.lt-filters { background: var(--card); border-radius: 16px; padding: 16px 20px;
+  box-shadow: var(--shadow); display: flex; flex-wrap: wrap; gap: 14px 30px; }
+.lt-group { flex: 0 1 auto; min-width: 0; }
+.lt-group-lab { font-size: .7rem; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 7px; }
+.lt-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.lt-chip { font: inherit; font-size: .84rem; font-weight: 650; cursor: pointer;
+  background: var(--card); color: var(--ink); border: 1.5px solid var(--line);
+  border-radius: 999px; padding: 7px 13px; transition: all .12s; white-space: nowrap; }
+.lt-chip:hover { border-color: #9DB3CF; }
+.lt-chip.on { background: #0B2545; border-color: #0B2545; color: #fff; }
+.lt-chip small { font-weight: 500; opacity: .7; margin-left: 3px; }
+.lt-group.budget .lt-chip.on { background: var(--orange); border-color: var(--orange); }
+
+.lt-layout { display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 16px; margin-top: 16px; }
+.lt-map-wrap { position: relative; height: 620px; border-radius: 16px; overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  background: radial-gradient(90% 90% at 40% 40%, #EAF3FA 0%, #D3E5F2 100%); }
+#lt-map { position: absolute; inset: 0; }
+#lt-map.leaflet-container { background: transparent; font: inherit; }
+.lt-legend { position: absolute; left: 12px; bottom: 12px; z-index: 500; display: flex; gap: 10px;
+  background: rgba(255,255,255,.92); border-radius: 999px; padding: 6px 12px;
+  font-size: .74rem; font-weight: 700; color: #3A4A5E; box-shadow: var(--shadow); }
+.lt-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.lt-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.lt-dot.c1, .lt-pin.c1 { --pc: #1B8A4B; }
+.lt-dot.c2, .lt-pin.c2 { --pc: #E8590C; }
+.lt-dot.c3, .lt-pin.c3 { --pc: #B4235E; }
+.lt-dot { background: var(--pc); }
+.lt-map-msg { position: absolute; inset: 0; z-index: 600; display: flex; align-items: center;
+  justify-content: center; text-align: center; padding: 30px; font-weight: 700; color: #3A4A5E;
+  background: rgba(234,243,250,.7); pointer-events: none; }
+.lt-map-msg[hidden] { display: none; }
+
+/* Značky na mape: cenovka v bubline, farba podľa ceny. */
+.lt-pin-icon { background: none; border: none; }
+.lt-pin { position: absolute; transform: translate(-50%, -50%); white-space: nowrap;
+  background: #fff; color: var(--pc); border: 2px solid var(--pc); border-radius: 999px;
+  padding: 2px 8px; font-size: .74rem; font-weight: 800; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(11,37,69,.22); transition: transform .12s; }
+.lt-pin:hover, .lt-pin.sel { background: var(--pc); color: #fff; transform: translate(-50%, -50%) scale(1.14); }
+/* Bodka namiesto cenovky, keď by sa prekrývala; cena je v title
+   a po nabehnutí myšou sa cenovka ukáže. */
+.lt-pin.dot { font-size: 0; padding: 0; width: 12px; height: 12px; border-width: 2.5px;
+  background: var(--pc); box-shadow: 0 0 0 2px #fff, 0 1px 4px rgba(11,37,69,.3); }
+.lt-pin.dot:hover { font-size: .74rem; width: auto; height: auto; padding: 2px 8px; z-index: 10; }
+.lt-pin.sel { box-shadow: 0 0 0 5px color-mix(in srgb, var(--pc) 25%, transparent), 0 4px 12px rgba(11,37,69,.3); }
+.lt-origin { position: absolute; transform: translate(-50%, -50%); display: inline-flex; align-items: center;
+  gap: 4px; background: #0B2545; color: #fff; border-radius: 10px; padding: 4px 8px 4px 6px;
+  font-size: .72rem; font-weight: 800; box-shadow: 0 3px 10px rgba(11,37,69,.35); white-space: nowrap; }
+/* Bratislava a Viedeň sú na mape takmer na sebe - štítky odsadíme
+   každý na inú stranu. */
+.lt-origin.o-BTS { transform: translate(4px, -50%); }
+.lt-origin.o-VIE { transform: translate(calc(-100% - 4px), -50%); }
+.lt-origin .ic { width: 14px; height: 14px; color: #FFB74D; }
+.lt-origin.off { background: #7A8799; }
+.lt-arc { stroke: #1E4D8C; stroke-opacity: .16; stroke-width: 1.2; fill: none; }
+.lt-arc-sel { stroke: var(--orange); stroke-opacity: .95; stroke-width: 2.5; fill: none;
+  stroke-dasharray: 7 7; animation: lt-dash 1.2s linear infinite; }
+@keyframes lt-dash { to { stroke-dashoffset: -14; } }
+
+/* Bublina po kliknutí na destináciu */
+.lt-popup .leaflet-popup-content-wrapper { padding: 0; border-radius: 14px; overflow: hidden; }
+.lt-popup .leaflet-popup-content { margin: 0; width: 280px !important; }
+.lt-pop-img { position: relative; height: 138px; background: #CFE2F0 center/cover no-repeat; }
+.lt-pop-img .lt-pop-credit { position: absolute; right: 6px; bottom: 5px; font-size: .6rem;
+  color: #fff; background: rgba(0,0,0,.45); padding: 1px 6px; border-radius: 6px; max-width: 94%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lt-pop-img .lt-pop-credit a { color: #fff; }
+.lt-pop-body { padding: 12px 14px 14px; }
+.lt-pop-title { font-size: 1.1rem; font-weight: 800; color: var(--ink); }
+.lt-pop-sub { font-size: .78rem; color: var(--muted); margin-bottom: 8px; }
+.lt-pop-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.lt-pop-when { font-size: .8rem; color: #33445A; line-height: 1.45; }
+.lt-pop-price { font-size: 1.5rem; font-weight: 900; color: var(--pc, var(--orange)); line-height: 1; text-align: right; }
+.lt-pop-price small { display: block; font-size: .64rem; font-weight: 600; color: var(--muted); }
+.lt-btn { display: block; text-align: center; margin-top: 11px; white-space: nowrap; background: var(--orange); color: #fff !important;
+  font-weight: 800; font-size: .9rem; padding: 10px 12px; border-radius: 10px; text-decoration: none; }
+.lt-btn:hover { background: var(--orange-dk); }
+.lt-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.lt-more-lab { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); margin-bottom: 4px; }
+.lt-more a { display: flex; justify-content: space-between; gap: 8px; font-size: .78rem; color: #33445A;
+  text-decoration: none; padding: 4px 6px; border-radius: 6px; }
+.lt-more a:hover { background: #F2F6FA; }
+.lt-more a b { color: var(--ink); }
+
+/* Zoznam vedľa mapy */
+.lt-list { background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+  height: 620px; display: flex; flex-direction: column; min-width: 0; }
+.lt-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--line); font-size: .9rem; }
+.lt-sort { font-size: .76rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.lt-sort select { font: inherit; font-size: .78rem; border: 1px solid var(--line); border-radius: 8px;
+  padding: 4px 6px; background: var(--card); }
+.lt-results { overflow-y: auto; flex: 1; }
+.lt-card { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid #F0F0F0; cursor: pointer; border-left: 3px solid transparent; }
+.lt-card:hover { background: #F6F9FC; }
+.lt-card.sel { background: #FFF5EE; border-left-color: var(--orange); }
+.lt-card-img { width: 84px; height: 60px; border-radius: 10px; background: #CFE2F0 center/cover no-repeat; }
+.lt-card-name { font-weight: 800; font-size: .93rem; color: var(--ink); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.lt-card-sub { font-size: .74rem; color: var(--muted); margin: 1px 0 3px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.lt-card-when { font-size: .76rem; color: #33445A; }
+.lt-card-price { text-align: right; font-weight: 900; font-size: 1.12rem; color: var(--pc); }
+.lt-card-price small { display: block; font-size: .62rem; font-weight: 600; color: var(--muted); }
+.lt-empty { padding: 40px 24px; text-align: center; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+.lt-empty b { display: block; color: var(--ink); font-size: 1rem; margin-bottom: 6px; }
+.lt-note { font-size: .76rem; color: var(--muted); margin: 12px 4px 0; line-height: 1.5; }
+
+@media (max-width: 960px) {
+  .lt-layout { grid-template-columns: 1fr; }
+  .lt-map-wrap { height: 440px; }
+  .lt-list { height: auto; }
+  .lt-results { max-height: 560px; }
+}
+@media (max-width: 640px) {
+  .lt-hero { padding: 24px 20px 22px; border-radius: 14px; }
+  .lt-hero h1 { font-size: 1.9rem; }
+  .lt-hero p { font-size: .92rem; }
+  .lt-hero-art { display: none; }
+  .lt-filters { padding: 14px; border-radius: 14px; }
+  /* Na telefóne sa riadok volieb posúva do strany, nezalamuje. */
+  .lt-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
+  .lt-chips::-webkit-scrollbar { display: none; }
+  .lt-map-wrap { height: 470px; border-radius: 14px; }
+  .lt-pop-img { height: 92px; }
+  .lt-popup .leaflet-popup-content { width: 250px !important; }
+  .lt-legend { top: 10px; right: 10px; left: auto; bottom: auto; }
+  .lt-card { grid-template-columns: 70px minmax(0, 1fr) auto; gap: 10px; padding: 9px 12px; }
+  .lt-card-img { width: 70px; height: 52px; }
+}
+
 /* ── Najlacnejšie potraviny ───────────────────────────────────────────
    Vlastná farebná škála len pre túto sekciu: teplé takmer biele pozadie,
    zelená pre ceny a úspory, oranžová pre akcie. Zvyšok stránky sa
@@ -2299,6 +2462,7 @@ body.food-page { background: #FAF8F5; }
     <a href="." class="logo-link"><img src="images/logo.png" alt="HenKukaj.sk" class="logo-img"></a>
     <div class="main-section-nav">
       <button class="main-section-btn active" onclick="setMainSection('deals', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Dealy</button>
+      <button class="main-section-btn" id="btn-letenky" style="display:none;" onclick="setMainSection('flights', this)"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Letenky</button>
       <button class="main-section-btn" onclick="setMainSection('food', this)"><svg class="ic" aria-hidden="true"><use href="#i-basket"></use></svg> Najlacnejšie potraviny</button>
       <button class="main-section-btn" onclick="setMainSection('leaflets', this)"><svg class="ic" aria-hidden="true"><use href="#i-news"></use></svg> Letáky</button>
       <button class="main-section-btn" onclick="setMainSection('coupons', this)"><svg class="ic" aria-hidden="true"><use href="#i-ticket"></use></svg> Zľavové kódy</button>
@@ -2349,6 +2513,54 @@ body.food-page { background: #FAF8F5; }
       <div class="loading">Načítavam dealy…</div>
     </div>
   </main>
+
+  <!-- Main: Letenky (mapa lacných letov) -->
+  <main id="flights-main" style="display:none;">
+    <section class="lt-hero">
+      <svg class="lt-hero-art" viewBox="0 0 420 220" aria-hidden="true">
+        <path d="M20 190 C 140 20, 300 20, 400 120" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2" stroke-dasharray="6 8"/>
+        <path d="M60 210 C 170 90, 280 80, 380 40" fill="none" stroke="rgba(255,183,77,.55)" stroke-width="2" stroke-dasharray="6 8"/>
+        <circle cx="20" cy="190" r="6" fill="#FFB74D"/><circle cx="400" cy="120" r="5" fill="#fff"/>
+        <circle cx="60" cy="210" r="5" fill="#fff"/><circle cx="380" cy="40" r="6" fill="#FFB74D"/>
+        <g transform="translate(262 52) rotate(28)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plane" width="46" height="46"/></g>
+      </svg>
+      <div class="lt-hero-text">
+        <span class="lt-kicker"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Letenková mapa</span>
+        <h1>Kam za pár eur?</h1>
+        <p>Najlacnejšie letenky z Bratislavy, Viedne a Košíc na jednej mape. Zvoľ si rozpočet a dĺžku cesty – hneď uvidíš, kam sa dá letieť.</p>
+        <div class="lt-stats" id="lt-stats"></div>
+      </div>
+    </section>
+
+    <div class="lt-filters" id="lt-filters"></div>
+
+    <div class="lt-layout">
+      <div class="lt-map-wrap">
+        <div id="lt-map" role="application" aria-label="Mapa destinácií"></div>
+        <div class="lt-legend" aria-hidden="true">
+          <span><i class="lt-dot c1"></i>do 30 €</span>
+          <span><i class="lt-dot c2"></i>do 50 €</span>
+          <span><i class="lt-dot c3"></i>viac</span>
+        </div>
+        <div class="lt-map-msg" id="lt-map-msg">Načítavam mapu…</div>
+      </div>
+      <aside class="lt-list">
+        <div class="lt-list-head">
+          <b id="lt-count">—</b>
+          <label class="lt-sort">Zoradiť
+            <select id="lt-sort" onchange="ltRender()">
+              <option value="cena">od najlacnejšej</option>
+              <option value="datum">podľa dátumu</option>
+              <option value="nazov">podľa názvu</option>
+            </select>
+          </label>
+        </div>
+        <div id="lt-results" class="lt-results"></div>
+      </aside>
+    </div>
+    <p class="lt-note" id="lt-note"></p>
+  </main>
+
 
   <!-- Main: Coupons -->
   <main id="coupons-main" style="display:none;">
@@ -3105,13 +3317,15 @@ body.food-page { background: #FAF8F5; }
     document.getElementById('coupons-main').style.display = section === 'coupons' ? 'block' : 'none';
     document.getElementById('leaflets-main').style.display = section === 'leaflets' ? 'block' : 'none';
     document.getElementById('food-main').style.display = section === 'food' ? 'block' : 'none';
+    document.getElementById('flights-main').style.display = section === 'flights' ? 'block' : 'none';
+    if (section === 'flights') ltOtvor();
     // Potraviny majú vlastný bočný panel, tak im dáme celú šírku a
     // všeobecný sidebar stránky schováme - dva vedľa seba by z nej
     // spravili tri stĺpce a produktové riadky by sa zalamovali.
     // Letáky majú tiež vlastný bočný panel, tak dostanú celú šírku ako
     // potraviny.
     document.querySelector('.container').classList.toggle('full-width',
-      section === 'food' || section === 'leaflets');
+      section === 'food' || section === 'leaflets' || section === 'flights');
     document.body.classList.toggle('leaflet-page', section === 'leaflets');
     if (section === 'leaflets') renderLeafletHot();
     // Teplé takmer biele pozadie patrí k tejto sekcii. Sivé zo zvyšku
@@ -3121,7 +3335,7 @@ body.food-page { background: #FAF8F5; }
     document.getElementById('cat-nav-wrap').style.display = section === 'deals' ? 'block' : 'none';
     document.getElementById('btn-add-deal').style.display = section === 'deals' ? 'inline-block' : 'none';
     document.getElementById('btn-add-coupon').style.display = section === 'coupons' ? 'inline-block' : 'none';
-    document.getElementById('btn-add-placeholder').style.display = (section === 'leaflets' || section === 'food') ? 'inline-block' : 'none';
+    document.getElementById('btn-add-placeholder').style.display = (section === 'leaflets' || section === 'food' || section === 'flights') ? 'inline-block' : 'none';
     rememberSection(section);
   };
 
@@ -3129,7 +3343,7 @@ body.food-page { background: #FAF8F5; }
   // Sekcia je v adrese (#letaky). Po obnovení stránky človek zostane
   // tam, kde bol, a odkaz sa dá aj poslať ďalej - to by localStorage
   // nezvládol.
-  const SECTION_HASH = { deals: 'dealy', coupons: 'kody', food: 'potraviny', leaflets: 'letaky' };
+  const SECTION_HASH = { deals: 'dealy', coupons: 'kody', food: 'potraviny', leaflets: 'letaky', flights: 'letenky' };
   const HASH_SECTION = Object.fromEntries(Object.entries(SECTION_HASH).map(([k, v]) => [v, k]));
 
   let applyingHash = false;
@@ -3153,7 +3367,8 @@ body.food-page { background: #FAF8F5; }
     if (!section) return false;
     const btn = [...document.querySelectorAll('.main-section-btn')]
       .find(b => (b.getAttribute('onclick') || '').includes(`'${section}'`));
-    if (!btn) return false;
+    // Skrytá záložka (letenky pred spustením) sa z adresy otvoriť nesmie.
+    if (!btn || btn.style.display === 'none') return false;
     applyingHash = true;
     try { setMainSection(section, btn); } finally { applyingHash = false; }
     return true;
@@ -3174,6 +3389,453 @@ body.food-page { background: #FAF8F5; }
     openSectionFromHash();
   }
 
+
+
+  // ── Letenky: mapa lacných letov ─────────────────────────────────────
+  // Dáta pripravuje raz denne deal-hunter/letenky_mapa.py: pre každú
+  // trasu najlacnejšiu cenu na každý deň tam aj späť. Kombinácie
+  // "odlet + návrat" podľa zvolených filtrov skladáme až tu, takže sa
+  // dá odpovedať na akúkoľvek kombináciu bez ďalšieho sťahovania.
+  // Záložka sa zobrazí, len keď je zapnutá v admine (settings/letenky)
+  // alebo s ?nahlad=letenky v adrese - na prípravu pred spustením.
+  const LT_NAHLAD = /[?&]nahlad=letenky\b/.test(location.search);
+  window.LETENKY_NAST = { enabled: false, odkazy: 'dopravca', affiliate: '' };
+
+  const LT_DNI = ['ne', 'po', 'ut', 'st', 'št', 'pi', 'so'];
+  const LT_MES = ['jan', 'feb', 'mar', 'apr', 'máj', 'jún', 'júl', 'aug', 'sep', 'okt', 'nov', 'dec'];
+  const LT_ODKIAL = { BTS: ['Bratislava', 'Bratislavy'], VIE: ['Viedeň', 'Viedne'], KSC: ['Košice', 'Košíc'] };
+  const LT_TYPY = {
+    kratky: { od: 2, do: 4, nazov: 'Predĺžený víkend', pozn: '2–4 noci' },
+    tyzden: { od: 5, do: 8, nazov: 'Týždeň', pozn: '5–8 nocí' },
+    dlhsie: { od: 9, do: 14, nazov: 'Dlhšia dovolenka', pozn: '9–14 nocí' },
+    tam:    { od: 0, do: 0, nazov: 'Len tam', pozn: 'jednosmerná' },
+  };
+  const LT_LEAFLET = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/';
+
+  const ltF = { z: ['BTS', 'VIE'], cena: 50, typ: 'kratky', kedy: 'all', mesiac: 'all', druh: 'all' };
+  let ltData = null, ltMapa = null, ltVrstvy = null, ltVysledky = [], ltVybrana = null;
+  let ltDenTyzdna = [], ltMesiac = [];
+
+  function ltDen(i) {
+    const [y, m, d] = ltData.zaciatok.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + i));
+  }
+  const ltIso = i => ltDen(i).toISOString().slice(0, 10);
+  function ltDenText(i) {
+    const d = ltDen(i);
+    return `${LT_DNI[d.getUTCDay()]} ${d.getUTCDate()}. ${d.getUTCMonth() + 1}.`;
+  }
+  const ltCena = v => v.toFixed(2).replace('.', ',') + ' €';
+  const ltTrieda = v => v <= 30 ? 'c1' : v <= 50 ? 'c2' : 'c3';
+  function ltNoci(n) { return n === 1 ? '1 noc' : n <= 4 ? `${n} noci` : `${n} nocí`; }
+  function ltDestinacie(n) { return n === 1 ? '1 destinácia' : n >= 2 && n <= 4 ? `${n} destinácie` : `${n} destinácií`; }
+
+  // ── Kedy: víkend / pracovné dni ──
+  // Krátky výlet "cez víkend" = odlet št–so, návrat ne–po. Dlhší pobyt
+  // cez víkend = začína sa v piatok alebo sobotu. "Pracovné dni" pri
+  // krátkom výlete = ani jeden deň z víkendu; pri dlhšom odlet po–št.
+  function ltKedyOk(i, j) {
+    if (ltF.kedy === 'all') return true;
+    const a = ltDenTyzdna[i];
+    if (j == null) return ltF.kedy === 'vikend' ? (a === 5 || a === 6 || a === 0) : (a >= 1 && a <= 5);
+    const b = ltDenTyzdna[j];
+    const kratky = j - i <= 4;
+    if (ltF.kedy === 'vikend') {
+      return kratky ? ((a === 4 || a === 5 || a === 6) && (b === 0 || b === 1)) : (a === 5 || a === 6);
+    }
+    if (kratky) {
+      for (let k = i; k <= j; k++) { const w = ltDenTyzdna[k]; if (w === 0 || w === 6) return false; }
+      return true;
+    }
+    return a >= 1 && a <= 4;
+  }
+
+  function ltSpocitaj() {
+    const typ = LT_TYPY[ltF.typ];
+    const podla = {};
+    for (const r of ltData.trasy) {
+      if (!ltF.z.includes(r.z)) continue;
+      const L = ltData.letiska[r.do];
+      if (!L || (ltF.druh !== 'all' && L.d !== ltF.druh)) continue;
+      const moznosti = [];
+      for (let i = 0; i < r.t.length; i++) {
+        const tam = r.t[i];
+        if (!tam || tam > ltF.cena) continue;
+        if (ltF.mesiac !== 'all' && ltMesiac[i] !== ltF.mesiac) continue;
+        if (ltF.typ === 'tam') {
+          if (ltKedyOk(i, null)) moznosti.push({ z: r.z, a: r.a, i, j: null, p: tam });
+          continue;
+        }
+        let naj = null;
+        for (let n = typ.od; n <= typ.do; n++) {
+          const j = i + n;
+          if (j >= r.s.length) break;
+          const spat = r.s[j];
+          if (!spat) continue;
+          const p = Math.round((tam + spat) * 100) / 100;
+          if (p > ltF.cena || !ltKedyOk(i, j)) continue;
+          if (!naj || p < naj.p) naj = { z: r.z, a: r.a, i, j, p };
+        }
+        if (naj) moznosti.push(naj);
+      }
+      if (moznosti.length) (podla[r.do] = podla[r.do] || []).push(...moznosti);
+    }
+    ltVysledky = Object.entries(podla).map(([kod, m]) => {
+      m.sort((x, y) => x.p - y.p || x.i - y.i);
+      return { kod, L: ltData.letiska[kod], naj: m[0], moznosti: m };
+    });
+  }
+
+  // ── Odkaz na rezerváciu ──
+  // Kam vedie, sa nastavuje v admine: priamo k dopravcovi, alebo na
+  // porovnávač (Kayak, Momondo), prípadne cez affiliate šablónu {url}.
+  function ltOdkaz(o, kam) {
+    const tam = ltIso(o.i), spat = o.j != null ? ltIso(o.j) : null;
+    const trasa = `${o.z}-${kam}/${tam}${spat ? '/' + spat : ''}`;
+    let url;
+    if (LETENKY_NAST.odkazy === 'kayak') url = `https://www.kayak.com/flights/${trasa}?sort=price_a`;
+    else if (LETENKY_NAST.odkazy === 'momondo') url = `https://www.momondo.com/flight-search/${trasa}?sort=price_a`;
+    else url = 'https://www.ryanair.com/sk/sk/trip/flights/select?adults=1&teens=0&children=0&infants=0'
+      + `&dateOut=${tam}${spat ? '&dateIn=' + spat : ''}&isReturn=${spat ? 'true' : 'false'}`
+      + `&originIata=${o.z}&destinationIata=${kam}`;
+    const sab = (LETENKY_NAST.affiliate || '').trim();
+    if (sab.includes('{url}')) url = sab.replace('{url}', encodeURIComponent(url));
+    return url;
+  }
+  window.ltKlik = (z, kam) => { if (window.trackClick) window.trackClick(`letenky-${z}-${kam}`); };
+
+  function ltKedyText(o) {
+    return o.j == null
+      ? `${ltDenText(o.i)} · jednosmerne`
+      : `${ltDenText(o.i)} → ${ltDenText(o.j)} · ${ltNoci(o.j - o.i)}`;
+  }
+  function ltFoto(kod, L) { return L.f ? `assets/destinacie/${kod}.jpg` : ''; }
+  function ltTlacidlo(o, kam) {
+    const WEB = { FR: 'ryanair.com', W6: 'wizzair.com' };
+    const kde = LETENKY_NAST.odkazy === 'kayak' ? 'kayak.com' : LETENKY_NAST.odkazy === 'momondo' ? 'momondo.com'
+      : (WEB[o.a] || 'stránke dopravcu');
+    return `<a class="lt-btn" href="${escapeAttr(ltOdkaz(o, kam))}" target="_blank" rel="nofollow sponsored noopener"
+      onclick="ltKlik('${o.z}','${kam}')">Rezervovať na ${kde} →</a>`;
+  }
+
+  // ── Filtre ──
+  function ltSkupiny() {
+    const mesiace = [...new Set(ltMesiac)].map(m => [m, LT_MES[Number(m.slice(5)) - 1]]);
+    return [
+      { k: 'z', lab: 'Odkiaľ', multi: true, moz: Object.entries(LT_ODKIAL).map(([k, v]) => [k, v[0]]) },
+      { k: 'cena', lab: ltF.typ === 'tam' ? 'Rozpočet · jedným smerom' : 'Rozpočet · tam aj späť', cls: 'budget',
+        moz: [30, 40, 50, 75, 100].map(v => [v, `do ${v} €`]) },
+      { k: 'typ', lab: 'Dĺžka cesty', moz: Object.entries(LT_TYPY).map(([k, v]) => [k, v.nazov, v.pozn]) },
+      { k: 'kedy', lab: 'Kedy', moz: [['all', 'Kedykoľvek'], ['vikend', 'Cez víkend'], ['pracovne', 'Cez pracovné dni']] },
+      { k: 'mesiac', lab: 'Mesiac odletu', moz: [['all', 'Najbližšie 4 mesiace'], ...mesiace] },
+      { k: 'druh', lab: 'Kam', moz: [['all', 'Všade'], ['mesto', 'Za mestom'], ['more', 'K moru']] },
+    ];
+  }
+  function ltKresliFiltre() {
+    document.getElementById('lt-filters').innerHTML = ltSkupiny().map(s => `
+      <div class="lt-group ${s.cls || ''}">
+        <div class="lt-group-lab">${s.lab}</div>
+        <div class="lt-chips">${s.moz.map(([v, t, pozn]) => {
+          const on = s.multi ? ltF[s.k].includes(v) : ltF[s.k] === v;
+          return `<button type="button" class="lt-chip${on ? ' on' : ''}" data-k="${s.k}" data-v="${escapeAttr(String(v))}"
+            aria-pressed="${on}">${escapeHtml(t)}${pozn ? `<small>${escapeHtml(pozn)}</small>` : ''}</button>`;
+        }).join('')}</div>
+      </div>`).join('');
+  }
+  function ltKlikFilter(e) {
+    const b = e.target.closest('.lt-chip');
+    if (!b) return;
+    const k = b.dataset.k;
+    let v = b.dataset.v;
+    if (k === 'cena') v = Number(v);
+    if (k === 'z') {
+      const i = ltF.z.indexOf(v);
+      if (i >= 0) { if (ltF.z.length > 1) ltF.z.splice(i, 1); }   // aspoň jedno letisko
+      else ltF.z.push(v);
+    } else {
+      ltF[k] = v;
+    }
+    ltVybrana = null;
+    ltKresliFiltre();
+    ltRender(true);
+  }
+
+  // ── Mapa ──
+  function ltNacitajLeaflet() {
+    if (window.L) return Promise.resolve();
+    if (ltNacitajLeaflet.p) return ltNacitajLeaflet.p;
+    ltNacitajLeaflet.p = new Promise((ok, chyba) => {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = LT_LEAFLET + 'leaflet.min.css';
+      css.integrity = 'sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb';
+      css.crossOrigin = 'anonymous';
+      document.head.appendChild(css);
+      const s = document.createElement('script');
+      s.src = LT_LEAFLET + 'leaflet.min.js';
+      s.integrity = 'sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO';
+      s.crossOrigin = 'anonymous';
+      s.onload = ok;
+      s.onerror = () => { ltNacitajLeaflet.p = null; chyba(new Error('Leaflet sa nenačítal')); };
+      document.head.appendChild(s);
+    });
+    return ltNacitajLeaflet.p;
+  }
+
+  async function ltPripravMapu() {
+    await ltNacitajLeaflet();
+    if (ltMapa) { ltMapa.invalidateSize(); return; }
+    ltMapa = L.map('lt-map', {
+      minZoom: 3, maxZoom: 8, zoomSnap: 0.25, zoomDelta: 0.5,
+      maxBounds: [[12, -40], [74, 62]], maxBoundsViscosity: 0.8, scrollWheelZoom: false,
+    });
+    ltMapa.attributionControl.setPrefix(false);
+    ltMapa.attributionControl.addAttribution('Mapa: Natural Earth · Ceny: Ryanair');
+    // Koliesko myši mapu nezväčšuje, kým na ňu človek neklikne - inak by
+    // pri posúvaní stránky nečakane "chytila" stránku.
+    ltMapa.on('click', () => ltMapa.scrollWheelZoom.enable());
+    ltMapa.on('mouseout', () => ltMapa.scrollWheelZoom.disable());
+    ltMapa.on('zoomend', ltRozlozPiny);
+    ltMapa.fitBounds([[35, -10], [60, 30]]);
+    try {
+      const geo = await fetch('assets/letenky/europa.json').then(r => r.json());
+      L.geoJSON(geo, {
+        interactive: false,
+        style: f => ({ color: '#CFC7B8', weight: 0.8, fillOpacity: 1,
+          fillColor: f.properties.n === 'Slovakia' ? '#FFE1C7' : '#FAF7F1' }),
+      }).addTo(ltMapa);
+    } catch (e) { /* bez obrysov sa dá žiť - body a ceny ostanú */ }
+    ltVrstvy = {
+      obluky: L.layerGroup().addTo(ltMapa),
+      vybrane: L.layerGroup().addTo(ltMapa),
+      odkial: L.layerGroup().addTo(ltMapa),
+      piny: L.layerGroup().addTo(ltMapa),
+    };
+  }
+
+  // Oblúk medzi dvoma bodmi (kvadratická krivka), aby lety na mape
+  // vyzerali ako trasy lietadiel a nie ako pravítkom ťahané čiary.
+  function ltObluk(a, b) {
+    const [y1, x1] = a, [y2, x2] = b;
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const dx = x2 - x1, dy = y2 - y1;
+    const cx = mx - dy * 0.18, cy = my + dx * 0.18;
+    const body = [];
+    for (let t = 0; t <= 1.0001; t += 1 / 28) {
+      const u = 1 - t;
+      body.push([u * u * y1 + 2 * u * t * cy + t * t * y2, u * u * x1 + 2 * u * t * cx + t * t * x2]);
+    }
+    return body;
+  }
+  const ltBod = kod => {
+    const o = ltData.odkial[kod] || ltData.letiska[kod];
+    return [o.lat, o.lon];
+  };
+
+  function ltKresliMapu(prisposob) {
+    if (!ltMapa) return;
+    Object.values(ltVrstvy).forEach(v => v.clearLayers());
+    for (const [kod, o] of Object.entries(ltData.odkial)) {
+      const on = ltF.z.includes(kod);
+      L.marker([o.lat, o.lon], {
+        zIndexOffset: 2000, keyboard: false, interactive: false,
+        icon: L.divIcon({ className: 'lt-pin-icon', iconSize: [0, 0],
+          html: `<div class="lt-origin${on ? '' : ' off'} o-${kod}"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg>${kod}</div>` }),
+      }).addTo(ltVrstvy.odkial);
+    }
+    const zoradene = [...ltVysledky].sort((a, b) => b.naj.p - a.naj.p);
+    zoradene.forEach((v, poradie) => {
+      const ciel = [v.L.lat, v.L.lon];
+      for (const z of new Set(v.moznosti.map(m => m.z))) {
+        L.polyline(ltObluk(ltBod(z), ciel), { className: 'lt-arc', interactive: false }).addTo(ltVrstvy.obluky);
+      }
+      const m = L.marker(ciel, {
+        zIndexOffset: poradie, title: `${v.L.n} od ${ltCena(v.naj.p)}`,
+        icon: L.divIcon({ className: 'lt-pin-icon', iconSize: [0, 0],
+          html: `<div class="lt-pin ${ltTrieda(v.naj.p)}${ltVybrana === v.kod ? ' sel' : ''}" data-kod="${v.kod}">${ltCena(v.naj.p)}</div>` }),
+      });
+      m.on('click', () => ltVyber(v.kod, 'mapa'));
+      m.addTo(ltVrstvy.piny);
+      m._lt = v;
+    });
+    ltRozlozPiny();
+    if (prisposob && ltVysledky.length) {
+      const body = ltVysledky.map(v => [v.L.lat, v.L.lon]).concat(ltF.z.map(ltBod));
+      ltMapa.flyToBounds(body, { padding: [40, 40], maxZoom: 5.5, duration: 0.6 });
+    }
+    const msg = document.getElementById('lt-map-msg');
+    msg.hidden = ltVysledky.length > 0;
+    if (!ltVysledky.length) msg.textContent = 'Na túto kombináciu teraz nič nelieta. Skús vyšší rozpočet alebo iný mesiac.';
+  }
+
+  // Cenovky sa v strednej Európe prekrývajú. Najlacnejšie dostanú
+  // cenovku, tie, čo by zakryli už umiestnenú, sa zmenšia na farebnú
+  // bodku. Po priblížení sa miesto uvoľní a cenoviek pribudne.
+  function ltRozlozPiny() {
+    if (!ltMapa || !ltVrstvy) return;
+    const markery = [];
+    ltVrstvy.piny.eachLayer(m => { if (m._lt) markery.push(m); });
+    markery.sort((a, b) => a._lt.naj.p - b._lt.naj.p);
+    const obsadene = [];
+    for (const m of markery) {
+      const el = m.getElement() && m.getElement().querySelector('.lt-pin');
+      if (!el) continue;
+      const bod = ltMapa.latLngToContainerPoint(m.getLatLng());
+      const w = 62, h = 22;
+      const r = { x1: bod.x - w / 2, x2: bod.x + w / 2, y1: bod.y - h / 2, y2: bod.y + h / 2 };
+      const koliduje = obsadene.some(o => r.x1 < o.x2 && r.x2 > o.x1 && r.y1 < o.y2 && r.y2 > o.y1);
+      const bodka = koliduje && m._lt.kod !== ltVybrana;
+      el.classList.toggle('dot', bodka);
+      if (!bodka) obsadene.push(r);
+    }
+  }
+
+  function ltPopup(v) {
+    const o = v.naj, L_ = v.L;
+    const foto = ltFoto(v.kod, L_);
+    const kredit = L_.f && L_.f.a
+      ? `<span class="lt-pop-credit">Foto: ${escapeHtml(L_.f.a)}${L_.f.l ? ' · ' + escapeHtml(L_.f.l) : ''}${L_.f.z
+          ? ` · <a href="${escapeAttr(L_.f.z)}" target="_blank" rel="noopener">zdroj</a>` : ''}</span>` : '';
+    // Ďalšie termíny: iné dni odletu, nie ten istý let z iného letiska.
+    const videne = new Set([`${o.z}${o.i}`]);
+    const dalsie = [];
+    for (const m of v.moznosti.slice(1)) {
+      if (dalsie.length >= (window.innerWidth <= 640 ? 2 : 5)) break;
+      if (videne.has(`${m.z}${m.i}`)) continue;
+      videne.add(`${m.z}${m.i}`);
+      dalsie.push(m);
+    }
+    const viacLetisk = new Set(v.moznosti.map(m => m.z)).size > 1;
+    return `<div class="lt-pop">
+      <div class="lt-pop-img" style="${foto ? `background-image:url('${foto}')` : ''}">${kredit}</div>
+      <div class="lt-pop-body">
+        <div class="lt-pop-title">${escapeHtml(L_.n)}</div>
+        <div class="lt-pop-sub">${escapeHtml(L_.k || '')} · z ${LT_ODKIAL[o.z][1]}</div>
+        <div class="lt-pop-row">
+          <div class="lt-pop-when">${ltKedyText(o)}</div>
+          <div class="lt-pop-price lt-pin ${ltTrieda(o.p)}" style="position:static;transform:none;border:0;box-shadow:none;background:none;padding:0;">
+            ${ltCena(o.p)}<small>${o.j == null ? 'jedným smerom' : 'tam aj späť'}</small></div>
+        </div>
+        ${ltTlacidlo(o, v.kod)}
+        ${dalsie.length ? `<div class="lt-more"><div class="lt-more-lab">Ďalšie termíny</div>${dalsie.map(m =>
+          `<a href="${escapeAttr(ltOdkaz(m, v.kod))}" target="_blank" rel="nofollow sponsored noopener" onclick="ltKlik('${m.z}','${v.kod}')">
+            <span>${ltKedyText(m)}${viacLetisk ? ` · ${m.z}` : ''}</span><b>${ltCena(m.p)}</b></a>`).join('')}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function ltVyber(kod, odkial) {
+    const v = ltVysledky.find(x => x.kod === kod);
+    if (!v) return;
+    ltVybrana = kod;
+    document.querySelectorAll('.lt-pin[data-kod]').forEach(p => p.classList.toggle('sel', p.dataset.kod === kod));
+    ltRozlozPiny();
+    document.querySelectorAll('.lt-card').forEach(c => c.classList.toggle('sel', c.dataset.kod === kod));
+    if (ltMapa) {
+      ltVrstvy.vybrane.clearLayers();
+      const ciel = [v.L.lat, v.L.lon];
+      for (const z of new Set(v.moznosti.map(m => m.z))) {
+        L.polyline(ltObluk(ltBod(z), ciel), { className: 'lt-arc-sel', interactive: false }).addTo(ltVrstvy.vybrane);
+      }
+      const otvor = () => L.popup({ className: 'lt-popup', maxWidth: 300, minWidth: 280, autoPanPadding: [24, 24], offset: [0, -8] })
+        .setLatLng(ciel).setContent(ltPopup(v)).openOn(ltMapa);
+      if (odkial === 'zoznam') {
+        ltMapa.flyTo(ciel, Math.max(ltMapa.getZoom(), 4.5), { duration: 0.5 });
+        ltMapa.once('moveend', otvor);
+        // Na telefóne je mapa nad zoznamom - posunieme sa k nej.
+        if (window.innerWidth <= 960) document.querySelector('.lt-map-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        otvor();
+      }
+    }
+    if (odkial === 'mapa') {
+      const karta = document.querySelector(`.lt-card[data-kod="${kod}"]`);
+      if (karta && window.innerWidth > 960) karta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+  window.ltVyber = ltVyber;
+
+  window.ltRender = function(prisposobMapu) {
+    if (!ltData) return;
+    ltSpocitaj();
+    const sort = document.getElementById('lt-sort').value;
+    const zoz = [...ltVysledky];
+    if (sort === 'datum') zoz.sort((a, b) => a.naj.i - b.naj.i || a.naj.p - b.naj.p);
+    else if (sort === 'nazov') zoz.sort((a, b) => a.L.n.localeCompare(b.L.n, 'sk'));
+    else zoz.sort((a, b) => a.naj.p - b.naj.p);
+    document.getElementById('lt-count').textContent = ltDestinacie(zoz.length);
+    document.getElementById('lt-results').innerHTML = zoz.length ? zoz.map(v => {
+      const o = v.naj, foto = ltFoto(v.kod, v.L);
+      return `<div class="lt-card${ltVybrana === v.kod ? ' sel' : ''}" data-kod="${v.kod}" onclick="ltVyber('${v.kod}','zoznam')">
+        <div class="lt-card-img" style="${foto ? `background-image:url('${foto}')` : ''}"></div>
+        <div style="min-width:0;">
+          <div class="lt-card-name">${escapeHtml(v.L.n)}</div>
+          <div class="lt-card-sub">${escapeHtml(v.L.k || '')} · z ${LT_ODKIAL[o.z][1]}</div>
+          <div class="lt-card-when">${ltKedyText(o)}</div>
+        </div>
+        <div class="lt-card-price lt-pin ${ltTrieda(o.p)}" style="position:static;transform:none;border:0;box-shadow:none;background:none;padding:0;">
+          ${ltCena(o.p)}<small>${v.moznosti.length > 1 ? `+${v.moznosti.length - 1} termínov` : '1 termín'}</small></div>
+      </div>`;
+    }).join('') : `<div class="lt-empty"><b>Nič nenašlo</b>Na túto kombináciu teraz nič nelieta.
+        Skús vyšší rozpočet, iný mesiac alebo pridaj ďalšie letisko.</div>`;
+    ltKresliMapu(prisposobMapu);
+  };
+
+  function ltStatistiky() {
+    let naj = Infinity;
+    for (const r of ltData.trasy) {
+      for (let i = 0; i < r.t.length; i++) {
+        if (!r.t[i]) continue;
+        for (let n = 2; n <= 14 && i + n < r.s.length; n++) {
+          if (r.s[i + n] && r.t[i] + r.s[i + n] < naj) naj = r.t[i] + r.s[i + n];
+        }
+      }
+    }
+    const kedy = new Date(ltData.vytvorene);
+    const hod = `${kedy.getDate()}. ${kedy.getMonth() + 1}. o ${String(kedy.getHours()).padStart(2, '0')}:${String(kedy.getMinutes()).padStart(2, '0')}`;
+    document.getElementById('lt-stats').innerHTML = `
+      <div class="lt-stat"><b>${Object.keys(ltData.letiska).length}</b>destinácií</div>
+      <div class="lt-stat"><b>${ltData.trasy.length}</b>priamych liniek</div>
+      <div class="lt-stat"><b>od ${naj < Infinity ? ltCena(Math.round(naj * 100) / 100) : '—'}</b>tam aj späť</div>
+      <div class="lt-stat"><b>${hod}</b>posledná aktualizácia</div>`;
+    document.getElementById('lt-note').innerHTML =
+      `Ceny sú najnižšie ceny Ryanairu za jednu osobu a let bez batožiny do podpalubia, zistené ${hod}. ` +
+      `Letenky sa rýchlo míňajú a ceny menia — pred kúpou ich over na stránke, kam ťa odkaz zavedie. ` +
+      `Wizz Air a ďalších dopravcov pripravujeme.`;
+  }
+
+  window.ltOtvor = async function() {
+    const msg = document.getElementById('lt-map-msg');
+    try {
+      if (!ltData) {
+        ltData = await fetch('assets/letenky/ceny.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+        const n = ltData.dni;
+        ltDenTyzdna = Array.from({ length: n }, (_, i) => ltDen(i).getUTCDay());
+        ltMesiac = Array.from({ length: n }, (_, i) => ltIso(i).slice(0, 7));
+        ltStatistiky();
+        ltKresliFiltre();
+        document.getElementById('lt-filters').addEventListener('click', ltKlikFilter);
+        ltRender(false);
+      }
+      await ltPripravMapu();
+      ltKresliMapu(true);
+    } catch (e) {
+      msg.hidden = false;
+      msg.textContent = 'Mapu sa nepodarilo načítať. Skús obnoviť stránku.';
+      console.warn('Letenky:', e);
+    }
+  };
+
+  // Volá sa z modulu Firebase, keď príde settings/letenky.
+  window.nastavLetenky = function(nast) {
+    window.LETENKY_NAST = Object.assign({ enabled: false, odkazy: 'dopravca', affiliate: '' }, nast || {});
+    const zobraz = LETENKY_NAST.enabled === true || LT_NAHLAD;
+    const btn = document.getElementById('btn-letenky');
+    if (btn) btn.style.display = zobraz ? '' : 'none';
+    if (zobraz && sectionFromHash() === 'flights') openSectionFromHash();
+    if (!zobraz && document.getElementById('flights-main').style.display === 'block') window.goToDeals();
+    if (ltData) ltRender(false);           // odkazy sa mohli zmeniť
+  };
 
   // ── Najlacnejšie potraviny ──────────────────────────────────────────
   // Dáta pripravuje agent raz denne z národného porovnávača a ukladá ich

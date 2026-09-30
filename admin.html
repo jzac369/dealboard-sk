@@ -49,6 +49,7 @@
       startListeningSettings();
       startListeningAffiliate();
       startListeningSchedule();
+      startListeningLetenky();
       startListeningVisits();
       loadMerchants();
       loadAuditLog();
@@ -116,6 +117,7 @@
     { id: 'letenky',   nazov: 'Lacné letenky',         popis: 'Ryanair z Bratislavy — tri najlacnejšie na schválenie.' },
     { id: 'ziar',      nazov: 'Denný žiar',            popis: 'Pridá hlasy publikovaným dealom. Rozsah a hlavný vypínač sú pri Dealoch.' },
     { id: 'facebook',  nazov: 'Zdieľanie na Facebook', popis: 'Najviac 2 čerstvé dealy na jeden beh.' },
+    { id: 'mapa',      nazov: 'Letenková mapa',        popis: 'Ceny Ryanairu z BTS, VIE a KSC na 4 mesiace pre záložku Letenky (~1 minúta).' },
     { id: 'potraviny', nazov: 'Ceny potravín',         popis: 'Beží na tvojom počítači — musí byť zapnutý (nie uspatý).', lokalne: true },
   ];
   let plan = {};
@@ -228,6 +230,71 @@
       renderAffiliateStats();
     }, (e) => console.warn('Affiliate nastavenia sa nepodarilo načítať:', e));
   }
+
+  // ── Letenky (záložka s mapou) ────────────────────────────────────────
+  // settings/letenky číta stránka: enabled zapína záložku, odkazy a
+  // affiliate určujú, kam vedie tlačidlo Rezervovať. Ceny samotné sú
+  // v statickom súbore assets/letenky/ceny.json (úloha Letenková mapa).
+  const letenkyRef = doc(db, "settings", "letenky");
+
+  function startListeningLetenky() {
+    onSnapshot(letenkyRef, (snap) => {
+      const d = snap.exists() ? snap.data() : {};
+      document.getElementById('lt-enabled').checked = d.enabled === true;
+      document.getElementById('lt-odkazy').value = d.odkazy || 'dopravca';
+      const af = document.getElementById('lt-affiliate');
+      if (document.activeElement !== af) af.value = d.affiliate || '';
+      document.getElementById('lt-stav-zap').textContent = d.enabled === true
+        ? 'Záložka je na stránke viditeľná pre všetkých.'
+        : 'Záložka je skrytá. Vidíš ju len cez odkaz na náhľad.';
+    }, (e) => console.warn('Nastavenia leteniek sa nepodarilo načítať:', e));
+    loadLetenkyData();
+  }
+
+  window.saveLetenky = async function(zmena) {
+    if ('affiliate' in zmena) {
+      const t = (zmena.affiliate || '').trim();
+      if (t && !t.includes('{url}')) {
+        alert('Šablóna musí obsahovať {url} — na to miesto sa vloží odkaz na let.');
+        return;
+      }
+      zmena.affiliate = t;
+    }
+    try {
+      await setDoc(letenkyRef, zmena, { merge: true });
+      logChange('settings-letenky', 'letenky', 'Letenky: ' + JSON.stringify(zmena));
+    } catch (e) {
+      alert('Nepodarilo sa uložiť nastavenie: ' + e.message);
+    }
+  };
+
+  async function loadLetenkyData() {
+    const el = document.getElementById('lt-data');
+    try {
+      const d = await fetch('assets/letenky/ceny.json?t=' + Date.now()).then(r => r.json());
+      const kedy = new Date(d.vytvorene);
+      const hod = (Date.now() - kedy) / 3600000;
+      const odkial = {};
+      d.trasy.forEach(t => { odkial[t.z] = (odkial[t.z] || 0) + 1; });
+      // Prekliky na "Rezervovať" - ukladajú sa ako deal_clicks/letenky-BTS-STN.
+      const klik = Object.entries(window.dealClicks || {})
+        .filter(([k]) => k.startsWith('letenky-'))
+        .sort((a, b) => b[1] - a[1]);
+      const spolu = klik.reduce((a, [, n]) => a + n, 0);
+      el.innerHTML = `
+        <div class="as-box"><div class="as-num" style="color:${hod > 30 ? 'var(--red)' : 'inherit'}">${kedy.toLocaleString('sk-SK', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+          <div class="as-lab">posledná aktualizácia cien${hod > 30 ? ' — <b>staré dáta, pozri úlohu Letenková mapa</b>' : ''}</div></div>
+        <div class="as-box"><div class="as-num">${d.trasy.length}</div>
+          <div class="as-lab">liniek (${Object.entries(odkial).map(([k, n]) => `${k} ${n}`).join(' · ')})</div></div>
+        <div class="as-box"><div class="as-num">${Object.keys(d.letiska).length}</div><div class="as-lab">destinácií</div></div>
+        <div class="as-box" style="flex:2 1 260px;"><div class="as-num">${spolu}</div>
+          <div class="as-lab">preklikov na rezerváciu${klik.length ? ': ' + klik.slice(0, 6).map(([k, n]) =>
+            `${escapeHtml(k.slice(8))} <b>(${n})</b>`).join(' · ') : ''}</div></div>`;
+    } catch (e) {
+      el.innerHTML = '<div class="as-box"><div class="as-lab">Dáta leteniek sa nepodarilo načítať: ' + escapeHtml(e.message) + '</div></div>';
+    }
+  }
+  window.loadLetenkyData = loadLetenkyData;
 
   window.saveAffiliate = async function(zmena) {
     try {
@@ -1313,7 +1380,8 @@
       const counts = {};
       snap.forEach(d => { counts[d.id] = (d.data() || {}).count || 0; });
       window.dealClicks = counts;
-      render();   // prekreslí zoznam dealov aj s načítanými preklikmi
+      render();
+      loadLetenkyData();   // prekreslí zoznam dealov aj s načítanými preklikmi
     } catch (e) {
       console.warn('Prekliky sa nepodarilo načítať (chýbajú pravidlá pre deal_clicks?):', e);
     }
@@ -1353,7 +1421,7 @@
   const LOG_AKCIE = {
     approved: 'schválil', rejected: 'zamietol', archived: 'archivoval',
     pending: 'vrátil na schválenie', expired: 'označil exspirované',
-    unexpired: 'zrušil exspiráciu', deleted: 'vymazal', 'denny-ziar': 'denný žiar',
+    unexpired: 'zrušil exspiráciu', deleted: 'vymazal', 'denny-ziar': 'denný žiar', letenky: 'letenky – nastavenie',
   };
   const LOG_OBDOBIE = { 1: 'den', 7: 'tyzden', 30: 'mesiac', 365: 'rok', 0: 'od-zaciatku' };
   let auditRows = [];
@@ -1967,6 +2035,45 @@
         tlačidlá Schváliť/Zamietnuť nefungovali) a <b>stránky dealov</b> sa generujú každú hodinu
         a hneď po schválení. Obe sú súčasť chodu stránky, nie úlohy na plánovanie.
       </p>
+    </section>
+
+    <!-- ── Sekcia: Letenky ─────────────────────────────────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">✈️ Letenky — mapa lacných letov</h2>
+
+      <div class="aff-stats" id="lt-data"></div>
+
+      <div class="settings-panel">
+        <label class="switch-label">
+          <span>Zobraziť záložku Letenky na stránke</span>
+          <label class="switch">
+            <input type="checkbox" id="lt-enabled" onchange="saveLetenky({ enabled: this.checked })">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <p class="settings-hint">
+          <span id="lt-stav-zap"></span>
+          Náhľad (funguje aj pri vypnutej záložke):
+          <a href="./?nahlad=letenky#letenky" target="_blank" rel="noopener">henkukaj.sk/?nahlad=letenky</a>
+        </p>
+      </div>
+
+      <div class="settings-panel">
+        <label style="font-size:.85rem; font-weight:600; display:block; margin-bottom:5px;">Tlačidlo „Rezervovať“ vedie</label>
+        <select id="lt-odkazy" onchange="saveLetenky({ odkazy: this.value })" style="padding:7px 10px; border-radius:6px; border:1.5px solid var(--line); font:inherit;">
+          <option value="dopravca">priamo k dopravcovi (Ryanair) — s vyplneným letom</option>
+          <option value="kayak">na Kayak — porovnanie všetkých dopravcov</option>
+          <option value="momondo">na Momondo — porovnanie všetkých dopravcov</option>
+        </select>
+        <label style="font-size:.85rem; font-weight:600; display:block; margin:12px 0 5px;">Affiliate šablóna (nepovinné)</label>
+        <input type="text" id="lt-affiliate" placeholder="https://partner.example/click?u={url}"
+               style="width:100%; max-width:560px;" onchange="saveLetenky({ affiliate: this.value })">
+        <p class="settings-hint">
+          Keď dostaneš partnerský odkaz od Kayaku/Momonda (alebo inej siete), vlož ho sem a namiesto
+          cieľovej adresy daj <code>{url}</code>. Každé tlačidlo na mape potom pôjde cez tvoj partnerský
+          odkaz. Prázdne = odkazy bez provízie.
+        </p>
+      </div>
     </section>
 
     <!-- ── Sekcia: Affiliate odkazy ───────────────────────────────────── -->

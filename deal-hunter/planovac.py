@@ -48,6 +48,7 @@ ULOHY = {
     "letenky":   {"workflow": "letenky.yml",     "okno_h": 3},
     "ziar":      {"workflow": "denny-ziar.yml",  "okno_h": 3},
     "facebook":  {"workflow": "facebook.yml",    "okno_h": 3},
+    "mapa":      {"workflow": "letenky-mapa.yml", "okno_h": 6},
     "potraviny": {"lokalne": True,               "okno_h": 12},
 }
 
@@ -58,6 +59,7 @@ PREDVOLENY = {
     "letenky":   {"enabled": True, "times": ["07:30"]},
     "ziar":      {"enabled": True, "times": ["06:10"]},
     "facebook":  {"enabled": True, "times": ["09:00", "17:00"]},
+    "mapa":      {"enabled": True, "times": ["05:30"]},
     "potraviny": {"enabled": True, "times": ["07:15", "13:00"]},
 }
 
