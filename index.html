@@ -2941,6 +2941,16 @@ body.food-page { background: #FAF8F5; }
     return `${Number(value || 0).toFixed(2).replace('.', ',')} ${currency || '€'}`;
   }
 
+  // Cena dealu na zobrazenie. Niektoré dealy konkrétnu cenu nemajú -
+  // napr. "vlaky ZSSK o 50 % lacnejšie" platí pre každý lístok inú sumu.
+  // Vtedy ukážeme samotnú zľavu; "0,00 €" by vyzeralo ako chyba a
+  // vymyslená príkladová cena by bola zavádzajúca.
+  function cenaDealu(d, currency) {
+    if (Number(d.dealPrice) > 0) return price(d.dealPrice, currency);
+    if (Number(d.discountPercent) > 0) return `−${Math.round(d.discountPercent)} %`;
+    return '';
+  }
+
   function icon(name) {
     return `<svg class="ic" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
   }
@@ -3004,7 +3014,7 @@ body.food-page { background: #FAF8F5; }
           </div>
           <a class="deal-title" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
           <div class="deal-price-row">
-            <span class="price-now">${price(d.dealPrice, d.currency)}</span>
+            <span class="price-now">${cenaDealu(d, d.currency)}</span>
             ${orig}
             ${expired ? '' : badge}
           </div>
@@ -3862,7 +3872,7 @@ body.food-page { background: #FAF8F5; }
           ${d.imageUrl ? `<img class="lf-hot-img" src="${escapeAttr(d.imageUrl)}" alt="" loading="lazy">`
                        : `<span class="lf-hot-img"></span>`}
           <span class="lf-hot-info"><b>${escapeHtml(d.title || '')}</b>
-            <span>${price(d.dealPrice)}</span></span>
+            <span>${cenaDealu(d)}</span></span>
         </a>`).join('');
   }
 
@@ -4098,7 +4108,10 @@ body.food-page { background: #FAF8F5; }
 
   window.shareDeal = async function(id, title, price, currency) {
     const url = await bestShareUrl(id, title);
-    const text = `${title} – len ${Number(price).toFixed(2).replace('.', ',')} ${currency}!`;
+    // Bez konkrétnej ceny (percentuálna zľava) by tu bolo "len 0,00 €!".
+    const text = Number(price) > 0
+      ? `${title} – len ${Number(price).toFixed(2).replace('.', ',')} ${currency}!`
+      : title;
     if (navigator.share) {
       try {
         await navigator.share({ title: text, url });
@@ -4268,7 +4281,7 @@ body.food-page { background: #FAF8F5; }
 
       <div class="price-box${d.expired ? ' is-expired' : ''}">
         <div class="deal-price-row">
-          <span class="price-now">${price(d.dealPrice, cur)}</span>
+          <span class="price-now">${cenaDealu(d, cur)}</span>
           ${d.originalPrice ? `<span class="price-was">${price(d.originalPrice, cur)}</span>` : ''}
           ${(pct > 0 && !d.expired) ? `<span class="price-pct">-${pct}%</span>` : ''}
         </div>

@@ -162,6 +162,8 @@ def sprava(d: dict) -> str:
             riadky.append(f"Teraz {c} € namiesto {p} € (−{zlava} %)")
         else:
             riadky.append(f"Cena {c} €")
+    elif zlava:
+        riadky.append(f"Zľava {round(zlava)} %")
     if d.get("store"):
         riadky.append(f"Predajca: {d['store']}")
     riadky.append("")

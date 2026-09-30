@@ -108,6 +108,9 @@ def render_deal_page(deal_id: str, d: dict) -> str:
         price_html = f'<span style="font-size:1.4rem;font-weight:800;color:#2E8B3D;">{deal_price:.2f} {currency_symbol}</span>'
         if original_price and original_price > deal_price:
             price_html += f' <span style="text-decoration:line-through;color:#707070;font-size:0.9rem;">{original_price:.2f} {currency_symbol}</span>'
+    elif d.get("discountPercent"):
+        # Deal bez konkrétnej ceny - ukážeme len zľavu, nie "0,00 €".
+        price_html = f'<span style="font-size:1.4rem;font-weight:800;color:#2E8B3D;">Zľava {round(d["discountPercent"])} %</span>'
 
     offers_json = ""
     if deal_price:
