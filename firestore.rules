@@ -114,6 +114,36 @@ service cloud.firestore {
       }
     }
 
+    // Účty návštevníkov (registrácia e-mailom). Každý číta a mení len
+    // svoj profil; admin číta všetky kvôli exportu pre newsletter.
+    //  - e-mail v profile sa musí zhodovať s prihláseným účtom, takže
+    //    si nikto nezapíše newsletter na cudziu adresu;
+    //  - "overeny" smie byť true len vtedy, keď Firebase potvrdil
+    //    e-mail - newsletter ide len na overené adresy (double opt-in);
+    //  - polia sú vymenované, nič iné sa do profilu nedostane.
+    function platnyProfil() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'meno', 'newsletter', 'temy', 'frekvencia', 'letiska',
+                               'kraj', 'ulozene', 'overeny', 'suhlasPodmienky', 'suhlasNewsletter',
+                               'vytvorene', 'upravene'])
+        && d.email == request.auth.token.email
+        && d.newsletter is bool
+        && (!('meno' in d) || (d.meno is string && d.meno.size() <= 40))
+        && (!('temy' in d) || (d.temy is list && d.temy.size() <= 10))
+        && (!('letiska' in d) || (d.letiska is list && d.letiska.size() <= 5))
+        && (!('frekvencia' in d) || d.frekvencia in ['tyzden', 'den'])
+        && (!('kraj' in d) || (d.kraj is string && d.kraj.size() <= 40))
+        && (!('ulozene' in d) || (d.ulozene is list && d.ulozene.size() <= 500))
+        && (!('overeny' in d) || d.overeny == false || request.auth.token.email_verified == true);
+    }
+    match /users/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create, update: if request.auth != null && request.auth.uid == uid
+                            && request.auth.token.email is string
+                            && platnyProfil();
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     // Nastavenia moderácie – verejné čítanie, zápis len admin.
     match /settings/{settingId} {
       allow read: if true;

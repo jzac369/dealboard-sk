@@ -32,9 +32,11 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc, updateDoc, increment, query, where, orderBy, serverTimestamp, runTransaction, limit, startAfter, getDocs }
+  import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, increment, query, where, orderBy, serverTimestamp, runTransaction, limit, startAfter, getDocs }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged }
+  import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword,
+           createUserWithEmailAndPassword, signOut, linkWithCredential, EmailAuthProvider,
+           sendEmailVerification, sendPasswordResetEmail, reauthenticateWithCredential, deleteUser }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   // ─── NASTAV SVOJE FIREBASE ÚDAJE TU ───────────────────────────────────────
@@ -153,10 +155,172 @@
       window.recordVisitNow = function () { recordVisit(user.uid); };
       // Súhlas mohol doraziť skôr, než sa dokončilo prihlásenie.
       if (window.hasAnalyticsConsent()) recordVisit(user.uid);
+      if (!user.isAnonymous) nacitajProfil(user);
+      else ucetOdhlaseny();
     } else {
+      ucetOdhlaseny();
       signInAnonymously(auth).catch(e => console.error("Auth error:", e));
     }
   });
+
+  // ── Účty návštevníkov ─────────────────────────────────────────────
+  // Registrácia je dobrovoľná - hlasovať aj pridávať dealy sa dá ďalej
+  // bez nej. Účet pribalí newsletter podľa záujmov a uložené dealy na
+  // všetkých zariadeniach. Návštevník je dovtedy prihlásený anonymne;
+  // pri registrácii sa e-mail k tomuto anonymnému účtu PRIPOJÍ (link),
+  // takže si ponechá rovnaké ID - aj s hlasmi a históriou.
+  //
+  // Profil je v users/{uid}. Pravidlá dovolia každému čítať a meniť
+  // len vlastný; admin číta všetky (export pre newsletter).
+  auth.languageCode = 'sk';          // e-maily od Firebase po slovensky
+  window.HK_UCET = { user: null, profil: null };
+
+  const CHYBY_AUTH = {
+    'auth/email-already-in-use': 'S týmto e-mailom už účet existuje. Prihlás sa, prípadne si obnov heslo.',
+    'auth/credential-already-in-use': 'S týmto e-mailom už účet existuje. Prihlás sa, prípadne si obnov heslo.',
+    'auth/invalid-email': 'Táto e-mailová adresa nie je platná.',
+    'auth/missing-password': 'Zadaj heslo.',
+    'auth/weak-password': 'Heslo je príliš slabé. Použi aspoň 8 znakov.',
+    'auth/password-does-not-meet-requirements': 'Heslo nespĺňa požiadavky. Použi aspoň 8 znakov.',
+    'auth/invalid-credential': 'Nesprávny e-mail alebo heslo.',
+    'auth/invalid-login-credentials': 'Nesprávny e-mail alebo heslo.',
+    'auth/wrong-password': 'Nesprávny e-mail alebo heslo.',
+    'auth/user-not-found': 'Nesprávny e-mail alebo heslo.',
+    'auth/too-many-requests': 'Príliš veľa pokusov. Skús to znova o pár minút.',
+    'auth/network-request-failed': 'Nepodarilo sa spojiť so serverom. Skontroluj pripojenie.',
+    'auth/requires-recent-login': 'Z bezpečnostných dôvodov sa prihlás znova a akciu zopakuj.',
+    'auth/operation-not-allowed': 'Registrácia je momentálne vypnutá.',
+    'permission-denied': 'Uloženie odmietol server. Obnov stránku a skús to znova.',
+  };
+  window.hkChybaAuth = e => CHYBY_AUTH[e && e.code] || 'Niečo sa pokazilo. Skús to znova.';
+
+  function ucetOdhlaseny() {
+    window.HK_UCET = { user: null, profil: null };
+    if (window.hkUcetZmena) window.hkUcetZmena();
+  }
+
+  // Odkaz v overovacom e-maile vráti človeka späť na stránku. Ak by
+  // doména nebola vo Firebase povolená, pošleme e-mail bez návratu -
+  // lepšie ako neposlať nič.
+  async function posliOverenie(user) {
+    try {
+      await sendEmailVerification(user, { url: location.origin + '/?ucet=overeny' });
+    } catch (e) {
+      const kod = String(e.code || '');
+      if (kod.includes('continue-uri') || kod.includes('unauthorized')) await sendEmailVerification(user);
+      else throw e;
+    }
+  }
+
+  const PROFIL_ZAKLAD = { meno: '', newsletter: false, temy: [], frekvencia: 'tyzden', letiska: [], kraj: '', ulozene: [] };
+
+  async function nacitajProfil(user) {
+    const ref = doc(db, "users", user.uid);
+    // Návrat z odkazu v overovacom e-maile: stav overenia si prehliadač
+    // pamätá z prihlásenia, treba ho načítať nanovo.
+    if (/[?&]ucet=overeny\b/.test(location.search)) {
+      try { await user.reload(); } catch (e) { /* nevadí */ }
+    }
+    let profil = null;
+    try {
+      const snap = await getDoc(ref);
+      profil = snap.exists() ? snap.data() : null;
+    } catch (e) {
+      console.warn('Profil sa nepodarilo načítať:', e);
+    }
+    try {
+      if (!profil) {
+        // Účet bez profilu (napr. vznikol inde) - založíme prázdny.
+        profil = { email: user.email, ...PROFIL_ZAKLAD, overeny: false };
+        await setDoc(ref, { ...profil, vytvorene: serverTimestamp(), upravene: serverTimestamp() });
+      }
+      // Overenie e-mailu prenesieme do profilu, aby ho videl admin pri
+      // exporte - newsletter ide len na overené adresy (double opt-in).
+      if (user.emailVerified && profil.overeny !== true) {
+        await user.getIdToken(true);
+        await updateDoc(ref, { overeny: true, upravene: serverTimestamp() });
+        profil.overeny = true;
+      }
+      // Uložené dealy: zlúčime to, čo je v tomto prehliadači, s účtom.
+      const lokalne = window.savedDeals || new Set();
+      const spolu = new Set([...(profil.ulozene || []), ...lokalne]);
+      if (spolu.size !== (profil.ulozene || []).length) {
+        profil.ulozene = [...spolu].slice(-500);
+        await updateDoc(ref, { ulozene: profil.ulozene, upravene: serverTimestamp() });
+      }
+      window.savedDeals = new Set(profil.ulozene || []);
+      try { localStorage.setItem('hk_saved', JSON.stringify([...window.savedDeals])); } catch (e) {}
+      if (window.renderDealsList) window.renderDealsList();
+    } catch (e) {
+      console.warn('Profil sa nepodarilo zosúladiť:', e);
+    }
+    window.HK_UCET = { user, profil };
+    if (window.hkUcetZmena) window.hkUcetZmena();
+  }
+
+  window.hkRegistruj = async function (email, heslo, udaje) {
+    let user;
+    const cur = auth.currentUser;
+    if (cur && cur.isAnonymous) {
+      user = (await linkWithCredential(cur, EmailAuthProvider.credential(email, heslo))).user;
+    } else {
+      user = (await createUserWithEmailAndPassword(auth, email, heslo)).user;
+    }
+    // Nový token už nesie e-mail - bez neho by pravidlá zápis odmietli.
+    await user.getIdToken(true);
+    const teraz = serverTimestamp();
+    await setDoc(doc(db, "users", user.uid), {
+      ...PROFIL_ZAKLAD, ...udaje,
+      email: user.email,
+      ulozene: [...(window.savedDeals || [])].slice(-500),
+      overeny: false,
+      suhlasPodmienky: teraz,
+      ...(udaje.newsletter ? { suhlasNewsletter: teraz } : {}),
+      vytvorene: teraz, upravene: teraz,
+    });
+    try { await posliOverenie(user); } catch (e) { console.warn('Overovací e-mail sa neodoslal:', e); }
+    await nacitajProfil(user);
+    return user;
+  };
+
+  window.hkPrihlas = (email, heslo) => signInWithEmailAndPassword(auth, email, heslo);
+  window.hkOdhlas = () => signOut(auth);
+  window.hkZabudnute = email => sendPasswordResetEmail(auth, email);
+  window.hkZnovaOverenie = () => posliOverenie(auth.currentUser);
+  window.hkObnovUcet = async () => {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+    await auth.currentUser.reload();
+    await nacitajProfil(auth.currentUser);
+  };
+
+  window.hkUlozProfil = async function (zmena) {
+    const { user, profil } = window.HK_UCET;
+    if (!user) throw new Error('Nie si prihlásený.');
+    const data = { ...zmena, upravene: serverTimestamp() };
+    // Nový súhlas s newsletterom si zapisujeme s časom - pri odbere na
+    // základe súhlasu treba vedieť preukázať, kedy bol daný.
+    if (zmena.newsletter && !(profil && profil.newsletter)) data.suhlasNewsletter = serverTimestamp();
+    await updateDoc(doc(db, "users", user.uid), data);
+    window.HK_UCET.profil = { ...(profil || {}), ...zmena };
+  };
+
+  let zalozkyCasovac = null;
+  window.hkUlozZalozky = function () {
+    const { user } = window.HK_UCET;
+    if (!user) return;
+    clearTimeout(zalozkyCasovac);
+    zalozkyCasovac = setTimeout(() => {
+      updateDoc(doc(db, "users", user.uid), { ulozene: [...window.savedDeals].slice(-500), upravene: serverTimestamp() })
+        .catch(e => console.warn('Uložené dealy sa nesynchronizovali:', e));
+    }, 800);
+  };
+
+  window.hkZrusUcet = async function (heslo) {
+    const user = auth.currentUser;
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, heslo));
+    await deleteDoc(doc(db, "users", user.uid));
+    await deleteUser(user);
+  };
 
   // ── Návštevnosť: jeden záznam na zariadenie/deň, s odhadom krajiny z IP ─────
   function todayKeyVisit() {
@@ -297,6 +461,10 @@
   // nenačítajú, odkazy sú čisté; obal sa doplní pri kliknutí (viď
   // affiliateUrl v klasickom bloku).
   window.AFFILIATE = { enabled: false };
+  // Účty návštevníkov: zapínajú sa v admine (settings/ucty).
+  getDoc(doc(db, "settings", "ucty"))
+    .then(s => window.nastavUcty && window.nastavUcty(s.exists() ? s.data() : {}))
+    .catch(() => window.nastavUcty && window.nastavUcty({}));
   // Letenková záložka: zapína sa v admine (settings/letenky).
   getDoc(doc(db, "settings", "letenky"))
     .then(s => window.nastavLetenky && window.nastavLetenky(s.exists() ? s.data() : {}))
@@ -1981,6 +2149,109 @@
 .sort-btn.filter-btn.active { border-bottom-color: rgba(46,139,61,.45); }
 #btn-saved-only.active { border-bottom-color: rgba(232,89,12,.45); }
 
+/* ── Účet návštevníka ────────────────────────────────────────────────
+   Tlačidlo v hlavičke je zámerne tiché (obrys, sivá ikona) - hlavnou
+   akciou stránky zostáva oranžové "Pridaj deal". */
+.hk-acct { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+  background: var(--card); border: 1.5px solid var(--line); color: var(--ink);
+  border-radius: 24px; padding: 6px 14px 6px 10px; font: inherit; font-size: .85rem;
+  font-weight: 600; cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s; }
+.hk-acct:hover { border-color: var(--orange); background: #FFF8F2; }
+.hk-acct .ic { width: 18px; height: 18px; color: var(--muted); }
+.hk-acct.in { padding: 3px 13px 3px 3px; }
+.hk-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #F07A2C, var(--orange-dk)); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: .8rem; }
+.hk-avatar.velky { width: 52px; height: 52px; font-size: 1.3rem; }
+@media (max-width: 720px) {
+  .hk-acct { order: 2; padding: 8px; }
+  .hk-acct.in { padding: 3px; }
+  .hk-acct-txt { display: none; }
+}
+
+.uc-modal { max-width: 440px; position: relative; border-radius: 16px; padding-bottom: 4px; }
+.uc-close { position: absolute; right: 10px; top: 8px; z-index: 1; width: 34px; height: 34px;
+  background: none; border: none; border-radius: 50%; font-size: 1.1rem; color: var(--muted); cursor: pointer; }
+.uc-close:hover { background: var(--bg); color: var(--ink); }
+.uc-head { text-align: center; padding: 28px 28px 6px; }
+.uc-logo { width: 54px; height: 54px; border-radius: 50%; background: var(--badge); color: var(--orange);
+  display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+.uc-logo .ic { width: 26px; height: 26px; }
+.uc-head h2 { font-size: 1.35rem; letter-spacing: -.3px; }
+.uc-head p { color: var(--muted); font-size: .86rem; margin-top: 5px; line-height: 1.45; }
+.uc-head-profil { display: flex; align-items: center; gap: 14px; text-align: left; padding: 26px 28px 4px; }
+.uc-head-profil h2 { font-size: 1.2rem; }
+.uc-mail { font-size: .82rem; color: var(--muted); word-break: break-all; }
+.uc-tabs { display: flex; margin: 16px 28px 0; background: var(--bg); border-radius: 999px; padding: 3px; }
+.uc-tabs button { flex: 1; border: none; background: none; padding: 8px; border-radius: 999px; font: inherit;
+  font-weight: 700; font-size: .85rem; color: var(--muted); cursor: pointer; }
+.uc-tabs button.on { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.uc-body { padding: 18px 28px 24px; display: flex; flex-direction: column; gap: 14px; }
+.uc-body input[type=email], .uc-body input[type=password], .uc-body input[type=text], .uc-body select {
+  width: 100%; padding: 11px 13px; border: 1.5px solid var(--line); border-radius: 8px;
+  font: inherit; font-size: .92rem; outline: none; background: var(--white); color: var(--ink); transition: border .15s; }
+.uc-body input:focus, .uc-body select:focus { border-color: var(--orange); }
+.uc-heslo { position: relative; }
+.uc-heslo input { padding-right: 44px !important; }
+.uc-heslo button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px;
+  border: none; background: none; color: var(--muted); cursor: pointer; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center; }
+.uc-heslo button:hover { color: var(--ink); }
+.uc-zabudnute { display: block; margin: 7px 0 0 auto; font-size: .8rem !important; }
+.uc-hint { font-size: .76rem; color: var(--muted); margin-top: 5px; line-height: 1.45; font-weight: 400; }
+.uc-nep { font-weight: 400; color: var(--muted); font-size: .76rem; text-transform: none; letter-spacing: 0; }
+.uc-text { font-size: .9rem; line-height: 1.55; color: #333; }
+.uc-vyhody { list-style: none; display: grid; gap: 9px; background: #FFF8F2; border: 1px solid #FBE3CF;
+  border-radius: 12px; padding: 13px 15px; font-size: .82rem; line-height: 1.4; color: #3A2A1E; }
+.uc-vyhody li { display: flex; gap: 10px; align-items: flex-start; }
+.uc-vyhody .ic { color: var(--orange); flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px; }
+.uc-vyhody i { color: var(--muted); font-style: normal; }
+.uc-check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; font-size: .84rem;
+  line-height: 1.45; cursor: pointer; margin: 0; }
+.uc-check input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--orange); flex-shrink: 0; cursor: pointer; }
+.uc-check a { color: var(--orange-dk); font-weight: 600; }
+.uc-box { border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; display: flex;
+  flex-direction: column; gap: 14px; transition: border-color .15s, background .15s; }
+.uc-box.on { border-color: #F6C9A4; background: #FFFBF7; }
+#uc-nl-detail { display: flex; flex-direction: column; gap: 13px; }
+#uc-nl-detail[hidden], #uc-letiska[hidden] { display: none; }
+.uc-sub { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); margin-bottom: 7px; }
+.uc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.uc-chip { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: .8rem; font-weight: 650;
+  background: var(--card); color: var(--ink); border: 1.5px solid var(--line); border-radius: 999px;
+  padding: 6px 12px; cursor: pointer; transition: all .12s; }
+.uc-chip .ic { width: 15px; height: 15px; color: var(--muted); }
+.uc-chip:hover { border-color: #F2B98C; }
+.uc-chip.on { background: var(--badge); border-color: var(--orange); color: var(--badge-t); }
+.uc-chip.on .ic { color: var(--orange); }
+.uc-err { color: #B03A2E; font-size: .84rem; background: #FDECEA; border-radius: 8px; padding: 9px 12px; line-height: 1.4; }
+.uc-err:empty { display: none; }
+.uc-ok { color: #1E6B2E; font-size: .84rem; background: #EAF6EC; border-radius: 8px; padding: 9px 12px; line-height: 1.4; }
+.uc-stav { font-size: .82rem; line-height: 1.5; background: #FFF4E5; color: #7A4300; border-radius: 10px; padding: 10px 13px; }
+.uc-stav-akcie { display: block; margin-top: 3px; }
+.uc-link { background: none; border: none; color: var(--orange-dk); font: inherit; font-weight: 650;
+  cursor: pointer; font-size: .84rem; padding: 0; display: inline-flex; align-items: center; gap: 5px; }
+.uc-link:hover { text-decoration: underline; }
+.uc-link:disabled { color: var(--muted); cursor: default; text-decoration: none; }
+.uc-link .ic { width: 16px; height: 16px; }
+.uc-tlmene { color: var(--muted); font-weight: 500; }
+.uc-foot { text-align: center; font-size: .84rem; color: var(--muted); }
+.uc-riadok { display: flex; justify-content: space-between; align-items: center; font-size: .86rem;
+  background: var(--bg); border-radius: 10px; padding: 10px 13px; }
+.uc-riadok span { display: inline-flex; align-items: center; gap: 7px; }
+.uc-riadok .ic { width: 16px; height: 16px; color: var(--orange); }
+.uc-akcie { display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid var(--line); padding-top: 14px; }
+.uc-cervene { background: #C0392B; }
+.uc-cervene:hover { background: #A93226; }
+@media (max-width: 640px) {
+  .uc-head { padding: 24px 20px 4px; }
+  .uc-head-profil { padding: 24px 20px 4px; }
+  .uc-tabs { margin: 14px 20px 0; }
+  .uc-body { padding: 16px 20px 22px; }
+}
+
 /* ── Letenky: mapa lacných letov ─────────────────────────────────────
    Tmavomodrá (nebo, noc nad letiskom) a oranžová zo značky stránky.
    Mapa nemá dlaždice od cudzej služby - obrys Európy je náš súbor,
@@ -2446,7 +2717,7 @@ body.food-page { background: #FAF8F5; }
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /> <path d="M15 19l2 2l4 -4" /></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></symbol><symbol id="i-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /> <path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /> <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M3 7l6 6l4 -4l8 8" /> <path d="M21 10l0 7l-7 0" /></symbol><symbol id="i-trending-up" viewBox="0 0 24 24"><path d="M3 17l6 -6l4 4l8 -8" /> <path d="M14 7l7 0l0 7" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /> <path d="M4.012 16.737a2 2 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-user" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10" /> <path d="M3 7l9 6l9 -6" /></symbol><symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" /> <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /> <path d="M8 11v-4a4 4 0 1 1 8 0v4" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /> <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /> <path d="M3 3l18 18" /></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /> <path d="M9 12h12l-3 -3" /> <path d="M18 15l3 -3" /></symbol><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /> <path d="M15 19l2 2l4 -4" /></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></symbol><symbol id="i-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /> <path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /> <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M3 7l6 6l4 -4l8 8" /> <path d="M21 10l0 7l-7 0" /></symbol><symbol id="i-trending-up" viewBox="0 0 24 24"><path d="M3 17l6 -6l4 4l8 -8" /> <path d="M14 7l7 0l0 7" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /> <path d="M4.012 16.737a2 2 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
 
 
 <!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
@@ -2470,6 +2741,8 @@ body.food-page { background: #FAF8F5; }
     <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
     <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
     <button class="btn-add" id="btn-add-placeholder" style="display:none; visibility:hidden;" aria-hidden="true">+ Pridaj deal</button>
+    <button class="hk-acct" id="btn-ucet" type="button" style="display:none;" onclick="otvorUcet()"
+            title="Prihlásiť sa alebo vytvoriť účet"><svg class="ic" aria-hidden="true"><use href="#i-user"></use></svg><span class="hk-acct-txt">Prihlásiť sa</span></button>
   </div>
 </header>
 
@@ -2752,6 +3025,14 @@ body.food-page { background: #FAF8F5; }
 </div>
 
 <!-- Add Deal Modal -->
+<!-- Účet návštevníka: prihlásenie, registrácia, nastavenia (obsah kreslí JS) -->
+<div class="modal-overlay" id="ucet-modal" onclick="if (event.target === this) zavriUcet()">
+  <div class="modal uc-modal" role="dialog" aria-modal="true" aria-labelledby="uc-title">
+    <button class="uc-close" type="button" onclick="zavriUcet()" aria-label="Zavrieť">✕</button>
+    <div id="uc-obsah"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <div class="modal-header">
@@ -2980,8 +3261,8 @@ body.food-page { background: #FAF8F5; }
   // ── State ────────────────────────────────────────────────────────────────
   // ── Render ───────────────────────────────────────────────────────────────
   // ── Uložené dealy + filter platnosti ────────────────────────────────
-  // Uložené držíme v prehliadači (localStorage), nie v databáze - nechceme
-  // od návštevníka registráciu kvôli záložke. Nesmie to spadnúť v režime
+  // Uložené držíme v prehliadači (localStorage) - registráciu kvôli
+  // záložke nechceme. Prihlásenému sa navyše synchronizujú s účtom. Nesmie to spadnúť v režime
   // inkognito, kde localStorage môže byť nedostupný.
   window.savedDeals = (() => {
     try { return new Set(JSON.parse(localStorage.getItem('hk_saved') || '[]')); }
@@ -2991,6 +3272,8 @@ body.food-page { background: #FAF8F5; }
   function persistSaved() {
     try { localStorage.setItem('hk_saved', JSON.stringify([...window.savedDeals])); }
     catch (e) { /* inkognito alebo zakázané úložisko - záložka len nevydrží */ }
+    // Prihlásenému sa uložia aj do účtu, aby ich mal na každom zariadení.
+    if (window.hkUlozZalozky) window.hkUlozZalozky();
   }
 
   window.validOnly = false;
@@ -3390,6 +3673,410 @@ body.food-page { background: #FAF8F5; }
   }
 
 
+
+
+  // ── Účet návštevníka: okno s prihlásením, registráciou a nastaveniami ──
+  // Firebase časť (prihlásenie, profil v databáze) je v module hore
+  // (window.hk*). Tu je len to, čo návštevník vidí. Tlačidlo v hlavičke
+  // sa ukáže, keď sú účty zapnuté v admine (settings/ucty), alebo s
+  // ?nahlad=ucet v adrese.
+  const UC_TEMY = [
+    ['dealy', 'Top dealy dňa', 'flame'], ['elektronika', 'Elektronika', 'device-mobile'],
+    ['letenky', 'Lacné letenky', 'plane'], ['potraviny', 'Potraviny a letáky', 'basket'],
+    ['kody', 'Zľavové kódy', 'ticket'],
+  ];
+  const UC_LETISKA = [['BTS', 'Bratislava'], ['VIE', 'Viedeň'], ['KSC', 'Košice']];
+  const UC_KRAJE = ['Bratislavský', 'Trnavský', 'Trenčiansky', 'Nitriansky', 'Žilinský',
+    'Banskobystrický', 'Prešovský', 'Košický'];
+  let ucPohlad = 'prihlasenie';
+  let ucSprava = '';
+
+  window.nastavUcty = function(n) {
+    const zobraz = (n && n.enabled === true) || /[?&]nahlad=ucet\b/.test(location.search);
+    document.getElementById('btn-ucet').style.display = zobraz ? '' : 'none';
+  };
+
+  function ucHlavicka() {
+    const b = document.getElementById('btn-ucet');
+    const { user, profil } = window.HK_UCET || {};
+    if (user) {
+      const pis = ((profil && profil.meno) || user.email || '?').trim().charAt(0).toUpperCase();
+      b.classList.add('in');
+      b.innerHTML = `<span class="hk-avatar">${escapeHtml(pis)}</span><span class="hk-acct-txt">Môj účet</span>`;
+      b.title = 'Môj účet';
+    } else {
+      b.classList.remove('in');
+      b.innerHTML = `${icon('user')}<span class="hk-acct-txt">Prihlásiť sa</span>`;
+      b.title = 'Prihlásiť sa alebo vytvoriť účet';
+    }
+  }
+
+  // Volá modul po každej zmene účtu (prihlásenie, odhlásenie, načítanie profilu).
+  window.hkUcetZmena = function() {
+    ucHlavicka();
+    const { user, profil } = window.HK_UCET;
+    // Prezývku predvyplníme pri pridávaní dealu - nech ju nepíše stále.
+    const fa = document.getElementById('f-author');
+    if (fa && !fa.value && profil && profil.meno) fa.value = profil.meno;
+    // Návrat z odkazu v overovacom e-maile.
+    if (user && /[?&]ucet=overeny\b/.test(location.search)) {
+      try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+      ucSprava = user.emailVerified ? 'E-mail je overený. Vitaj medzi nami!' : '';
+      ucPohlad = 'ucet';
+      otvorUcetOkno();
+      return;
+    }
+    // Otvorené okno prekreslíme len pri skutočnej zmene stavu. Anonymné
+    // prihlásenie na pozadí by inak návštevníkovi zmazalo rozpísaný
+    // formulár.
+    const okno = document.getElementById('ucet-modal');
+    if (!okno.classList.contains('open')) return;
+    if (user && (ucPohlad === 'prihlasenie' || ucPohlad === 'registracia' || ucPohlad === 'ucet')) {
+      ucPohlad = 'ucet';
+      ucRender();
+    } else if (!user && (ucPohlad === 'ucet' || ucPohlad === 'zrusit' || ucPohlad === 'overenie')) {
+      ucPohlad = 'prihlasenie';
+      ucRender();
+    }
+  };
+
+  function otvorUcetOkno() {
+    ucRender();
+    document.getElementById('ucet-modal').classList.add('open');
+    setTimeout(() => {
+      const prve = document.querySelector('#uc-obsah input:not([type=checkbox])');
+      if (prve && window.innerWidth > 640) prve.focus();
+    }, 50);
+  }
+  window.otvorUcet = function(pohlad) {
+    ucSprava = '';
+    ucPohlad = pohlad || (window.HK_UCET.user ? 'ucet' : 'prihlasenie');
+    otvorUcetOkno();
+  };
+  window.zavriUcet = () => document.getElementById('ucet-modal').classList.remove('open');
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') window.zavriUcet(); });
+
+  window.ucPrepni = function(pohlad) { ucPohlad = pohlad; ucSprava = ''; ucRender(); };
+
+  function ucChyba(text) {
+    const el = document.getElementById('uc-err');
+    if (el) el.textContent = text || '';
+    return false;
+  }
+  function ucCaka(tlacidlo, ano, text) {
+    if (!tlacidlo) return;
+    if (ano) { tlacidlo.dataset.t = tlacidlo.textContent; tlacidlo.textContent = text || 'Chvíľku…'; }
+    else if (tlacidlo.dataset.t) tlacidlo.textContent = tlacidlo.dataset.t;
+    tlacidlo.disabled = ano;
+  }
+  const ucVal = id => (document.getElementById(id) || {}).value || '';
+
+  // ── Nastavenia newslettera (registrácia aj "Môj účet") ──
+  function ucPrefHtml(p) {
+    const temy = p.temy && p.temy.length ? p.temy : ['dealy'];
+    const letiska = p.letiska && p.letiska.length ? p.letiska : ['BTS'];
+    const frek = p.frekvencia || 'tyzden';
+    const chip = (g, v, t, on, ic) => `<button type="button" class="uc-chip${on ? ' on' : ''}" data-g="${g}"
+      data-v="${v}" aria-pressed="${on}">${ic ? icon(ic) : ''}${escapeHtml(t)}</button>`;
+    return `
+      <label class="uc-check">
+        <input type="checkbox" id="uc-nl" ${p.newsletter ? 'checked' : ''} onchange="ucNlZmena(this.checked)">
+        <span><b>Chcem dostávať newsletter</b><br>
+        Len o tom, čo si vyberieš. Odhlásiť sa dá kedykoľvek jedným klikom.</span>
+      </label>
+      <div id="uc-nl-detail" ${p.newsletter ? '' : 'hidden'}>
+        <div><div class="uc-sub">Čo ťa zaujíma</div>
+          <div class="uc-chips">${UC_TEMY.map(([v, t, ic]) => chip('temy', v, t, temy.includes(v), ic)).join('')}</div></div>
+        <div><div class="uc-sub">Ako často</div>
+          <div class="uc-chips">${chip('frekvencia', 'tyzden', 'Raz týždenne – výber najlepšieho', frek === 'tyzden')}${
+            chip('frekvencia', 'den', 'Denne', frek === 'den')}</div></div>
+        <div id="uc-letiska" ${temy.includes('letenky') ? '' : 'hidden'}><div class="uc-sub">Odkiaľ lietaš</div>
+          <div class="uc-chips">${UC_LETISKA.map(([v, t]) => chip('letiska', v, t, letiska.includes(v))).join('')}</div></div>
+        <div><div class="uc-sub">Tvoj kraj <span class="uc-nep">nepovinné · pre regionálne letáky</span></div>
+          <select id="uc-kraj"><option value="">Nechcem uviesť</option>${UC_KRAJE.map(k =>
+            `<option ${p.kraj === k ? 'selected' : ''}>${k}</option>`).join('')}</select></div>
+      </div>`;
+  }
+  function ucPrefCitaj() {
+    const vyber = g => [...document.querySelectorAll(`#uc-obsah .uc-chip.on[data-g="${g}"]`)].map(b => b.dataset.v);
+    const temy = vyber('temy');
+    return {
+      newsletter: document.getElementById('uc-nl').checked,
+      temy,
+      frekvencia: vyber('frekvencia')[0] || 'tyzden',
+      letiska: temy.includes('letenky') ? vyber('letiska') : [],
+      kraj: ucVal('uc-kraj'),
+    };
+  }
+  window.ucNlZmena = function(on) {
+    document.getElementById('uc-nl-detail').hidden = !on;
+    const box = document.getElementById('uc-nl').closest('.uc-box');
+    if (box) box.classList.toggle('on', on);
+  };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('#uc-obsah .uc-chip');
+    if (!b) return;
+    const g = b.dataset.g;
+    if (g === 'frekvencia') {
+      document.querySelectorAll('#uc-obsah .uc-chip[data-g="frekvencia"]').forEach(x => {
+        x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b);
+      });
+    } else {
+      b.classList.toggle('on');
+      b.setAttribute('aria-pressed', b.classList.contains('on'));
+    }
+    if (g === 'temy' && b.dataset.v === 'letenky') {
+      document.getElementById('uc-letiska').hidden = !b.classList.contains('on');
+    }
+  });
+
+  window.ucHeslo = function(btn) {
+    const inp = btn.parentElement.querySelector('input');
+    const ukaz = inp.type === 'password';
+    inp.type = ukaz ? 'text' : 'password';
+    btn.innerHTML = icon(ukaz ? 'eye-off' : 'eye');
+    btn.setAttribute('aria-label', ukaz ? 'Skryť heslo' : 'Zobraziť heslo');
+  };
+  const ucHesloPole = (id, auto, ph) => `<div class="uc-heslo">
+      <input type="password" id="${id}" autocomplete="${auto}" placeholder="${ph}" required>
+      <button type="button" onclick="ucHeslo(this)" aria-label="Zobraziť heslo">${icon('eye')}</button></div>`;
+
+  // ── Pohľady ──
+  function ucHlava(nadpis, podnadpis, ikona) {
+    return `<div class="uc-head">
+      <div class="uc-logo">${icon(ikona || 'user')}</div>
+      <h2 id="uc-title">${nadpis}</h2>
+      ${podnadpis ? `<p>${podnadpis}</p>` : ''}
+    </div>`;
+  }
+  const ucTaby = akt => `<div class="uc-tabs" role="tablist">
+      <button type="button" class="${akt === 'prihlasenie' ? 'on' : ''}" onclick="ucPrepni('prihlasenie')">Prihlásenie</button>
+      <button type="button" class="${akt === 'registracia' ? 'on' : ''}" onclick="ucPrepni('registracia')">Registrácia</button>
+    </div>`;
+
+  const UC_POHLADY = {
+    prihlasenie: () => `${ucHlava('Vitaj späť', 'Prihlás sa do svojho účtu na HenKukaj.sk.')}
+      ${ucTaby('prihlasenie')}
+      <form class="uc-body" onsubmit="ucPrihlas(event)" novalidate>
+        <div><label for="uc-email">E-mail</label>
+          <input type="email" id="uc-email" autocomplete="email" placeholder="meno@example.sk" required></div>
+        <div><label for="uc-heslo">Heslo</label>${ucHesloPole('uc-heslo', 'current-password', 'Tvoje heslo')}
+          <button type="button" class="uc-link uc-zabudnute" onclick="ucPrepni('zabudnute')">Zabudol si heslo?</button></div>
+        <div class="uc-err" id="uc-err" role="alert"></div>
+        <button class="btn-submit" type="submit">Prihlásiť sa</button>
+        <p class="uc-foot">Ešte nemáš účet? <button type="button" class="uc-link" onclick="ucPrepni('registracia')">Zaregistruj sa zadarmo</button></p>
+      </form>`,
+
+    registracia: () => `${ucHlava('Vytvor si účet', 'Zadarmo. Dealy môžeš pridávať aj naďalej bez účtu.')}
+      ${ucTaby('registracia')}
+      <form class="uc-body" onsubmit="ucRegistruj(event)" novalidate>
+        <ul class="uc-vyhody">
+          <li>${icon('mail')}<span><b>Newsletter na mieru</b> – len dealy, letenky či letáky, ktoré ťa zaujímajú</span></li>
+          <li>${icon('bookmark')}<span><b>Uložené dealy všade</b> – na mobile aj počítači</span></li>
+          <li>${icon('bell')}<span><b>Upozornenia</b> na lacné letenky z tvojho letiska <i>(čoskoro)</i></span></li>
+        </ul>
+        <div><label for="uc-email">E-mail</label>
+          <input type="email" id="uc-email" autocomplete="email" placeholder="meno@example.sk" required></div>
+        <div><label for="uc-heslo">Heslo</label>${ucHesloPole('uc-heslo', 'new-password', 'Aspoň 8 znakov')}</div>
+        <div><label for="uc-meno">Ako ťa máme osloviť? <span class="uc-nep">nepovinné</span></label>
+          <input type="text" id="uc-meno" maxlength="40" autocomplete="nickname" placeholder="napr. Jarko">
+          <div class="uc-hint">Oslovíme ťa tak v e-mailoch a predvyplníme ti to ako prezývku pri pridávaní dealu.</div></div>
+        <div class="uc-box">${ucPrefHtml({ newsletter: false })}</div>
+        <label class="uc-check">
+          <input type="checkbox" id="uc-suhlas" required>
+          <span>Súhlasím s <a href="/podmienky.html" target="_blank" rel="noopener">podmienkami používania</a>
+          a beriem na vedomie <a href="/ochrana-udajov.html#ucty" target="_blank" rel="noopener">spracúvanie osobných údajov</a>.</span>
+        </label>
+        <div class="uc-err" id="uc-err" role="alert"></div>
+        <button class="btn-submit" type="submit">Vytvoriť účet</button>
+        <p class="uc-foot">Už máš účet? <button type="button" class="uc-link" onclick="ucPrepni('prihlasenie')">Prihlás sa</button></p>
+      </form>`,
+
+    zabudnute: () => `${ucHlava('Zabudnuté heslo', 'Pošleme ti odkaz, cez ktorý si nastavíš nové.', 'lock')}
+      <form class="uc-body" onsubmit="ucZabudnute(event)" novalidate>
+        ${ucSprava ? `<div class="uc-ok">${ucSprava}</div>` : ''}
+        <div><label for="uc-email">E-mail</label>
+          <input type="email" id="uc-email" autocomplete="email" placeholder="meno@example.sk" required></div>
+        <div class="uc-err" id="uc-err" role="alert"></div>
+        <button class="btn-submit" type="submit">Poslať odkaz</button>
+        <p class="uc-foot"><button type="button" class="uc-link" onclick="ucPrepni('prihlasenie')">← Späť na prihlásenie</button></p>
+      </form>`,
+
+    overenie: () => {
+      const u = window.HK_UCET.user;
+      return `${ucHlava('Skontroluj si e-mail', '', 'mail')}
+      <div class="uc-body">
+        <p class="uc-text">Na adresu <b>${escapeHtml(u ? u.email : '')}</b> sme poslali odkaz na potvrdenie.
+        Po kliknutí naň je účet aktívny a newsletter ti začne chodiť.</p>
+        <p class="uc-hint">E-mail nedorazil? Pozri aj priečinok Spam alebo Promo akcie.
+          <button type="button" class="uc-link" onclick="ucZnovaOverenie(this)">Poslať znova</button></p>
+        <div class="uc-err" id="uc-err" role="alert"></div>
+        <button class="btn-submit" type="button" onclick="ucPrepni('ucet')">Rozumiem</button>
+      </div>`;
+    },
+
+    ucet: () => {
+      const { user, profil } = window.HK_UCET;
+      if (!user) return UC_POHLADY.prihlasenie();
+      const p = profil || {};
+      const meno = p.meno || user.email.split('@')[0];
+      return `<div class="uc-head uc-head-profil">
+        <span class="hk-avatar velky">${escapeHtml(meno.charAt(0).toUpperCase())}</span>
+        <div><h2 id="uc-title">Ahoj, ${escapeHtml(meno)}</h2><div class="uc-mail">${escapeHtml(user.email)}</div></div>
+      </div>
+      <div class="uc-body">
+        ${ucSprava ? `<div class="uc-ok">${ucSprava}</div>` : ''}
+        ${user.emailVerified ? '' : `<div class="uc-stav">
+          <b>Potvrď svoj e-mail.</b> Poslali sme ti odkaz – kým ho nepotvrdíš, newsletter ti posielať nebudeme.
+          <span class="uc-stav-akcie"><button type="button" class="uc-link" onclick="ucZnovaOverenie(this)">Poslať znova</button>
+          · <button type="button" class="uc-link" onclick="ucSkontroluj(this)">Už som potvrdil</button></span></div>`}
+        <div><label for="uc-meno">Ako ťa máme osloviť</label>
+          <input type="text" id="uc-meno" maxlength="40" autocomplete="nickname" value="${escapeAttr(p.meno || '')}" placeholder="napr. Jarko"></div>
+        <div class="uc-box${p.newsletter ? ' on' : ''}">${ucPrefHtml(p)}</div>
+        <div class="uc-err" id="uc-err" role="alert"></div>
+        <button class="btn-submit" type="button" onclick="ucUlozNastavenia(this)">Uložiť nastavenia</button>
+        <div class="uc-riadok">
+          <span>${icon('bookmark')} Uložené dealy: <b>${window.savedDeals.size}</b></span>
+          <button type="button" class="uc-link" onclick="ucZobrazUlozene()">Zobraziť →</button>
+        </div>
+        <div class="uc-akcie">
+          <button type="button" class="uc-link" onclick="ucOdhlas()">${icon('logout')} Odhlásiť sa</button>
+          <button type="button" class="uc-link uc-tlmene" onclick="ucPrepni('zrusit')">Zrušiť účet</button>
+        </div>
+      </div>`;
+    },
+
+    zrusit: () => `${ucHlava('Zrušiť účet?', '', 'lock')}
+      <form class="uc-body" onsubmit="ucZrus(event)" novalidate>
+        <p class="uc-text">Vymažeme tvoj účet, nastavenia newslettera aj uložené dealy v účte.
+        Dealy a komentáre, ktoré si pridal, zostanú zverejnené pod tvojou prezývkou. Tento krok sa nedá vrátiť.</p>
+        <div><label for="uc-heslo">Pre potvrdenie zadaj heslo</label>${ucHesloPole('uc-heslo', 'current-password', 'Tvoje heslo')}</div>
+        <div class="uc-err" id="uc-err" role="alert"></div>
+        <button class="btn-submit uc-cervene" type="submit">Natrvalo zrušiť účet</button>
+        <p class="uc-foot"><button type="button" class="uc-link" onclick="ucPrepni('ucet')">← Nie, späť</button></p>
+      </form>`,
+  };
+
+  function ucRender() {
+    const f = UC_POHLADY[ucPohlad] || UC_POHLADY.prihlasenie;
+    document.getElementById('uc-obsah').innerHTML = f();
+  }
+
+  // ── Akcie ──
+  const UC_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  window.ucPrihlas = async function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('.btn-submit');
+    const email = ucVal('uc-email').trim(), heslo = ucVal('uc-heslo');
+    if (!UC_EMAIL_RE.test(email)) return ucChyba('Zadaj platný e-mail.');
+    if (!heslo) return ucChyba('Zadaj heslo.');
+    ucChyba(''); ucCaka(btn, true, 'Prihlasujem…');
+    try {
+      await window.hkPrihlas(email, heslo);
+      ucPohlad = 'ucet';
+      window.zavriUcet();
+    } catch (err) {
+      ucChyba(window.hkChybaAuth(err));
+    } finally { ucCaka(btn, false); }
+  };
+
+  window.ucRegistruj = async function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('.btn-submit');
+    const email = ucVal('uc-email').trim(), heslo = ucVal('uc-heslo');
+    const meno = (window.stripEmoji ? window.stripEmoji(ucVal('uc-meno')) : ucVal('uc-meno')).trim().slice(0, 40);
+    if (!UC_EMAIL_RE.test(email)) return ucChyba('Zadaj platný e-mail.');
+    if (heslo.length < 8) return ucChyba('Heslo musí mať aspoň 8 znakov.');
+    const pref = ucPrefCitaj();
+    if (pref.newsletter && !pref.temy.length) return ucChyba('Vyber aspoň jednu tému newslettera, alebo ho vypni.');
+    if (!document.getElementById('uc-suhlas').checked) return ucChyba('Na vytvorenie účtu potrebujeme tvoj súhlas s podmienkami.');
+    ucChyba(''); ucCaka(btn, true, 'Vytváram účet…');
+    try {
+      await window.hkRegistruj(email, heslo, { meno, ...pref });
+      ucPohlad = 'overenie';
+      ucRender();
+    } catch (err) {
+      console.warn('Registrácia:', err);
+      ucChyba(window.hkChybaAuth(err));
+    } finally { ucCaka(btn, false); }
+  };
+
+  window.ucZabudnute = async function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('.btn-submit');
+    const email = ucVal('uc-email').trim();
+    if (!UC_EMAIL_RE.test(email)) return ucChyba('Zadaj platný e-mail.');
+    ucCaka(btn, true, 'Posielam…');
+    try { await window.hkZabudnute(email); }
+    catch (err) {
+      // Neexistujúci účet neprezradíme - odpoveď je rovnaká.
+      if (!['auth/user-not-found', 'auth/invalid-email'].includes(err.code)) {
+        ucCaka(btn, false);
+        return ucChyba(window.hkChybaAuth(err));
+      }
+    }
+    ucSprava = 'Ak k tejto adrese existuje účet, poslali sme na ňu odkaz na nastavenie nového hesla.';
+    ucRender();
+  };
+
+  window.ucZnovaOverenie = async function(btn) {
+    ucCaka(btn, true, 'Posielam…');
+    try { await window.hkZnovaOverenie(); btn.textContent = 'Odoslané ✓'; }
+    catch (err) { ucCaka(btn, false); ucChyba(window.hkChybaAuth(err)); return; }
+  };
+
+  window.ucSkontroluj = async function(btn) {
+    ucCaka(btn, true, 'Overujem…');
+    try { await window.hkObnovUcet(); } catch (e) { /* nižšie */ }
+    const u = window.HK_UCET.user;
+    ucSprava = u && u.emailVerified ? 'E-mail je overený. Ďakujeme!' : '';
+    ucRender();
+    if (!(u && u.emailVerified)) ucChyba('E-mail zatiaľ nie je potvrdený. Klikni na odkaz v správe od nás.');
+  };
+
+  window.ucUlozNastavenia = async function(btn) {
+    const pref = ucPrefCitaj();
+    const meno = (window.stripEmoji ? window.stripEmoji(ucVal('uc-meno')) : ucVal('uc-meno')).trim().slice(0, 40);
+    if (pref.newsletter && !pref.temy.length) return ucChyba('Vyber aspoň jednu tému newslettera, alebo ho vypni.');
+    ucChyba(''); ucCaka(btn, true, 'Ukladám…');
+    try {
+      await window.hkUlozProfil({ meno, ...pref });
+      ucSprava = 'Nastavenia sú uložené.';
+      ucRender();
+      ucHlavicka();
+    } catch (err) {
+      ucCaka(btn, false);
+      ucChyba(window.hkChybaAuth(err));
+    }
+  };
+
+  window.ucOdhlas = async function() {
+    try { await window.hkOdhlas(); } catch (e) { /* nevadí */ }
+    window.zavriUcet();
+  };
+
+  window.ucZrus = async function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('.btn-submit');
+    const heslo = ucVal('uc-heslo');
+    if (!heslo) return ucChyba('Zadaj heslo.');
+    ucCaka(btn, true, 'Ruším účet…');
+    try {
+      await window.hkZrusUcet(heslo);
+      window.zavriUcet();
+    } catch (err) {
+      ucCaka(btn, false);
+      ucChyba(window.hkChybaAuth(err));
+    }
+  };
+
+  window.ucZobrazUlozene = function() {
+    window.zavriUcet();
+    window.goToDeals();
+    const b = document.getElementById('btn-saved-only');
+    if (b && !window.savedOnly) b.click();
+  };
 
   // ── Letenky: mapa lacných letov ─────────────────────────────────────
   // Dáta pripravuje raz denne deal-hunter/letenky_mapa.py: pre každú

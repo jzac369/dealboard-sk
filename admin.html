@@ -50,6 +50,7 @@
       startListeningAffiliate();
       startListeningSchedule();
       startListeningLetenky();
+      startListeningUcty();
       startListeningVisits();
       loadMerchants();
       loadAuditLog();
@@ -295,6 +296,90 @@
     }
   }
   window.loadLetenkyData = loadLetenkyData;
+
+  // ── Registrovaní používatelia ────────────────────────────────────────
+  // settings/ucty.enabled zobrazí na stránke tlačidlo Prihlásiť sa.
+  // Profily sú v users/{uid}; newsletter sa posiela len na adresy, ktoré
+  // majú zapnutý odber A overený e-mail (double opt-in).
+  const uctyRef = doc(db, "settings", "ucty");
+  const UC_TEMY_NAZVY = { dealy: 'Top dealy', elektronika: 'Elektronika', letenky: 'Letenky',
+    potraviny: 'Potraviny a letáky', kody: 'Zľavové kódy' };
+  let uzivatelia = [];
+
+  function startListeningUcty() {
+    onSnapshot(uctyRef, (snap) => {
+      const d = snap.exists() ? snap.data() : {};
+      document.getElementById('uc-enabled').checked = d.enabled === true;
+      document.getElementById('uc-stav-zap').textContent = d.enabled === true
+        ? 'Tlačidlo „Prihlásiť sa“ je na stránke viditeľné pre všetkých.'
+        : 'Registrácia je skrytá. Vyskúšať ju môžeš cez náhľad:';
+    }, (e) => console.warn('Nastavenie účtov sa nepodarilo načítať:', e));
+    loadUzivatelia();
+  }
+
+  window.saveUcty = async function(zmena) {
+    try {
+      await setDoc(uctyRef, zmena, { merge: true });
+      logChange('settings-ucty', 'ucty', 'Účty: ' + JSON.stringify(zmena));
+    } catch (e) {
+      alert('Nepodarilo sa uložiť nastavenie: ' + e.message);
+    }
+  };
+
+  async function loadUzivatelia() {
+    const el = document.getElementById('uc-data');
+    try {
+      const snap = await getDocs(collection(db, "users"));
+      uzivatelia = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => ((b.vytvorene && b.vytvorene.seconds) || 0) - ((a.vytvorene && a.vytvorene.seconds) || 0));
+    } catch (e) {
+      el.innerHTML = '<div class="as-box"><div class="as-lab">Používateľov sa nepodarilo načítať: ' + escapeHtml(e.message) + '</div></div>';
+      return;
+    }
+    const odber = uzivatelia.filter(u => u.newsletter && u.overeny);
+    const cakaju = uzivatelia.filter(u => u.newsletter && !u.overeny).length;
+    const temy = {};
+    odber.forEach(u => (u.temy || []).forEach(t => { temy[t] = (temy[t] || 0) + 1; }));
+    const denne = odber.filter(u => u.frekvencia === 'den').length;
+    el.innerHTML = `
+      <div class="as-box"><div class="as-num">${uzivatelia.length}</div><div class="as-lab">registrovaných</div></div>
+      <div class="as-box"><div class="as-num">${uzivatelia.filter(u => u.overeny).length}</div><div class="as-lab">s overeným e-mailom</div></div>
+      <div class="as-box"><div class="as-num">${odber.length}</div>
+        <div class="as-lab">odberateľov newslettera${cakaju ? ` (+${cakaju} čaká na overenie e-mailu)` : ''}</div></div>
+      <div class="as-box" style="flex:2 1 260px;"><div class="as-lab" style="margin:0 0 4px;">Témy odberateľov
+        · ${denne}× denne, ${odber.length - denne}× týždenne</div>
+        <div style="font-size:.82rem;">${Object.entries(temy).sort((a, b) => b[1] - a[1])
+          .map(([t, n]) => `${escapeHtml(UC_TEMY_NAZVY[t] || t)} <b>(${n})</b>`).join(' · ') || 'zatiaľ nikto'}</div></div>`;
+    const kedy = ts => ts && ts.toDate ? ts.toDate().toLocaleDateString('sk-SK') : '';
+    document.getElementById('uc-list').innerHTML = uzivatelia.length ? uzivatelia.slice(0, 50).map(u => `<tr>
+        <td class="log-kedy">${kedy(u.vytvorene)}</td>
+        <td>${escapeHtml(u.email || '')}${u.overeny ? '' : ' <span class="uc-neover" title="E-mail zatiaľ nie je overený">neoverený</span>'}</td>
+        <td>${escapeHtml(u.meno || '')}</td>
+        <td>${u.newsletter ? escapeHtml((u.temy || []).map(t => UC_TEMY_NAZVY[t] || t).join(', ')) +
+          ` · ${u.frekvencia === 'den' ? 'denne' : 'týždenne'}` : '<span style="color:var(--muted)">nie</span>'}</td>
+        <td>${escapeHtml((u.letiska || []).join(', '))}</td>
+        <td>${escapeHtml(u.kraj || '')}</td>
+      </tr>`).join('') : '<tr><td colspan="6" class="vis-empty">Zatiaľ sa nikto nezaregistroval.</td></tr>';
+  }
+  window.loadUzivatelia = loadUzivatelia;
+
+  // CSV pre import do služby na rozosielanie (MailerLite, Brevo...).
+  // Len overené adresy so zapnutým odberom - iné tam nepatria.
+  window.exportOdberatelov = function() {
+    const odber = uzivatelia.filter(u => u.newsletter && u.overeny);
+    if (!odber.length) { alert('Zatiaľ nie sú žiadni odberatelia s overeným e-mailom.'); return; }
+    const bunka = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const kedy = ts => ts && ts.toDate ? ts.toDate().toISOString().slice(0, 16).replace('T', ' ') : '';
+    const riadky = [['email', 'meno', 'temy', 'frekvencia', 'letiska', 'kraj', 'suhlas_newsletter'].join(';')]
+      .concat(odber.map(u => [u.email, u.meno, (u.temy || []).join(','), u.frekvencia || 'tyzden',
+        (u.letiska || []).join(','), u.kraj, kedy(u.suhlasNewsletter)].map(bunka).join(';')));
+    const blob = new Blob(['\ufeff' + riadky.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `odberatelia-newsletter-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
 
   window.saveAffiliate = async function(zmena) {
     try {
@@ -1421,7 +1506,7 @@
   const LOG_AKCIE = {
     approved: 'schválil', rejected: 'zamietol', archived: 'archivoval',
     pending: 'vrátil na schválenie', expired: 'označil exspirované',
-    unexpired: 'zrušil exspiráciu', deleted: 'vymazal', 'denny-ziar': 'denný žiar', letenky: 'letenky – nastavenie',
+    unexpired: 'zrušil exspiráciu', deleted: 'vymazal', 'denny-ziar': 'denný žiar', ucty: 'účty – nastavenie', letenky: 'letenky – nastavenie',
   };
   const LOG_OBDOBIE = { 1: 'den', 7: 'tyzden', 30: 'mesiac', 365: 'rok', 0: 'od-zaciatku' };
   let auditRows = [];
@@ -1817,6 +1902,9 @@
     .plan-info { grid-column: 1 / -1; }
   }
 
+  .uc-neover { font-size: .68rem; font-weight: 700; color: #8A4B00; background: #FFF1DC;
+    border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
+
   /* ── Záznam zmien ─────────────────────────────────────────────── */
   .log-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
   .log-bar select, .log-bar input { padding: 7px 10px; border: 1.5px solid var(--line);
@@ -2035,6 +2123,46 @@
         tlačidlá Schváliť/Zamietnuť nefungovali) a <b>stránky dealov</b> sa generujú každú hodinu
         a hneď po schválení. Obe sú súčasť chodu stránky, nie úlohy na plánovanie.
       </p>
+    </section>
+
+    <!-- ── Sekcia: Registrovaní používatelia ─────────────────────────── -->
+    <section class="admin-section">
+      <h2 class="section-title">👤 Registrovaní používatelia a newsletter</h2>
+
+      <div class="aff-stats" id="uc-data"></div>
+
+      <div class="settings-panel">
+        <label class="switch-label">
+          <span>Registrácia a prihlásenie na stránke</span>
+          <label class="switch">
+            <input type="checkbox" id="uc-enabled" onchange="saveUcty({ enabled: this.checked })">
+            <span class="slider"></span>
+          </label>
+        </label>
+        <p class="settings-hint">
+          <span id="uc-stav-zap"></span>
+          <a href="./?nahlad=ucet" target="_blank" rel="noopener">henkukaj.sk/?nahlad=ucet</a>.
+          Pridávanie dealov, hlasovanie aj komentáre fungujú ďalej aj bez účtu.
+        </p>
+      </div>
+
+      <div class="settings-panel">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+          <button class="btn btn-approve" onclick="exportOdberatelov()">⬇ Stiahnuť odberateľov (CSV)</button>
+          <button class="btn" onclick="loadUzivatelia()">↻ Obnoviť</button>
+        </div>
+        <p class="settings-hint" style="margin-top:0;">
+          CSV obsahuje len overené adresy so zapnutým odberom — dá sa priamo importovať do
+          MailerLite alebo Brevo. Neoverené adresy tam nepatria: bez overenia nevieme, či adresu
+          naozaj zadal jej majiteľ.
+        </p>
+        <div class="log-wrap" style="max-height:360px;">
+          <table class="log-table" style="width:100%;">
+            <thead><tr><th>Registrácia</th><th>E-mail</th><th>Meno</th><th>Newsletter</th><th>Letiská</th><th>Kraj</th></tr></thead>
+            <tbody id="uc-list"></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <!-- ── Sekcia: Letenky ─────────────────────────────────────────────── -->
