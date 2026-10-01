@@ -5,8 +5,17 @@ PREČO NIE CRON V SÚBOROCH WORKFLOW
 Časy behov boli zapísané v .github/workflows/*.yml. Zmeniť ich z admina
 by znamenalo dať stránke GitHub token - a ten by si ktokoľvek vytiahol
 z kódu verejnej stránky. Rozvrh je preto v databáze (settings/schedule),
-kam admin zapisuje bezpečne cez prihlásenie, a GitHub sa sem každých
-15 minút pozrie, čo je na rade.
+kam admin zapisuje bezpečne cez prihlásenie, a plánovač sa sem každých
+5 minút pozrie, čo je na rade.
+
+PREČO SLUČKA A NIE CRON KAŽDÝCH 15 MINÚT
+GitHub naplánované behy (cron) pri bezplatných projektoch obmedzuje -
+"*/15" v skutočnosti spúšťal raz za 4-5 hodín. Plánovač preto beží ako
+jedna dlhá úloha: takmer 6 hodín (strop GitHubu) kontroluje každých
+5 minút a pred koncom spustí svojho nástupcu. Reťaz tak beží
+nepretržite. Cron v planovac.yml ostal ako záloha: keby sa reťaz
+pretrhla (výpadok GitHubu), do pár hodín ju znova naštartuje. Dve
+slučky naraz nebežia - workflow má concurrency skupinu.
 
 ČAS
 Časy sa zadávajú v slovenskom čase (Europe/Bratislava), nie v UTC ako
@@ -19,12 +28,15 @@ presne ten čas, takže každý termín prebehne najviac raz - aj keď GitHub
 kontrolu pustí s oneskorením alebo dvakrát.
 
 "Príliš starý" chráni pred tým, aby po dlhšom výpadku naraz dobehli
-všetky zmeškané termíny. V cloude je to 3 hodiny. Ceny potravín bežia
+všetky zmeškané termíny. V cloude je to 8 hodín (poistka pre prípad,
+že sa reťaz slučiek pretrhne a čaká sa na záložný cron). Ceny potravín bežia
 na tvojom počítači, ktorý môže byť vypnutý, tak tam je to 12 hodín:
 keď počítač zapneš poobede, ranné ceny sa ešte stiahnu.
 
 Spustenie:
-  python planovac.py              rozhodne a spustí úlohy v cloude
+  python planovac.py              jedna kontrola: rozhodne a spustí úlohy
+  python planovac.py --slucka     kontrola každých 5 minút ~5 h 40 min,
+                                  potom spustí nástupcu (tak beží v cloude)
   python planovac.py --nasucho    len vypíše, čo by spustil
 """
 
@@ -44,10 +56,9 @@ ZONA = ZoneInfo("Europe/Bratislava")
 # Úloha -> čo sa spustí. "lokalne" beží na tvojom počítači (ceny potravín),
 # cloudový plánovač ju preskočí a rozhoduje o nej refresh_food_prices.py.
 #
-# Okno 8 hodín: GitHub plánovač napriek cronu "*/15" v skutočnosti spúšťa
-# len raz za 4-5 hodín (bezplatné naplánované behy obmedzuje). S užším
-# oknom sa termín medzi dvoma behmi stratil a úloha v ten deň vôbec
-# nebežala. Takto prebehne vždy, v horšom prípade neskôr.
+# Okno 8 hodín je poistka: bežne slučka spustí úlohu do 5 minút od
+# termínu. Keby sa reťaz slučiek pretrhla, záložný cron GitHubu príde
+# až o 4-5 hodín - s užším oknom by sa termín medzitým stratil.
 ULOHY = {
     "agent":     {"workflow": "deal-hunter.yml", "okno_h": 8},
     "letenky":   {"workflow": "letenky.yml",     "okno_h": 8},
@@ -191,12 +202,7 @@ def odosli_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
             logger.warning("Telegram správu neprijal - deal %s čaká v admine.", d.id)
 
 
-def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-    nasucho = "--nasucho" in sys.argv
-
-    import firestore_client
-    db = firestore_client.get_client()
+def kontrola(db, nasucho: bool) -> None:
     rozvrh = nacitaj(db)
     teraz = datetime.now(ZONA)
     logger.info("Plánovač — %s", teraz.strftime("%d.%m.%Y %H:%M"))
@@ -206,7 +212,7 @@ def main() -> int:
     spustit = co_spustit(rozvrh, teraz)
     if not spustit:
         logger.info("Nič nie je na rade.")
-        return 0
+        return
 
     for meno, termin, rucne in spustit:
         workflow = ULOHY[meno]["workflow"]
@@ -216,8 +222,8 @@ def main() -> int:
             continue
         r = subprocess.run(["gh", "workflow", "run", workflow], capture_output=True, text=True)
         if r.returncode != 0:
-            # Termín NEzapisujeme - ďalšia kontrola o 15 minút to skúsi
-            # znova. Opačné poradie by zlyhanú úlohu potichu vynechalo.
+            # Termín NEzapisujeme - ďalšia kontrola to skúsi znova.
+            # Opačné poradie by zlyhanú úlohu potichu vynechalo.
             logger.error("Spustenie %s zlyhalo: %s", meno, (r.stderr or r.stdout).strip()[:300])
             continue
         # Keby tento zápis zlyhal, úloha môže bežať dvakrát. To je
@@ -225,6 +231,52 @@ def main() -> int:
         # ošetrené na vlastnej úrovni. Vypadnutý beh by bol horší.
         zapis_beh(db, meno, termin, rucne)
         logger.info("Spustené: %s (%s)", meno, dovod)
+
+
+# Slučka: 5 minút medzi kontrolami (tlačidlo "Spustiť teraz" v admine
+# tak zareaguje do 5 minút) a koniec rezervu pred 6-hodinovým stropom
+# GitHubu, aby stihla spustiť nástupcu.
+INTERVAL_MIN = 5
+DLZKA_SLUCKY_MIN = int(os.environ.get("PLANOVAC_SLUCKA_MIN", 340))
+
+
+def slucka(db) -> None:
+    import time as _time
+    koniec = _time.monotonic() + DLZKA_SLUCKY_MIN * 60
+    while True:
+        try:
+            kontrola(db, nasucho=False)
+        except Exception:
+            # Jedna zlyhaná kontrola (výpadok siete, Firestore) nesmie
+            # ukončiť celú slučku - ďalšia o 5 minút to skúsi znova.
+            logger.exception("Kontrola zlyhala, pokračujem")
+        zostava = koniec - _time.monotonic()
+        if zostava <= INTERVAL_MIN * 60:
+            break
+        # Na celé päťminútovky, nech kontroly sedia s časmi v rozvrhu.
+        teraz = datetime.now(ZONA)
+        dalsia = (teraz.replace(second=5, microsecond=0)
+                  + timedelta(minutes=INTERVAL_MIN - teraz.minute % INTERVAL_MIN))
+        _time.sleep(max(30, (dalsia - teraz).total_seconds()))
+
+    r = subprocess.run(["gh", "workflow", "run", "planovac.yml"], capture_output=True, text=True)
+    if r.returncode == 0:
+        logger.info("Slučka končí, nástupca spustený.")
+    else:
+        # Nevadí - záložný cron reťaz znova naštartuje.
+        logger.error("Nástupcu sa nepodarilo spustiť: %s", (r.stderr or r.stdout).strip()[:300])
+
+
+def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    nasucho = "--nasucho" in sys.argv
+
+    import firestore_client
+    db = firestore_client.get_client()
+    if "--slucka" in sys.argv and not nasucho:
+        slucka(db)
+    else:
+        kontrola(db, nasucho)
     return 0
 
 

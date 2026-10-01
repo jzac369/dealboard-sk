@@ -1,8 +1,12 @@
 name: Plánovač
 
-# Kazdych 15 minut sa pozrie do settings/schedule, co je na rade, a
+# Kazdych 5 minut sa pozrie do settings/schedule, co je na rade, a
 # spusti to. Casy sa menia v admin zone - nie tu. Cron v jednotlivych
 # workflow zamerne nie je: casy v nich by sa z admina menit nedali.
+#
+# Beh je dlha slucka (~5 h 40 min), ktora pred koncom spusti nastupcu -
+# GitHub cron "*/15" v skutocnosti chodil len raz za 4-5 hodin. Cron
+# nizsie je uz len zaloha, ktora retaz obnovi, keby sa pretrhla.
 #
 # Repozitar je verejny, takze GitHub Actions minuty su zadarmo a tato
 # casta kontrola nic nestoji.
@@ -29,7 +33,7 @@ permissions:
 jobs:
   planovac:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 355
 
     defaults:
       run:
@@ -53,7 +57,7 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Kontrola rozvrhu
-        run: python planovac.py ${{ inputs.nasucho && '--nasucho' || '' }}
+        run: python planovac.py ${{ inputs.nasucho && '--nasucho' || '--slucka' }}
         env:
           FIRESTORE_PROJECT_ID: dealboard-e60bf
           GOOGLE_APPLICATION_CREDENTIALS: firebase-credentials.json
