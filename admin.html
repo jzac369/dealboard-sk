@@ -4,6 +4,67 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HenKukaj – Admin</title>
+<script>
+  // ── Toasty namiesto alert() ─────────────────────────────────────────
+  // Sivé okno prehliadača blokovalo prácu. Správy teraz vyskočia v rohu
+  // a samy zmiznú; chyby (Nepodarilo/Chyba) sú červené a vydržia dlhšie.
+  (function () {
+    function kontajner() {
+      let k = document.getElementById('toasty');
+      if (!k) { k = document.createElement('div'); k.id = 'toasty'; document.body.appendChild(k); }
+      return k;
+    }
+    window.toast = function (sprava, typ) {
+      const t = document.createElement('div');
+      const text = String(sprava == null ? '' : sprava);
+      typ = typ || (/nepodar|chyba|zlyhal|neplatn|nerozumiem|zadaj/i.test(text) ? 'chyba' : 'ok');
+      t.className = 'toast toast-' + typ;
+      t.textContent = text;
+      t.setAttribute('role', typ === 'chyba' ? 'alert' : 'status');
+      kontajner().appendChild(t);
+      requestAnimationFrame(() => t.classList.add('on'));
+      setTimeout(() => { t.classList.remove('on'); setTimeout(() => t.remove(), 300); }, typ === 'chyba' ? 6000 : 2800);
+    };
+    window.alert = m => window.toast(m);
+
+    // ── Potvrdenie namiesto confirm() ──
+    window.potvrd = function (otazka) {
+      return new Promise(ok => {
+        const o = document.createElement('div');
+        o.className = 'potvrd-ov';
+        const nebezpecne = /vymaza|odstráni|odobra|natrvalo/i.test(otazka);
+        o.innerHTML = `<div class="potvrd" role="dialog" aria-modal="true">
+            <p></p><div class="potvrd-tl">
+              <button type="button" class="btn" data-v="0">Zrušiť</button>
+              <button type="button" class="btn ${nebezpecne ? 'btn-danger' : 'btn-primary'}" data-v="1">${nebezpecne ? 'Áno, odstrániť' : 'Pokračovať'}</button>
+            </div></div>`;
+        o.querySelector('p').textContent = otazka;
+        const hotovo = v => { o.remove(); document.removeEventListener('keydown', kl); ok(v); };
+        const kl = e => { if (e.key === 'Escape') hotovo(false); if (e.key === 'Enter') hotovo(true); };
+        o.addEventListener('click', e => { if (e.target === o) hotovo(false); const b = e.target.closest('[data-v]'); if (b) hotovo(b.dataset.v === '1'); });
+        document.addEventListener('keydown', kl);
+        document.body.appendChild(o);
+        o.querySelector('[data-v="1"]').focus();
+      });
+    };
+
+    // ── „✓ Uložené“ pri nastaveniach ──
+    // Prepínače a polia v nastaveniach sa ukladajú hneď pri zmene; doteraz
+    // to niektoré oznámili a iné nie.
+    document.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.matches || !el.matches('input, select, textarea') || !el.getAttribute('onchange')) return;
+      const kde = el.closest('.settings-panel, .af-card, .page-settings, .plan-row');
+      if (!kde) return;
+      let z = kde.querySelector(':scope > .ulozene');
+      if (!z) { z = document.createElement('span'); z.className = 'ulozene'; kde.appendChild(z); }
+      z.textContent = '✓ Uložené';
+      z.classList.add('on');
+      clearTimeout(z._t); z._t = setTimeout(() => z.classList.remove('on'), 1800);
+    });
+  })();
+</script>
+
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <!-- Ochrana proti clickjackingu: admin sa nesmie dať vložiť do rámca
@@ -11,8 +72,7 @@
      (schválenie, vymazanie). GitHub Pages hlavičku frame-ancestors
      poslať nevie, preto stránku najprv skryjeme a ukážeme ju, len keď
      nie je v rámci. Bez JavaScriptu sa admin aj tak nedá používať. -->
-<style id="anti-ramec">body { display: none !important; }  .grecaptcha-badge { visibility: hidden !important; }
-</style>
+<style id="anti-ramec">body { display: none !important; }</style>
 <script>
   if (window.self === window.top) {
     document.getElementById('anti-ramec').remove();
@@ -205,7 +265,7 @@
       return `
       <div class="plan-row${zap ? '' : ' plan-off'}">
         <div class="plan-info">
-          <div class="plan-nazov">${u.nazov} <span class="plan-kde">${u.lokalne ? '💻 počítač' : '☁️ cloud'}</span></div>
+          <div class="plan-nazov">${u.nazov} <span class="plan-kde">${u.lokalne ? '<svg class="ix"><use href="#ix-laptop"></use></svg> počítač' : '<svg class="ix"><use href="#ix-cloud"></use></svg> cloud'}</span></div>
           <div class="plan-popis">${u.popis}</div>
           <div class="plan-stav">${posledny} ${caka}</div>
         </div>
@@ -243,7 +303,7 @@
       return;
     }
     const zoradene = [...new Set(casy)].sort();
-    if (!zoradene.length && !confirm('Bez časov táto úloha nepobeží vôbec (okrem ručného spustenia). Pokračovať?')) {
+    if (!zoradene.length && !await potvrd('Bez časov táto úloha nepobeží vôbec (okrem ručného spustenia). Pokračovať?')) {
       renderPlan();
       return;
     }
@@ -397,7 +457,7 @@
         <div class="as-lab">odberateľov newslettera${cakaju ? ` (+${cakaju} čaká na overenie e-mailu)` : ''}</div></div>
       <div class="as-box" style="flex:2 1 260px;"><div class="as-lab" style="margin:0 0 4px;">Témy odberateľov
         · ${denne}× denne, ${odber.length - denne}× týždenne</div>
-        <div style="font-size:.82rem;">${Object.entries(temy).sort((a, b) => b[1] - a[1])
+        <div style="font-size: .8125rem;">${Object.entries(temy).sort((a, b) => b[1] - a[1])
           .map(([t, n]) => `${escapeHtml(UC_TEMY_NAZVY[t] || t)} <b>(${n})</b>`).join(' · ') || 'zatiaľ nikto'}</div></div>`;
     const kedy = ts => ts && ts.toDate ? ts.toDate().toLocaleDateString('sk-SK') : '';
     document.getElementById('uc-list').innerHTML = uzivatelia.length ? uzivatelia.slice(0, 50).map(u => `<tr>
@@ -528,7 +588,7 @@
     if (!dom) inp.value = '';
   };
   window.affOdober = async function(d) {
-    if (!confirm(`Odobrať ${d} z obchodov s kampaňou? Odkazy naň potom pôjdu priamo, bez provízie.`)) return;
+    if (!await potvrd(`Odobrať ${d} z obchodov s kampaňou? Odkazy naň potom pôjdu priamo, bez provízie.`)) return;
     await window.saveAffiliate({ domains: (affiliate.domains || []).filter(x => x !== d) });
     logChange('settings-affiliate', 'affiliate', 'Affiliate: odobratá kampaň ' + d);
   };
@@ -1010,7 +1070,7 @@
   };
 
   window.deleteDeal = async function(id) {
-    if (!confirm('Naozaj natrvalo vymazať tento deal? Toto sa nedá vrátiť späť (skús Archivovať, ak chceš zachovať možnosť obnovy).')) return;
+    if (!await potvrd('Naozaj natrvalo vymazať tento deal? Toto sa nedá vrátiť späť (skús Archivovať, ak chceš zachovať možnosť obnovy).')) return;
     await logChange(id, 'deleted');   // najprv záznam, potom mazanie
     await deleteDoc(doc(db, "deals", id));
   };
@@ -1029,7 +1089,7 @@
   };
 
   window.deleteComment = async function(dealId, commentId, wasApproved) {
-    if (!confirm('Naozaj natrvalo vymazať tento komentár?')) return;
+    if (!await potvrd('Naozaj natrvalo vymazať tento komentár?')) return;
     await deleteDoc(doc(db, "deals", dealId, "comments", commentId));
     if (wasApproved) {
       await updateDoc(doc(db, "deals", dealId), { comments: increment(-1) });
@@ -1085,16 +1145,16 @@
         </div>
         <div class="row-actions">
           ${c.status === 'pending' ? `
-            <button class="btn btn-approve" onclick="approveComment('${c.dealId}','${c.id}')">✓ Schváliť</button>
-            <button class="btn btn-reject" onclick="rejectComment('${c.dealId}','${c.id}', false)">✕ Zamietnuť</button>
+            <button class="btn btn-approve" onclick="approveComment('${c.dealId}','${c.id}')"><svg class="ix"><use href="#ix-check"></use></svg> Schváliť</button>
+            <button class="btn btn-reject" onclick="rejectComment('${c.dealId}','${c.id}', false)"><svg class="ix"><use href="#ix-x"></use></svg> Zamietnuť</button>
           ` : ''}
           ${c.status === 'rejected' ? `
-            <button class="btn btn-approve" onclick="approveComment('${c.dealId}','${c.id}')">✓ Schváliť</button>
+            <button class="btn btn-approve" onclick="approveComment('${c.dealId}','${c.id}')"><svg class="ix"><use href="#ix-check"></use></svg> Schváliť</button>
           ` : ''}
           ${c.status === 'approved' ? `
             <button class="btn btn-reject" onclick="rejectComment('${c.dealId}','${c.id}', true)">Skryť</button>
           ` : ''}
-          <button class="btn btn-delete" onclick="deleteComment('${c.dealId}','${c.id}', ${wasApproved})">🗑 Vymazať</button>
+          <button class="btn btn-delete" onclick="deleteComment('${c.dealId}','${c.id}', ${wasApproved})"><svg class="ix"><use href="#ix-trash"></use></svg> Vymazať</button>
         </div>
       </div>
     </div>`;
@@ -1117,7 +1177,7 @@
     await updateDoc(doc(db, "coupons", id), { expired });
   };
   window.deleteCoupon = async function(id) {
-    if (!confirm('Naozaj natrvalo vymazať tento kód?')) return;
+    if (!await potvrd('Naozaj natrvalo vymazať tento kód?')) return;
     await deleteDoc(doc(db, "coupons", id));
   };
   window.saveCouponEdit = async function(id) {
@@ -1179,23 +1239,23 @@
     return `
     <div class="deal-row">
       <div class="row-header">
-        <div class="row-thumb row-thumb-empty">🎟️</div>
+        <div class="row-thumb row-thumb-empty"><svg class="ix"><use href="#ix-ticket"></use></svg></div>
         <div class="row-info">
           <div class="row-title"><strong>${escapeHtml(c.code||'')}</strong> ${statusBadge} ${expiredBadge}</div>
-          <div class="row-sub">${escapeHtml(c.store||'')} · ${escapeHtml(c.discount||'')} · ${c.votes||0} hlasov · 👤 ${escapeHtml(c.author||'neznámy')}</div>
+          <div class="row-sub">${escapeHtml(c.store||'')} · ${escapeHtml(c.discount||'')} · ${c.votes||0} hlasov · <svg class="ix"><use href="#ix-user"></use></svg> ${escapeHtml(c.author||'neznámy')}</div>
         </div>
         <div class="row-actions">
           ${c.status === 'pending' ? `
-            <button class="btn btn-approve" onclick="approveCoupon('${c.id}')">✓ Schváliť</button>
-            <button class="btn btn-reject" onclick="rejectCoupon('${c.id}')">✕ Zamietnuť</button>
+            <button class="btn btn-approve" onclick="approveCoupon('${c.id}')"><svg class="ix"><use href="#ix-check"></use></svg> Schváliť</button>
+            <button class="btn btn-reject" onclick="rejectCoupon('${c.id}')"><svg class="ix"><use href="#ix-x"></use></svg> Zamietnuť</button>
           ` : ''}
           ${c.status === 'rejected' ? `
-            <button class="btn btn-approve" onclick="approveCoupon('${c.id}')">✓ Schváliť</button>
-            <button class="btn btn-archive" onclick="archiveCoupon('${c.id}')">📦 Archivovať</button>
+            <button class="btn btn-approve" onclick="approveCoupon('${c.id}')"><svg class="ix"><use href="#ix-check"></use></svg> Schváliť</button>
+            <button class="btn btn-archive" onclick="archiveCoupon('${c.id}')"><svg class="ix"><use href="#ix-archive"></use></svg> Archivovať</button>
           ` : ''}
           ${c.status === 'approved' ? `
             <button class="btn btn-reject" onclick="rejectCoupon('${c.id}')">Skryť</button>
-            <button class="btn btn-archive" onclick="archiveCoupon('${c.id}')">📦 Archivovať</button>
+            <button class="btn btn-archive" onclick="archiveCoupon('${c.id}')"><svg class="ix"><use href="#ix-archive"></use></svg> Archivovať</button>
             <button class="btn ${c.expired ? 'btn-restore' : 'btn-expired'}" onclick="toggleExpiredCoupon('${c.id}', ${!c.expired})">
               ${c.expired ? '↩ Zrušiť exspiráciu' : '⏰ Označiť exspirované'}
             </button>
@@ -1203,8 +1263,8 @@
           ${c.status === 'archived' ? `
             <button class="btn btn-restore" onclick="restoreCoupon('${c.id}')">↩ Obnoviť</button>
           ` : ''}
-          <button class="btn btn-delete" onclick="deleteCoupon('${c.id}')">🗑 Vymazať</button>
-          <button class="btn btn-edit" onclick="toggleCouponEdit('${c.id}')">✎ Upraviť</button>
+          <button class="btn btn-delete" onclick="deleteCoupon('${c.id}')"><svg class="ix"><use href="#ix-trash"></use></svg> Vymazať</button>
+          <button class="btn btn-edit" onclick="toggleCouponEdit('${c.id}')"><svg class="ix"><use href="#ix-pencil"></use></svg> Upraviť</button>
         </div>
       </div>
       <div class="edit-panel" id="coupedit-${c.id}">
@@ -1216,7 +1276,7 @@
           <div class="full"><label>URL (affiliate link)</label><input id="cp-url-${c.id}" value="${escapeAttr(c.url)}"></div>
           <div class="full"><label>Popis</label><textarea id="cp-desc-${c.id}" rows="2">${escapeHtml(c.description||'')}</textarea></div>
         </div>
-        <button class="btn btn-save" onclick="saveCouponEdit('${c.id}')">💾 Uložiť zmeny</button>
+        <button class="btn btn-save" onclick="saveCouponEdit('${c.id}')"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť zmeny</button>
       </div>
     </div>`;
   }
@@ -1331,7 +1391,7 @@
     const ids = [...selectedDeals];
     if (!ids.length) return;
     const slovo = { approved: 'schváliť', rejected: 'zamietnuť', archived: 'archivovať' }[status];
-    if (!confirm(`Naozaj ${slovo} ${ids.length} označených dealov?`)) return;
+    if (!await potvrd(`Naozaj ${slovo} ${ids.length} označených dealov?`)) return;
 
     const bar = document.getElementById('bulk-bar');
     bar.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -1481,18 +1541,18 @@
       approved: '<span class="badge badge-approved">Schválené</span>',
       rejected: '<span class="badge badge-rejected">Zamietnuté</span>',
       archived: '<span class="badge badge-archived">Archivované</span>',
-      planned:  `<span class="badge badge-planned">🕒 Zverejní sa ${_casDealu(d.publishAt)}</span>`,
-      scheduled: `<span class="badge badge-planned">📨 Na schválenie pôjde ${_casDealu(d.sendAt)}</span>`,
+      planned:  `<span class="badge badge-planned"><svg class="ix"><use href="#ix-clock"></use></svg> Zverejní sa ${_casDealu(d.publishAt)}</span>`,
+      scheduled: `<span class="badge badge-planned"><svg class="ix"><use href="#ix-send"></use></svg> Na schválenie pôjde ${_casDealu(d.sendAt)}</span>`,
     }[d.status] || '';
     const expiredBadge = d.expired ? '<span class="badge badge-expired">EXSPIROVANÉ</span>' : '';
 
     const thumb = d.imageUrl
       ? `<img class="row-thumb" src="${escapeAttr(d.imageUrl)}" alt="">`
-      : `<div class="row-thumb row-thumb-empty">📦</div>`;
+      : `<div class="row-thumb row-thumb-empty"><svg class="ix"><use href="#ix-archive"></use></svg> </div>`;
 
     const dup = findDuplicate(d);
     const dupWarn = dup
-      ? `<span class="dup-warn">⚠ Podobný deal už na stránke je (${escapeHtml(dup.preco)}):
+      ? `<span class="dup-warn"><svg class="ix"><use href="#ix-alert"></use></svg> Podobný deal už na stránke je (${escapeHtml(dup.preco)}):
            <a href="#" onclick="skocNaDeal('${dup.deal.id}'); return false;">${escapeHtml(dup.deal.title || 'bez názvu')}</a></span>`
       : '';
 
@@ -1506,31 +1566,31 @@
         ${thumb}
         <div class="row-info">
           <div class="row-title"><strong>${escapeHtml(d.title||'')}</strong> ${statusBadge} ${expiredBadge}</div>
-          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · 🖱 ${(window.dealClicks||{})[d.id] || 0} preklikov · ${(d.dealPrice||0).toFixed(2)} € · 👤 ${escapeHtml(d.author||'neznámy')}</div>
+          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · <svg class="ix"><use href="#ix-pointer"></use></svg> ${(window.dealClicks||{})[d.id] || 0} preklikov · ${(d.dealPrice||0).toFixed(2)} € · <svg class="ix"><use href="#ix-user"></use></svg> ${escapeHtml(d.author||'neznámy')}</div>
           ${dupWarn}
         </div>
         <div class="row-actions">
           ${d.status === 'pending' ? `
-            <button class="btn btn-approve" onclick="approveDeal('${d.id}')">✓ Schváliť</button>
-            <button class="btn btn-plan" onclick="togglePlan('${d.id}')" title="Schváliť a zverejniť neskôr">🕒 Neskôr</button>
-            <button class="btn btn-reject" onclick="rejectDeal('${d.id}')">✕ Zamietnuť</button>
+            <button class="btn btn-approve" onclick="approveDeal('${d.id}')"><svg class="ix"><use href="#ix-check"></use></svg> Schváliť</button>
+            <button class="btn btn-plan" onclick="togglePlan('${d.id}')" title="Schváliť a zverejniť neskôr"><svg class="ix"><use href="#ix-clock"></use></svg> Neskôr</button>
+            <button class="btn btn-reject" onclick="rejectDeal('${d.id}')"><svg class="ix"><use href="#ix-x"></use></svg> Zamietnuť</button>
           ` : ''}
           ${d.status === 'planned' ? `
             <button class="btn btn-approve" onclick="publishNow('${d.id}')">Zverejniť hneď</button>
-            <button class="btn btn-plan" onclick="togglePlan('${d.id}')">🕒 Zmeniť čas</button>
+            <button class="btn btn-plan" onclick="togglePlan('${d.id}')"><svg class="ix"><use href="#ix-clock"></use></svg> Zmeniť čas</button>
             <button class="btn btn-ic btn-restore" onclick="restoreDeal('${d.id}')" title="Vrátiť medzi dealy na schválenie">↩</button>
           ` : ''}
           ${d.status === 'scheduled' ? `
             <button class="btn btn-approve" onclick="sendForApprovalNow('${d.id}')">Na schválenie hneď</button>
-            <button class="btn btn-plan" onclick="togglePlan('${d.id}')">🕒 Zmeniť čas</button>
+            <button class="btn btn-plan" onclick="togglePlan('${d.id}')"><svg class="ix"><use href="#ix-clock"></use></svg> Zmeniť čas</button>
           ` : ''}
           ${d.status === 'rejected' ? `
-            <button class="btn btn-approve" onclick="approveDeal('${d.id}')">✓ Schváliť</button>
-            <button class="btn btn-ic btn-archive" onclick="archiveDeal('${d.id}')" title="Archivovať">📦</button>
+            <button class="btn btn-approve" onclick="approveDeal('${d.id}')"><svg class="ix"><use href="#ix-check"></use></svg> Schváliť</button>
+            <button class="btn btn-ic btn-archive" onclick="archiveDeal('${d.id}')" title="Archivovať"><svg class="ix"><use href="#ix-archive"></use></svg> </button>
           ` : ''}
           ${d.status === 'approved' ? `
             <button class="btn btn-reject" onclick="rejectDeal('${d.id}')">Skryť</button>
-            <button class="btn btn-ic btn-archive" onclick="archiveDeal('${d.id}')" title="Archivovať">📦</button>
+            <button class="btn btn-ic btn-archive" onclick="archiveDeal('${d.id}')" title="Archivovať"><svg class="ix"><use href="#ix-archive"></use></svg> </button>
             <button class="btn btn-ic ${d.expired ? 'btn-restore' : 'btn-expired'}"
                     onclick="toggleExpiredDeal('${d.id}', ${!d.expired})"
                     title="${d.expired ? 'Zrušiť exspiráciu' : 'Označiť ako exspirované'}">${d.expired ? '↩' : '⏰'}</button>
@@ -1538,10 +1598,10 @@
           ${d.status === 'archived' ? `
             <button class="btn btn-ic btn-restore" onclick="restoreDeal('${d.id}')" title="Obnoviť">↩</button>
           ` : ''}
-          <button class="btn btn-ic btn-edit" onclick="toggleEdit('${d.id}')" title="Upraviť">✎</button>
-          <button class="btn btn-ic" onclick="togglePreview('${d.id}')" title="Náhľad tak, ako to uvidí návštevník">👁</button>
+          <button class="btn btn-ic btn-edit" onclick="toggleEdit('${d.id}')" title="Upraviť"><svg class="ix"><use href="#ix-pencil"></use></svg> </button>
+          <button class="btn btn-ic" onclick="togglePreview('${d.id}')" title="Náhľad tak, ako to uvidí návštevník"><svg class="ix"><use href="#ix-eye"></use></svg> </button>
           <a class="btn btn-ic" href="${safeUrl(d.url)}" target="_blank" rel="noopener" title="Otvoriť ponuku u predajcu">↗</a>
-          <button class="btn btn-ic btn-delete" onclick="deleteDeal('${d.id}')" title="Vymazať natrvalo">🗑</button>
+          <button class="btn btn-ic btn-delete" onclick="deleteDeal('${d.id}')" title="Vymazať natrvalo"><svg class="ix"><use href="#ix-trash"></use></svg> </button>
         </div>
       </div>
       <div class="plan-panel" id="plan-${d.id}">
@@ -1573,14 +1633,14 @@
           <div class="full">
             <label>Obrázok</label>
             <div class="edit-img-row">
-              ${d.imageUrl ? `<img src="${escapeAttr(d.imageUrl)}" class="edit-img-preview">` : `<div class="edit-img-preview edit-img-empty">📦</div>`}
+              ${d.imageUrl ? `<img src="${escapeAttr(d.imageUrl)}" class="edit-img-preview">` : `<div class="edit-img-preview edit-img-empty"><svg class="ix"><use href="#ix-archive"></use></svg> </div>`}
               <input type="file" id="e-imgfile-${d.id}" accept="image/*">
             </div>
             <input type="hidden" id="e-img-${d.id}" value="${escapeAttr(d.imageUrl)}">
           </div>
           <div class="full"><label>Popis</label><textarea id="e-desc-${d.id}" rows="2">${escapeHtml(d.description||'')}</textarea></div>
         </div>
-        <button class="btn btn-save" onclick="saveEdit('${d.id}')">💾 Uložiť zmeny</button>
+        <button class="btn btn-save" onclick="saveEdit('${d.id}')"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť zmeny</button>
       </div>
     </div>`;
   }
@@ -1620,7 +1680,7 @@
     <div class="pv-card">
       ${d.imageUrl
         ? `<img class="pv-img" src="${escapeAttr(d.imageUrl)}" alt="">`
-        : `<div class="pv-img-empty">📦</div>`}
+        : `<div class="pv-img-empty"><svg class="ix"><use href="#ix-archive"></use></svg> </div>`}
       <div class="pv-body">
         <div class="pv-store">${escapeHtml(d.store || 'neznámy obchod')}</div>
         <div class="pv-title">${escapeHtml(d.title || '(bez názvu)')}</div>
@@ -1671,7 +1731,7 @@
   };
 
   window.deleteMerchant = async function(key) {
-    if (!confirm('Odstrániť tohto predajcu? Agent sa vráti k zabudovanému zoznamu.')) return;
+    if (!await potvrd('Odstrániť tohto predajcu? Agent sa vráti k zabudovanému zoznamu.')) return;
     try { await deleteDoc(doc(db, "merchants", key)); loadMerchants(); }
     catch (e) { alert('Nepodarilo sa odstrániť: ' + e.message); }
   };
@@ -1700,7 +1760,7 @@
     try {
       const snap = await getDocs(collection(db, "merchants"));
       if (snap.empty) {
-        el.innerHTML = '<div class="empty" style="font-size:.85rem;">Zatiaľ žiadny vlastný predajca — agent používa zabudovaný zoznam.</div>';
+        el.innerHTML = '<div class="empty" style="font-size: .875rem;">Zatiaľ žiadny vlastný predajca — agent používa zabudovaný zoznam.</div>';
         return;
       }
       el.innerHTML = snap.docs.map(d => {
@@ -1712,12 +1772,12 @@
             <div class="row-sub">${escapeHtml(target)}</div>
           </div>
           <div class="row-actions">
-            <button class="btn btn-delete" onclick="deleteMerchant('${escapeAttr(d.id)}')">🗑 Odstrániť</button>
+            <button class="btn btn-delete" onclick="deleteMerchant('${escapeAttr(d.id)}')"><svg class="ix"><use href="#ix-trash"></use></svg> Odstrániť</button>
           </div>
         </div>`;
       }).join('');
     } catch (e) {
-      el.innerHTML = '<div class="empty" style="font-size:.85rem;">Zoznam sa nepodarilo načítať — pravdepodobne chýbajú Firestore pravidlá pre kolekciu <code>merchants</code>.</div>';
+      el.innerHTML = '<div class="empty" style="font-size: .875rem;">Zoznam sa nepodarilo načítať — pravdepodobne chýbajú Firestore pravidlá pre kolekciu <code>merchants</code>.</div>';
     }
   }
 
@@ -1870,24 +1930,24 @@
   #login-view { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
   .login-box { background: var(--card); border-radius: 12px; padding: 32px; width: 100%; max-width: 360px;
     box-shadow: 0 4px 20px rgba(0,0,0,.1); }
-  .login-box h1 { font-size: 1.3rem; margin-bottom: 4px; }
-  .login-box p { color: var(--muted); font-size: .85rem; margin-bottom: 20px; }
-  .login-box label { font-size: .85rem; font-weight: 600; display: block; margin: 12px 0 4px; }
-  .login-box input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 6px; font-size: .9rem; }
+  .login-box h1 { font-size: 1.25rem; margin-bottom: 4px; }
+  .login-box p { color: var(--muted); font-size: .875rem; margin-bottom: 20px; }
+  .login-box label { font-size: .875rem; font-weight: 600; display: block; margin: 12px 0 4px; }
+  .login-box input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 6px; font-size: .875rem; }
   .login-box button { width: 100%; margin-top: 18px; background: var(--orange); color: #fff; border: none;
-    padding: 11px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: .95rem; }
+    padding: 11px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 1rem; }
   .login-box button:hover { background: var(--orange-dk); }
-  #login-error { display: none; color: var(--red); font-size: .82rem; margin-top: 10px; }
+  #login-error { display: none; color: var(--red); font-size: .8125rem; margin-top: 10px; }
 
   /* Admin view */
   #admin-view { display: none; }
   header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 24px;
     display: flex; align-items: center; justify-content: space-between; }
-  header h1 { font-size: 1.1rem; }
+  header h1 { font-size: 1.25rem; }
   header h1 span { color: var(--orange); }
-  .top-right { display: flex; align-items: center; gap: 14px; font-size: .85rem; color: var(--muted); }
+  .top-right { display: flex; align-items: center; gap: 14px; font-size: .875rem; color: var(--muted); }
   .top-right button { background: none; border: 1.5px solid var(--line); padding: 6px 14px; border-radius: 6px;
-    cursor: pointer; font-size: .82rem; }
+    cursor: pointer; font-size: .8125rem; }
 
   .container { max-width: 980px; margin: 0 auto; padding: 20px 16px; }
   /* ══ Rozvrh adminu: horná lišta + ľavé menu ═══════════════════════
@@ -1900,31 +1960,31 @@
     display: inline-flex; align-items: center; justify-content: center; color: var(--ink); flex: none; }
   .adm-burger:hover { background: var(--bg); }
   .adm-burger .ai { width: 22px; height: 22px; }
-  .adm-crumb { font-size: .9rem; font-weight: 700; color: var(--muted); padding-left: 12px; border-left: 1.5px solid var(--line);
+  .adm-crumb { font-size: .875rem; font-weight: 700; color: var(--muted); padding-left: 12px; border-left: 1.5px solid var(--line);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   header.adm-top .top-right { margin-left: auto; }
   .adm-web { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); text-decoration: none; font-weight: 700;
-    font-size: .82rem; padding: 6px 10px; border-radius: 8px; }
+    font-size: .8125rem; padding: 6px 10px; border-radius: 8px; }
   .adm-web:hover { background: var(--bg); }
   .adm-web .ai { width: 16px; height: 16px; }
   .adm-shell { display: flex; align-items: flex-start; min-height: calc(100vh - var(--top-h)); }
   .adm-nav { width: var(--nav-w); flex: none; background: var(--navy); position: sticky; top: var(--top-h);
     height: calc(100vh - var(--top-h)); overflow-y: auto; overflow-x: hidden; padding: 10px 10px 24px;
     transition: width .18s ease; scrollbar-width: thin; }
-  .adm-nav .grp { font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; color: #7F93B0;
+  .adm-nav .grp { font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; color: #7F93B0;
     margin: 16px 10px 6px; white-space: nowrap; }
   .adm-nav a { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 10px; color: #D5DEEB;
-    text-decoration: none; font-weight: 600; font-size: .88rem; white-space: nowrap; position: relative; margin-bottom: 2px; }
+    text-decoration: none; font-weight: 600; font-size: .875rem; white-space: nowrap; position: relative; margin-bottom: 2px; }
   .adm-nav a:hover { background: rgba(255,255,255,.07); color: #fff; }
   .adm-nav a.on { background: rgba(232,89,12,.2); color: #fff; box-shadow: inset 3px 0 0 var(--orange); }
   .adm-nav .ai { width: 20px; height: 20px; flex: none; }
-  .adm-nav .badge { margin-left: auto; background: var(--orange); color: #fff; font-size: .68rem; font-weight: 800;
+  .adm-nav .badge { margin-left: auto; background: var(--orange); color: #fff; font-size: .75rem; font-weight: 800;
     border-radius: 999px; padding: 1px 7px; min-width: 20px; text-align: center; }
   .adm-nav .badge:empty { display: none; }
   body.nav-mini .adm-nav { width: var(--nav-mini); }
   body.nav-mini .adm-nav .txt, body.nav-mini .adm-nav .grp { display: none; }
   body.nav-mini .adm-nav a { justify-content: center; padding: 10px 0; }
-  body.nav-mini .adm-nav .badge { position: absolute; top: 3px; right: 6px; font-size: .58rem; padding: 0 5px; min-width: 0; }
+  body.nav-mini .adm-nav .badge { position: absolute; top: 3px; right: 6px; font-size: .75rem; padding: 0 5px; min-width: 0; }
   body.nav-mini .adm-nav .grp + a { margin-top: 12px; }
   .adm-main { flex: 1; min-width: 0; }
   .adm-main .container { max-width: 1100px; padding: 22px 22px 48px; }
@@ -1937,14 +1997,14 @@
   .ph-card { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; cursor: pointer;
     text-decoration: none; color: inherit; display: block; transition: border-color .15s, transform .15s; }
   .ph-card:hover { border-color: var(--orange); transform: translateY(-1px); }
-  .ph-lab { display: flex; align-items: center; gap: 8px; font-size: .74rem; font-weight: 800; text-transform: uppercase;
+  .ph-lab { display: flex; align-items: center; gap: 8px; font-size: .75rem; font-weight: 800; text-transform: uppercase;
     letter-spacing: .5px; color: var(--muted); margin-bottom: 8px; }
   .ph-lab .ai { width: 18px; height: 18px; color: var(--orange); }
-  .ph-num { font-size: 1.9rem; font-weight: 800; line-height: 1.1; }
+  .ph-num { font-size: 1.75rem; font-weight: 800; line-height: 1.1; }
   .ph-num.alert { color: var(--orange); }
-  .ph-sub { font-size: .8rem; color: var(--muted); margin-top: 4px; line-height: 1.45; }
+  .ph-sub { font-size: .8125rem; color: var(--muted); margin-top: 4px; line-height: 1.45; }
   .ph-sub b { color: var(--ink); }
-  .ph-list { font-size: .8rem; margin-top: 6px; line-height: 1.6; }
+  .ph-list { font-size: .8125rem; margin-top: 6px; line-height: 1.6; }
   .ph-list span { color: var(--muted); }
 
   /* Affiliate */
@@ -1952,26 +2012,26 @@
   .af-box { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
   .af-box.ok { background: #E9F6EC; border-color: #BFE3C7; }
   .af-box.off { background: #FDF1EA; border-color: #F5D0BA; }
-  .af-lab { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
-  .af-num { font-size: 1.35rem; font-weight: 800; margin-top: 3px; }
-  .af-num small { font-size: .85rem; color: var(--muted); }
-  .af-sub { font-size: .74rem; color: var(--muted); margin-top: 2px; }
+  .af-lab { font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .af-num { font-size: 1.5rem; font-weight: 800; margin-top: 3px; }
+  .af-num small { font-size: .875rem; color: var(--muted); }
+  .af-sub { font-size: .75rem; color: var(--muted); margin-top: 2px; }
   .af-bar { height: 6px; background: #DDE3EA; border-radius: 4px; overflow: hidden; margin-top: 8px; }
   .af-bar span { display: block; height: 100%; background: var(--green); }
   .af-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .af-card { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
-  .af-card h3 { font-size: .98rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .af-card h3 { font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
   .ai-s { width: 18px; height: 18px; color: var(--orange); }
   .af-card .aff-row { margin-top: 12px; flex-direction: column; align-items: stretch; gap: 5px; }
   .af-card .aff-row label { min-width: 0; }
-  .af-card .aff-row input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 8px; font-size: .9rem; }
-  .af-chk { display: block; font-size: .74rem; font-weight: 700; margin-top: 4px; }
+  .af-card .aff-row input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 8px; font-size: .875rem; }
+  .af-chk { display: block; font-size: .75rem; font-weight: 700; margin-top: 4px; }
   .af-chk.ok { color: var(--green); } .af-chk.zle { color: var(--red); }
-  .af-pocet { background: var(--bg); border-radius: 999px; padding: 1px 9px; font-size: .74rem; color: var(--muted); }
+  .af-pocet { background: var(--bg); border-radius: 999px; padding: 1px 9px; font-size: .75rem; color: var(--muted); }
   .af-test { display: flex; gap: 8px; }
-  .af-test input { flex: 1; min-width: 0; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 8px; font: inherit; font-size: .86rem; }
-  .af-test select { padding: 9px 10px; border: 1.5px solid var(--line); border-radius: 8px; font: inherit; font-size: .84rem; }
-  .af-vysl { margin-top: 10px; font-size: .84rem; font-weight: 700; padding: 8px 12px; border-radius: 8px; }
+  .af-test input { flex: 1; min-width: 0; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 8px; font: inherit; font-size: .875rem; }
+  .af-test select { padding: 9px 10px; border: 1.5px solid var(--line); border-radius: 8px; font: inherit; font-size: .875rem; }
+  .af-vysl { margin-top: 10px; font-size: .875rem; font-weight: 700; padding: 8px 12px; border-radius: 8px; }
   .af-vysl.ok { background: #E9F6EC; color: #1E6B2E; } .af-vysl.info { background: #EEF2F8; color: #33445A; }
   .af-vysl.zle { background: #FDECEA; color: #B03A2E; }
   .af-link { display: flex; gap: 8px; margin-top: 8px; }
@@ -1979,45 +2039,45 @@
     font: .78rem ui-monospace, Consolas, monospace; background: var(--bg); }
   .af-link .btn { text-decoration: none; white-space: nowrap; }
   .af-add { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  .af-add input { padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 8px; font: inherit; font-size: .86rem; }
+  .af-add input { padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 8px; font: inherit; font-size: .875rem; }
   .af-add input#aff-dom-nova { flex: 1 1 200px; } .af-add input#aff-dom-filter { flex: 0 1 200px; margin-left: auto; }
   .af-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 260px; overflow-y: auto; }
   .af-chip { display: inline-flex; align-items: center; gap: 6px; background: #EEF2F8; border: 1px solid #DDE5F0; border-radius: 999px;
-    padding: 4px 4px 4px 11px; font-size: .8rem; font-weight: 700; color: #0B2545; }
-  .af-chip small { font-weight: 600; color: var(--muted); font-size: .7rem; }
+    padding: 4px 4px 4px 11px; font-size: .8125rem; font-weight: 700; color: #0B2545; }
+  .af-chip small { font-weight: 600; color: var(--muted); font-size: .75rem; }
   .af-chip.prazdny { background: var(--card); color: var(--muted); }
   .af-chip button { width: 20px; height: 20px; border: none; border-radius: 50%; background: none; cursor: pointer;
-    color: var(--muted); font-size: .95rem; line-height: 1; }
+    color: var(--muted); font-size: 1rem; line-height: 1; }
   .af-chip button:hover { background: #FDECEA; color: var(--red); }
   .af-tab td { white-space: nowrap; }
 
 
   /* ── Affiliate: jedno písmo, jednotné polia a tlačidlá ── */
-  .admin-page[data-page="affiliate"] { font-size: .88rem; }
+  .admin-page[data-page="affiliate"] { font-size: .875rem; }
   .admin-page[data-page="affiliate"] input, .admin-page[data-page="affiliate"] select,
   .admin-page[data-page="affiliate"] button { font-family: inherit; }
-  .af-card h3 { font-size: .95rem; font-weight: 800; }
-  .af-card .switch-label { font-size: .88rem; font-weight: 600; }
-  .af-card .aff-row label { font-size: .78rem; font-weight: 700; color: #444; }
+  .af-card h3 { font-size: 1rem; font-weight: 800; }
+  .af-card .switch-label { font-size: .875rem; font-weight: 600; }
+  .af-card .aff-row label { font-size: .75rem; font-weight: 700; color: #444; }
   .af-card .aff-row input, .af-test input, .af-test select, .af-add input, .af-link input {
-    font: inherit; font-size: .88rem; height: 40px; padding: 0 12px; border: 1.5px solid var(--line);
+    font: inherit; font-size: .875rem; height: 40px; padding: 0 12px; border: 1.5px solid var(--line);
     border-radius: 8px; background: var(--card); color: var(--ink); }
   .af-card .aff-row input { letter-spacing: .3px; }
-  .af-link input { background: var(--bg); font-size: .8rem; color: #444; }
+  .af-link input { background: var(--bg); font-size: .8125rem; color: #444; }
   .af-card input:focus, .af-card select:focus { outline: none; border-color: var(--orange); }
-  .af-card .settings-hint { font-size: .78rem; line-height: 1.5; }
+  .af-card .settings-hint { font-size: .75rem; line-height: 1.5; }
   .af-card .settings-hint code { font-family: inherit; font-weight: 700; background: var(--bg); padding: 0 4px; border-radius: 4px; }
   .af-btn { display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 14px;
     border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink);
-    font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
+    font: inherit; font-size: .8125rem; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
   .af-btn:hover { border-color: var(--orange); color: var(--orange-dk); }
   .af-btn.hlavne { height: 40px; background: var(--orange); border-color: var(--orange); color: #fff; }
   .af-btn.hlavne:hover { background: var(--orange-dk); color: #fff; }
-  .af-chip { font-size: .8rem; font-weight: 700; }
-  .af-chip small { font-size: .72rem; font-weight: 600; }
+  .af-chip { font-size: .8125rem; font-weight: 700; }
+  .af-chip small { font-size: .75rem; font-weight: 600; }
   .af-tab-wrap { max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
-  .af-tab { width: 100%; border-collapse: collapse; font-size: .86rem; }
-  .af-tab th { position: sticky; top: 0; background: var(--bg); text-align: left; font-size: .7rem; font-weight: 800;
+  .af-tab { width: 100%; border-collapse: collapse; font-size: .875rem; }
+  .af-tab th { position: sticky; top: 0; background: var(--bg); text-align: left; font-size: .75rem; font-weight: 800;
     text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 9px 14px; }
   .af-tab td { padding: 8px 14px; border-top: 1px solid var(--line); vertical-align: middle; }
   .af-tab .n { text-align: right; width: 90px; font-variant-numeric: tabular-nums; }
@@ -2025,8 +2085,8 @@
   .af-tab .obchod { font-weight: 700; }
   .af-tab tbody tr:hover { background: #FAFBFC; }
   .af-card #lt-odkazy, .af-card #lt-affiliate { width: 100%; max-width: 560px; height: 40px; padding: 0 12px !important;
-    border: 1.5px solid var(--line) !important; border-radius: 8px !important; font: inherit !important; font-size: .88rem !important; }
-  .af-card label[style] { font-size: .78rem !important; font-weight: 700 !important; color: #444; }
+    border: 1.5px solid var(--line) !important; border-radius: 8px !important; font: inherit !important; font-size: .875rem !important; }
+  .af-card label[style] { font-size: .75rem !important; font-weight: 700 !important; color: #444; }
 
   /* Tablet */
   @media (max-width: 1100px) {
@@ -2062,20 +2122,20 @@
   /* ── Admin sekcie (Dealy / Zľavové kódy / Komentáre) ─────────────────── */
   .admin-section { margin-bottom: 28px; background: var(--card); border: 1.5px solid var(--line);
     border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow); }
-  .section-title { display: flex; align-items: center; font-size: 1.15rem; color: var(--ink);
+  .section-title { display: flex; align-items: center; font-size: 1.25rem; color: var(--ink);
     padding-bottom: 14px; margin-bottom: 14px; border-bottom: 2px solid var(--line); }
   .converter-box { background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
     padding: 16px 18px; }
-  .converter-box h3 { font-size: .92rem; margin-bottom: 12px; }
+  .converter-box h3 { font-size: 1rem; margin-bottom: 12px; }
 
   /* ── Návštevnosť ──────────────────────────────────────────────────────── */
   .visits-stats-row { display: flex; gap: 14px; flex-wrap: wrap; }
   .visit-stat-box { flex: 1; min-width: 130px; background: var(--bg); border: 1px solid var(--line);
     border-radius: 10px; padding: 16px; text-align: center; }
-  .visit-stat-number { font-size: 1.8rem; font-weight: 800; color: var(--orange); }
-  .visit-stat-label { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .visit-stat-number { font-size: 1.75rem; font-weight: 800; color: var(--orange); }
+  .visit-stat-label { font-size: .8125rem; color: var(--muted); margin-top: 4px; }
   .country-row { display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
+    padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .875rem; }
   .country-row:last-child { border-bottom: none; }
   .country-bar-wrap { flex: 1; margin: 0 12px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
   .country-bar { height: 100%; background: var(--orange); border-radius: 4px; }
@@ -2083,8 +2143,8 @@
   /* ── Settings panel (jeden prepínač moderácie per sekcia) ─────────────── */
   .settings-panel { background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
     padding: 14px 18px; margin-bottom: 16px; }
-  .settings-hint { font-size: .8rem; color: var(--muted); margin-top: 6px; }
-  .switch-label { display: flex; align-items: center; gap: 12px; font-size: .9rem; font-weight: 600;
+  .settings-hint { font-size: .8125rem; color: var(--muted); margin-top: 6px; }
+  .switch-label { display: flex; align-items: center; gap: 12px; font-size: .875rem; font-weight: 600;
     cursor: default; justify-content: space-between; }
   .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
   .switch input { opacity: 0; width: 0; height: 0; }
@@ -2094,11 +2154,11 @@
     background-color: white; transition: .2s; border-radius: 50%; }
   .switch input:checked + .slider { background-color: var(--orange); }
   .switch input:checked + .slider::before { transform: translateX(20px); }
-  .comment-body-text { font-size: .85rem; color: var(--ink); margin-top: 6px; background: var(--bg);
+  .comment-body-text { font-size: .875rem; color: var(--ink); margin-top: 6px; background: var(--bg);
     padding: 8px 10px; border-radius: 6px; line-height: 1.4; }
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .tab-btn { background: var(--card); border: 1.5px solid var(--line); padding: 9px 16px; border-radius: 8px;
-    cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--muted); }
+    cursor: pointer; font-size: .875rem; font-weight: 600; color: var(--muted); }
   .tab-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
 
   .deal-row { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
@@ -2106,23 +2166,23 @@
   .row-header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .row-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover;
     border: 1px solid var(--line); flex-shrink: 0; background: #f5f5f5; }
-  .row-thumb-empty { display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
+  .row-thumb-empty { display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
     color: var(--muted); }
   .row-info { flex: 1; min-width: 160px; }
   .row-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .row-sub { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .row-sub { font-size: .8125rem; color: var(--muted); margin-top: 4px; }
   /* Akcie pri deale. Doteraz to bol dlhy rad sirokych tlacidiel, ktory
      na uzsom okne roztiahol kazdy riadok. Teraz su drobne, hlavne dve
      maju text a ostatne su ikony s popiskom po najdeni mysou; max-width
      ich zalomi do dvoch riadkov namiesto jedneho dlheho. */
   .row-actions { display: flex; gap: 5px; flex-wrap: wrap;
     justify-content: flex-end; max-width: 216px; flex: none; }
-  .btn { border: none; padding: 5px 10px; border-radius: 6px; font-size: .74rem;
+  .btn { border: none; padding: 5px 10px; border-radius: 6px; font-size: .75rem;
     font-weight: 700; cursor: pointer; line-height: 1.5; }
   .btn:hover { filter: brightness(.95); }
   /* Ikonove tlacidlo: stvorec, aby sa ich do riadka zmestilo viac. */
   .btn-ic { width: 29px; height: 29px; padding: 0; display: inline-flex;
-    align-items: center; justify-content: center; font-size: .86rem;
+    align-items: center; justify-content: center; font-size: .875rem;
     text-decoration: none; background: var(--bg); color: var(--ink);
     box-sizing: border-box; }
   .btn-approve { background: #e3f3e6; color: var(--green); }
@@ -2133,7 +2193,7 @@
   .btn-restore { background: #e3f3e6; color: var(--green); }
   .btn-save    { background: var(--orange); color: #fff; margin-top: 10px; }
 
-  .badge { font-size: .7rem; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+  .badge { font-size: .75rem; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
   .badge-pending  { background: #fff3cd; color: #8a6200; }
   .badge-approved { background: #e3f3e6; color: var(--green); }
   .badge-planned  { background: #e8f0fe; color: #1a56c4; }
@@ -2141,14 +2201,14 @@
   .plan-panel { display: none; margin: 10px 0 2px 34px; padding: 12px 14px; background: #f5f8ff;
     border: 1px solid #d6e2fb; border-radius: 10px; }
   .plan-panel.open { display: block; }
-  .plan-panel-lab { font-size: .8rem; font-weight: 700; margin-bottom: 8px; }
+  .plan-panel-lab { font-size: .8125rem; font-weight: 700; margin-bottom: 8px; }
   .plan-panel-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .plan-panel-row input { padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 6px; font: inherit; font-size: .85rem; }
+  .plan-panel-row input { padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 6px; font: inherit; font-size: .875rem; }
   .plan-rychlo { display: inline-flex; gap: 5px; flex-wrap: wrap; }
-  .plan-rychlo button { font: inherit; font-size: .76rem; padding: 5px 9px; border-radius: 999px; cursor: pointer;
+  .plan-rychlo button { font: inherit; font-size: .75rem; padding: 5px 9px; border-radius: 999px; cursor: pointer;
     border: 1px solid #c9d8f7; background: #fff; color: #1a56c4; }
   .plan-rychlo button:hover { background: #e8f0fe; }
-  .plan-panel-hint { font-size: .74rem; color: var(--muted); margin-top: 7px; }
+  .plan-panel-hint { font-size: .75rem; color: var(--muted); margin-top: 7px; }
   @media (max-width: 600px) { .plan-panel { margin-left: 0; } }
   .badge-rejected { background: #fdeceb; color: var(--red); }
   .badge-archived { background: #ece7f7; color: #6b3fc9; }
@@ -2158,13 +2218,13 @@
   .edit-panel { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
   .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .edit-grid .full { grid-column: 1 / -1; }
-  .edit-grid label { font-size: .78rem; font-weight: 600; display: block; margin-bottom: 3px; }
+  .edit-grid label { font-size: .75rem; font-weight: 600; display: block; margin-bottom: 3px; }
   .edit-grid input, .edit-grid textarea { width: 100%; padding: 7px 10px; border: 1.5px solid var(--line);
-    border-radius: 5px; font-size: .85rem; font-family: inherit; }
+    border-radius: 5px; font-size: .875rem; font-family: inherit; }
   .edit-img-row { display: flex; align-items: center; gap: 12px; }
   .edit-img-preview { width: 56px; height: 56px; border-radius: 6px; object-fit: cover;
     border: 1px solid var(--line); flex-shrink: 0; }
-  .edit-img-empty { display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+  .edit-img-empty { display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
     color: var(--muted); background: #f5f5f5; }
 
   .empty { text-align: center; padding: 40px; color: var(--muted); background: var(--card);
@@ -2177,13 +2237,13 @@
     background: #fff6ef; border: 1.5px solid var(--orange); border-radius: 8px;
     padding: 10px 14px; margin-bottom: 12px; }
   .bulk-bar.on { display: flex; }
-  .bulk-count { font-weight: 700; font-size: .9rem; margin-right: auto; }
+  .bulk-count { font-weight: 700; font-size: .875rem; margin-right: auto; }
   .row-check { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; accent-color: var(--orange); }
-  .select-all { display: inline-flex; align-items: center; gap: 7px; font-size: .84rem;
+  .select-all { display: inline-flex; align-items: center; gap: 7px; font-size: .875rem;
     color: var(--muted); cursor: pointer; margin-bottom: 10px; }
 
   /* ── Upozornenie na duplicitu ──────────────────────────────────── */
-  .dup-warn { display: block; margin-top: 6px; font-size: .78rem; color: #9a5b00;
+  .dup-warn { display: block; margin-top: 6px; font-size: .75rem; color: #9a5b00;
     background: #fff5e0; border: 1px solid #f0d18a; border-radius: 6px; padding: 5px 9px; }
   .dup-warn a { color: inherit; font-weight: 700; }
 
@@ -2197,27 +2257,27 @@
     overflow: hidden; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
   .pv-img { width: 100%; height: 165px; object-fit: contain; background: #f7f7f7; display: block; }
   .pv-img-empty { height: 165px; background: #f7f7f7; display: flex; align-items: center;
-    justify-content: center; font-size: 2rem; color: var(--muted); }
+    justify-content: center; font-size: 1.75rem; color: var(--muted); }
   .pv-body { padding: 12px 14px 14px; }
-  .pv-store { font-size: .72rem; font-weight: 700; color: var(--orange);
+  .pv-store { font-size: .75rem; font-weight: 700; color: var(--orange);
     text-transform: uppercase; letter-spacing: .04em; }
-  .pv-title { font-size: .95rem; font-weight: 700; line-height: 1.35; margin: 4px 0 8px; }
+  .pv-title { font-size: 1rem; font-weight: 700; line-height: 1.35; margin: 4px 0 8px; }
   .pv-prices { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .pv-now { font-size: 1.25rem; font-weight: 800; }
-  .pv-was { font-size: .85rem; color: var(--muted); text-decoration: line-through; }
-  .pv-off { background: #e8f5e9; color: #1e7b32; font-size: .74rem; font-weight: 800;
+  .pv-was { font-size: .875rem; color: var(--muted); text-decoration: line-through; }
+  .pv-off { background: #e8f5e9; color: #1e7b32; font-size: .75rem; font-weight: 800;
     border-radius: 5px; padding: 2px 7px; }
   .pv-foot { display: flex; align-items: center; justify-content: space-between;
-    gap: 10px; margin-top: 11px; font-size: .78rem; color: var(--muted); }
+    gap: 10px; margin-top: 11px; font-size: .75rem; color: var(--muted); }
   .pv-cta { background: var(--orange); color: #fff; border-radius: 8px;
-    padding: 7px 13px; font-size: .8rem; font-weight: 700; }
+    padding: 7px 13px; font-size: .8125rem; font-weight: 700; }
 
   /* ── Úspešnosť agenta ──────────────────────────────────────────── */
   .agent-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   .as-box { flex: 1 1 130px; background: var(--card); border: 1px solid var(--line);
     border-radius: 8px; padding: 10px 13px; }
-  .as-num { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
-  .as-lab { font-size: .73rem; color: var(--muted); margin-top: 2px; }
+  .as-num { font-size: 1.25rem; font-weight: 800; line-height: 1.1; }
+  .as-lab { font-size: .75rem; color: var(--muted); margin-top: 2px; }
   .as-hint { font-size: .75rem; color: var(--muted); margin: -6px 0 14px; }
 
   /* ── Prehlady navstevnosti ────────────────────────────────────────
@@ -2231,7 +2291,7 @@
   .vis-grid > * { min-width: 0; }
   .converter-box { min-width: 0; }
   .converter-box code, .settings-hint code { overflow-wrap: anywhere; }
-  .vis-empty { font-size: .82rem; color: var(--muted); }
+  .vis-empty { font-size: .8125rem; color: var(--muted); }
 
   .vis-cols { display: flex; align-items: flex-end; gap: 2px; height: 96px;
     padding-top: 6px; }
@@ -2240,17 +2300,17 @@
     min-height: 2px; transition: background .15s; }
   .vis-col:hover .vis-col-bar { background: var(--ink); }
   .vis-cols-legend { display: flex; justify-content: space-between;
-    font-size: .7rem; color: var(--muted); margin-top: 5px; }
+    font-size: .75rem; color: var(--muted); margin-top: 5px; }
 
   .vis-table-wrap { overflow-x: auto; }
-  .vis-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+  .vis-table { width: 100%; border-collapse: collapse; font-size: .75rem; }
   .vis-table th { text-align: left; font-weight: 700; color: var(--muted);
     padding: 7px 9px; border-bottom: 1.5px solid var(--line); white-space: nowrap; }
   .vis-table td { padding: 7px 9px; border-bottom: 1px solid var(--line);
     white-space: nowrap; }
   .vis-table tr:hover td { background: var(--bg); }
-  .vis-ip { font-family: ui-monospace, Consolas, monospace; font-size: .74rem; }
-  .vis-ip span { display: block; font-family: inherit; font-size: .68rem;
+  .vis-ip { font-family: ui-monospace, Consolas, monospace; font-size: .75rem; }
+  .vis-ip span { display: block; font-family: inherit; font-size: .75rem;
     color: var(--muted); max-width: 150px; overflow: hidden;
     text-overflow: ellipsis; }
 
@@ -2262,9 +2322,9 @@
   .funnel { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .fn-step { background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
     padding: 10px 14px; min-width: 96px; }
-  .fn-num { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
-  .fn-lab { font-size: .72rem; color: var(--muted); margin-top: 2px; }
-  .fn-arrow { color: var(--muted); font-size: 1.1rem; }
+  .fn-num { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
+  .fn-lab { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+  .fn-arrow { color: var(--muted); font-size: 1.25rem; }
   /* Na úzkej obrazovke sa kroky zalamovali a šípka skončila na začiatku
      riadku. Tam ich radšej dáme do mriežky 2x2 bez šípok - poradie je
      zrejmé z popisov. */
@@ -2286,7 +2346,7 @@
   .aff-stats .as-box { background: var(--card); border: 1px solid var(--line);
     border-radius: 8px; padding: 10px 13px; flex: 1 1 150px; }
   .aff-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-  .aff-row label { font-size: .85rem; font-weight: 600; min-width: 170px; }
+  .aff-row label { font-size: .875rem; font-weight: 600; min-width: 170px; }
   .aff-row input { flex: 1; min-width: 180px; font-family: ui-monospace, Consolas, monospace; }
 
   /* ── Plánovač ─────────────────────────────────────────────────── */
@@ -2294,27 +2354,27 @@
     align-items: center; padding: 12px 14px; border: 1px solid var(--line);
     border-radius: 8px; background: var(--card); margin-bottom: 8px; }
   .plan-off { opacity: .55; }
-  .plan-nazov { font-weight: 700; font-size: .92rem; }
-  .plan-kde { font-weight: 500; font-size: .72rem; color: var(--muted); margin-left: 6px; }
-  .plan-popis { font-size: .78rem; color: var(--muted); margin-top: 2px; }
-  .plan-stav { font-size: .74rem; color: var(--muted); margin-top: 4px; }
+  .plan-nazov { font-weight: 700; font-size: 1rem; }
+  .plan-kde { font-weight: 500; font-size: .75rem; color: var(--muted); margin-left: 6px; }
+  .plan-popis { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+  .plan-stav { font-size: .75rem; color: var(--muted); margin-top: 4px; }
   .plan-caka { color: #B76E00; font-weight: 700; margin-left: 6px; }
-  .plan-casy { font-family: ui-monospace, Consolas, monospace; font-size: .82rem;
+  .plan-casy { font-family: ui-monospace, Consolas, monospace; font-size: .8125rem;
     padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 6px; width: 100%; }
   @media (max-width: 720px) {
     .plan-row { grid-template-columns: 1fr auto; }
     .plan-info { grid-column: 1 / -1; }
   }
 
-  .uc-neover { font-size: .68rem; font-weight: 700; color: #8A4B00; background: #FFF1DC;
+  .uc-neover { font-size: .75rem; font-weight: 700; color: #8A4B00; background: #FFF1DC;
     border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
 
   /* ── Záznam zmien ─────────────────────────────────────────────── */
   .log-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
   .log-bar select, .log-bar input { padding: 7px 10px; border: 1.5px solid var(--line);
-    border-radius: 6px; font: inherit; font-size: .84rem; background: var(--card); }
+    border-radius: 6px; font: inherit; font-size: .875rem; background: var(--card); }
   .log-bar input { flex: 1 1 200px; min-width: 160px; }
-  .log-pocet { font-size: .78rem; color: var(--muted); margin: 0 0 8px; }
+  .log-pocet { font-size: .75rem; color: var(--muted); margin: 0 0 8px; }
   .log-wrap { max-height: 520px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
   .log-table thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
   /* Jeden záznam = jeden riadok: dlhý názov dealu sa oreže a celý je v
@@ -2324,7 +2384,7 @@
   .log-kto { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
   .log-kedy { font-variant-numeric: tabular-nums; color: var(--muted); }
   .log-pozn { color: var(--muted); }
-  .log-akcia { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+  .log-akcia { font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;
     background: var(--bg); color: var(--muted); }
   .log-approved { background: #e3f3e6; color: var(--green); }
   .log-rejected, .log-deleted { background: #fdeceb; color: var(--red); }
@@ -2341,18 +2401,144 @@
     /* :not() dvíha váhu pravidla na úroveň zápisov typu
        triedy s vyššou váhou, ktoré by inak vyhrali a pole by zostalo
        na 13 px. Nie je to ozdoba, bez toho to nefunguje. */
-    input:not([type=checkbox]), select, textarea { font-size: 16px; padding: 9px 11px; }
-    .btn { padding: 11px 16px; font-size: .84rem; }
+    input:not([type=checkbox]), select, textarea { font-size: 1rem; padding: 9px 11px; }
+    .btn { padding: 11px 16px; font-size: .875rem; }
     .btn-ic { width: 40px; height: 40px; padding: 0; }
     .row-actions { max-width: none; }
     .switch { transform: scale(1.25); transform-origin: right center; }
     .tab-btn { padding-top: 11px; padding-bottom: 11px; }
     button { min-height: 42px; }
   }
+  .grecaptcha-badge { visibility: hidden !important; }
+
+
+  /* ══ Dizajnový systém adminu ══════════════════════════════════════
+     Jedna sada farieb, písma (7 stupňov), zaoblení a ovládacích prvkov.
+     Je to posledná vrstva štýlov, takže zjednocuje aj staršie časti. */
+  :root {
+    --ink: #172033; --text: #2B3445; --muted: #5F6B7A; --line: #E3E7ED; --bg: #F3F5F8; --card: #FFFFFF;
+    --orange: #E8590C; --orange-dk: #C44C0A; --navy: #0B2545;
+    --green: #1E7A3A; --red: #C0392B; --yellow: #8A5A00; --blue: #1A56C4;
+    --s-green: #E7F5EC; --s-red: #FDECEA; --s-yellow: #FFF4D6; --s-blue: #E8F0FE; --s-gray: #EEF1F5;
+    --r-sm: 8px; --r: 10px; --r-lg: 14px;
+    --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+  }
+  body { background: var(--bg); color: var(--text); font-size: .875rem; }
+  .admin-section { border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 24px 26px; }
+  .section-title { font-size: 1.5rem; font-weight: 800; color: var(--ink); border: 0; padding: 0; margin: 0 0 4px; letter-spacing: -.3px; }
+  .page-desc { color: var(--muted); font-size: .875rem; margin: 0 0 20px; }
+  h3 { color: var(--ink); }
+  .settings-panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; position: relative; }
+  .settings-hint { color: var(--muted); font-size: .8125rem; line-height: 1.5; }
+  .switch-label { font-size: .875rem; font-weight: 600; color: var(--ink); }
+
+  /* tlačidlá: rovnaká výška, písmo a ikony */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px;
+    border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--card); color: var(--text);
+    font: inherit; font-size: .8125rem; font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none;
+    transition: background .12s, border-color .12s, color .12s; filter: none !important; }
+  .btn:hover { border-color: #C9D1DC; background: #F8FAFC; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-ic { width: 32px; padding: 0; }
+  .btn-approve, .btn-primary { background: var(--green); border-color: var(--green); color: #fff; }
+  .btn-approve:hover, .btn-primary:hover { background: #17642F; border-color: #17642F; color: #fff; }
+  .btn-save { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .btn-save:hover { background: var(--orange-dk); border-color: var(--orange-dk); color: #fff; }
+  .btn-reject { color: var(--red); }
+  .btn-reject:hover { background: var(--s-red); border-color: #F3C1BC; }
+  .btn-delete, .btn-danger { color: var(--red); }
+  .btn-delete:hover { background: var(--s-red); border-color: #F3C1BC; }
+  .btn-danger { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn-danger:hover { background: #A93226; color: #fff; }
+  .btn-edit, .btn-archive, .btn-restore, .btn-plan, .btn-expired { color: var(--text); }
+  .btn-plan:hover { color: var(--blue); border-color: #BFD3F7; background: var(--s-blue); }
+  .ix { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+  .btn .ix { width: 15px; height: 15px; }
+
+  /* riadok dealu/kódu/komentára: textové akcie v jednom riadku, ikony pod nimi */
+  .row-actions { max-width: 340px; gap: 6px; }
+  @media (max-width: 760px) {
+    .row-actions { max-width: none; width: 100%; justify-content: flex-start; }
+  }
+  .deal-row { border-color: var(--line); border-radius: var(--r); }
+
+  /* polia */
+  .admin-section input[type=text], .admin-section input[type=number], .admin-section input[type=url],
+  .admin-section input[type=search], .admin-section input[type=email], .admin-section input[type=datetime-local],
+  .admin-section select, .admin-section textarea {
+    font: inherit; font-size: .875rem; border: 1px solid #D5DBE3; border-radius: var(--r-sm); background: var(--card); color: var(--ink); }
+  .admin-section input:not([type=checkbox]):not([type=radio]), .admin-section select { min-height: 36px; padding: 0 10px; }
+  .admin-section textarea { padding: 8px 10px; }
+  .admin-section input:focus, .admin-section select:focus, .admin-section textarea:focus {
+    outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,89,12,.12); }
+
+  /* záložky v stránke: podčiarknuté */
+  .tabs { gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 16px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .tab-btn { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 14px;
+    font-size: .875rem; font-weight: 600; color: var(--muted); white-space: nowrap; margin-bottom: -1px; }
+  .tab-btn:hover { color: var(--ink); background: none; }
+  .tab-btn.active { background: none; color: var(--ink); border-bottom-color: var(--orange); }
+
+  /* stavové štítky */
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: .75rem; font-weight: 700; padding: 2px 9px;
+    border-radius: 999px; vertical-align: 1px; }
+  .badge .ix { width: 13px; height: 13px; }
+  .badge-pending { background: var(--s-yellow); color: var(--yellow); }
+  .badge-approved { background: var(--s-green); color: var(--green); }
+  .badge-planned { background: var(--s-blue); color: var(--blue); }
+  .badge-rejected, .badge-expired { background: var(--s-red); color: var(--red); }
+  .badge-archived { background: var(--s-gray); color: var(--muted); }
+
+  /* tabuľky */
+  .admin-section table { border-collapse: collapse; }
+  .admin-section th { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+  .admin-section td { font-size: .8125rem; }
+
+  /* nastavenia sekcie (zbalené) */
+  .page-settings { border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 18px; background: #FAFBFC; }
+  .page-settings > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; font-weight: 700; color: var(--ink); }
+  .page-settings > summary::-webkit-details-marker { display: none; }
+  .page-settings > summary .ix:last-child { margin-left: auto; transition: transform .15s; }
+  .page-settings[open] > summary .ix:last-child { transform: rotate(180deg); }
+  .page-settings-in { padding: 0 16px 16px; display: grid; gap: 12px; }
+
+  /* „✓ Uložené“ */
+  .ulozene { position: absolute; top: 12px; right: 14px; font-size: .75rem; font-weight: 700; color: var(--green);
+    opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .ulozene.on { opacity: 1; }
+  .af-card, .plan-row { position: relative; }
+
+  /* toasty */
+  #toasty { position: fixed; right: 18px; bottom: 18px; z-index: 300; display: flex; flex-direction: column; gap: 8px;
+    max-width: min(380px, calc(100vw - 36px)); }
+  .toast { background: var(--ink); color: #fff; border-radius: var(--r); padding: 11px 14px; font-size: .875rem; line-height: 1.45;
+    box-shadow: 0 10px 30px rgba(0,0,0,.2); transform: translateY(10px); opacity: 0; transition: all .2s; white-space: pre-line; }
+  .toast.on { transform: none; opacity: 1; }
+  .toast-ok { border-left: 4px solid #3CB46E; }
+  .toast-chyba { background: #5A1E17; border-left: 4px solid #FF7B6B; }
+
+  /* potvrdzovacie okno */
+  .potvrd-ov { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 310; display: flex; align-items: center;
+    justify-content: center; padding: 18px; }
+  .potvrd { background: var(--card); border-radius: var(--r-lg); padding: 22px; max-width: 420px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .potvrd p { font-size: 1rem; color: var(--ink); line-height: 1.5; margin: 0 0 18px; }
+  .potvrd-tl { display: flex; justify-content: flex-end; gap: 8px; }
+  .potvrd-tl .btn { height: 38px; padding: 0 16px; font-size: .875rem; }
+
+  @media (max-width: 760px) {
+    .admin-section { padding: 16px; }
+    .section-title { font-size: 1.25rem; }
+    .btn { height: 36px; }
+    .btn-ic { width: 36px; }
+  }
 </style>
 </head>
 <body>
 
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="ix-check" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10"/></symbol><symbol id="ix-x" viewBox="0 0 24 24"><path d="M18 6l-12 12 M6 6l12 12"/></symbol><symbol id="ix-pencil" viewBox="0 0 24 24"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4 M13.5 6.5l4 4"/></symbol><symbol id="ix-trash" viewBox="0 0 24 24"><path d="M4 7l16 0 M10 11l0 6 M14 11l0 6 M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12 M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></symbol><symbol id="ix-archive" viewBox="0 0 24 24"><path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10 M10 12l4 0"/></symbol><symbol id="ix-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0 M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"/></symbol><symbol id="ix-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0 M12 7v5l3 3"/></symbol><symbol id="ix-send" viewBox="0 0 24 24"><path d="M10 14l11 -11 M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"/></symbol><symbol id="ix-save" viewBox="0 0 24 24"><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2 M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M14 4l0 4l-6 0l0 -4"/></symbol><symbol id="ix-cloud" viewBox="0 0 24 24"><path d="M6.657 18c-2.572 0 -4.657 -2.007 -4.657 -4.483c0 -2.475 2.085 -4.482 4.657 -4.482c.393 -1.762 1.794 -3.2 3.675 -3.773c1.88 -.572 3.956 -.193 5.444 1c1.488 1.19 2.162 3.007 1.77 4.769h.99c1.913 0 3.464 1.56 3.464 3.486c0 1.927 -1.551 3.487 -3.465 3.487h-11.878"/></symbol><symbol id="ix-laptop" viewBox="0 0 24 24"><path d="M3 19l18 0 M5 6m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z"/></symbol><symbol id="ix-alert" viewBox="0 0 24 24"><path d="M12 9v4 M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z M12 16h.01"/></symbol><symbol id="ix-pointer" viewBox="0 0 24 24"><path d="M7.904 17.563a1.2 1.2 0 0 0 2.228 .308l2.09 -3.093l4.907 4.907a1.067 1.067 0 0 0 1.509 0l1.047 -1.047a1.067 1.067 0 0 0 0 -1.509l-4.907 -4.907l3.113 -2.09a1.2 1.2 0 0 0 -.309 -2.228l-13.582 -3.904l3.904 13.563z"/></symbol><symbol id="ix-user" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0 M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/></symbol><symbol id="ix-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2 M15 11l0 2 M15 17l0 2 M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2"/></symbol><symbol id="ix-settings" viewBox="0 0 24 24"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></symbol><symbol id="ix-chev" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6"/></symbol></svg>
 <div id="login-view">
   <div class="login-box">
     <h1>HenKukaj <span>Admin</span></h1>
@@ -2405,6 +2591,7 @@
     <!-- ── Prehľad ───────────────────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="prehlad">
       <h2 class="section-title">Prehľad</h2>
+      <p class="page-desc">Čo čaká na teba a ako sa darí stránke – na jednom mieste.</p>
       <div class="ph-grid" id="ph-grid"></div>
       <p class="settings-hint" style="margin-top:14px;">Čísla sa aktualizujú priebežne. Kliknutím na kartu prejdeš do sekcie.</p>
     </section>
@@ -2412,6 +2599,10 @@
     <!-- ── Sekcia: Dealy ──────────────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="dealy">
       <h2 class="section-title">Dealy</h2>
+      <p class="page-desc">Schvaľovanie, plánovanie a správa dealov na stránke.</p>
+      <details class="page-settings">
+        <summary><svg class="ix"><use href="#ix-settings"></use></svg> Nastavenia sekcie <svg class="ix"><use href="#ix-chev"></use></svg></summary>
+        <div class="page-settings-in">
       <div class="settings-panel">
         <label class="switch-label">
           <span>Povinná moderácia</span>
@@ -2432,17 +2623,17 @@
           </label>
         </label>
         <div id="heat-detail" style="display:none; margin-top:10px;">
-          <label style="font-size:.85rem; font-weight:600; display:block; margin-bottom:5px;">
+          <label style="font-size: .875rem; font-weight:600; display:block; margin-bottom:5px;">
             Každému publikovanému dealu denne pridať
           </label>
           <span style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
             <input type="number" id="heat-min" min="0" max="50" step="1"
                    style="width:72px;" onchange="saveHeatRange()">
-            <span style="font-size:.85rem; color:var(--muted);">až</span>
+            <span style="font-size: .875rem; color:var(--muted);">až</span>
             <input type="number" id="heat-max" min="0" max="50" step="1"
                    style="width:72px;" onchange="saveHeatRange()">
-            <span style="font-size:.85rem; color:var(--muted);">hlasov</span>
-            <span id="heat-saved" style="font-size:.8rem; color:var(--green); display:none;">uložené</span>
+            <span style="font-size: .875rem; color:var(--muted);">hlasov</span>
+            <span id="heat-saved" style="font-size: .8125rem; color:var(--green); display:none;">uložené</span>
           </span>
         </div>
         <p class="settings-hint">
@@ -2453,9 +2644,12 @@
           v Zázname zmien.
         </p>
       </div>
+        </div>
+      </details>
+
       <div class="tabs">
         <button class="tab-btn active" onclick="setTab('pending', this)">Na schválenie (<span id="count-pending">0</span>)</button>
-        <button class="tab-btn" onclick="setTab('planned', this)">🕒 Naplánované (<span id="count-planned">0</span>)</button>
+        <button class="tab-btn" onclick="setTab('planned', this)"><svg class="ix"><use href="#ix-clock"></use></svg> Naplánované (<span id="count-planned">0</span>)</button>
         <button class="tab-btn" onclick="setTab('approved', this)">Schválené (<span id="count-approved">0</span>)</button>
         <button class="tab-btn" onclick="setTab('rejected', this)">Zamietnuté (<span id="count-rejected">0</span>)</button>
         <button class="tab-btn" onclick="setTab('archived', this)">Archív (<span id="count-archived">0</span>)</button>
@@ -2469,9 +2663,9 @@
       </label>
       <div class="bulk-bar" id="bulk-bar">
         <span class="bulk-count" id="bulk-count">Označené: 0</span>
-        <button class="btn btn-approve" onclick="bulkSet('approved')">✓ Schváliť označené</button>
-        <button class="btn btn-reject" onclick="bulkSet('rejected')">✕ Zamietnuť označené</button>
-        <button class="btn btn-archive" onclick="bulkSet('archived')">📦 Archivovať označené</button>
+        <button class="btn btn-approve" onclick="bulkSet('approved')"><svg class="ix"><use href="#ix-check"></use></svg> Schváliť označené</button>
+        <button class="btn btn-reject" onclick="bulkSet('rejected')"><svg class="ix"><use href="#ix-x"></use></svg> Zamietnuť označené</button>
+        <button class="btn btn-archive" onclick="bulkSet('archived')"><svg class="ix"><use href="#ix-archive"></use></svg> Archivovať označené</button>
         <button class="btn" onclick="clearSelection()">Zrušiť výber</button>
       </div>
       <div id="deal-list"></div>
@@ -2480,6 +2674,10 @@
     <!-- ── Sekcia: Zľavové kódy ───────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="kody">
       <h2 class="section-title">Zľavové kódy</h2>
+      <p class="page-desc">Zľavové kódy od návštevníkov aj z importu.</p>
+      <details class="page-settings">
+        <summary><svg class="ix"><use href="#ix-settings"></use></svg> Nastavenia sekcie <svg class="ix"><use href="#ix-chev"></use></svg></summary>
+        <div class="page-settings-in">
       <div class="settings-panel">
         <label class="switch-label">
           <span>Povinná moderácia</span>
@@ -2500,14 +2698,14 @@
           </label>
         </label>
         <div id="purge-detail" style="display:none; margin-top:10px;">
-          <label for="purge-months" style="font-size:.85rem; font-weight:600; display:block; margin-bottom:5px;">
+          <label for="purge-months" style="font-size: .875rem; font-weight:600; display:block; margin-bottom:5px;">
             Zmazať, keď je po platnosti dlhšie než
           </label>
           <span style="display:flex; align-items:center; gap:9px;">
             <input type="number" id="purge-months" min="1" max="36" step="1"
                    style="width:88px;" onchange="savePurgeMonths(this.value)">
-            <span style="font-size:.85rem; color:var(--muted);">mesiacov</span>
-            <span id="purge-saved" style="font-size:.8rem; color:var(--green); display:none;">uložené</span>
+            <span style="font-size: .875rem; color:var(--muted);">mesiacov</span>
+            <span id="purge-saved" style="font-size: .8125rem; color:var(--green); display:none;">uložené</span>
           </span>
         </div>
         <p class="settings-hint">
@@ -2516,6 +2714,9 @@
           Keď je prepínač vypnutý, nemaže sa nič.
         </p>
       </div>
+        </div>
+      </details>
+
       <div class="tabs">
         <button class="tab-btn coupon-tab-btn active" onclick="setCouponTab('pending', this)">Na schválenie (<span id="coupcount-pending">0</span>)</button>
         <button class="tab-btn coupon-tab-btn" onclick="setCouponTab('approved', this)">Schválené (<span id="coupcount-approved">0</span>)</button>
@@ -2528,6 +2729,10 @@
     <!-- ── Sekcia: Komentáre ──────────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="komentare">
       <h2 class="section-title">Komentáre</h2>
+      <p class="page-desc">Komentáre návštevníkov pri dealoch.</p>
+      <details class="page-settings">
+        <summary><svg class="ix"><use href="#ix-settings"></use></svg> Nastavenia sekcie <svg class="ix"><use href="#ix-chev"></use></svg></summary>
+        <div class="page-settings-in">
       <div class="settings-panel">
         <label class="switch-label">
           <span>Povinná moderácia</span>
@@ -2538,6 +2743,9 @@
         </label>
         <p class="settings-hint">Keď je vypnutá, nové komentáre sa zverejnia okamžite bez čakania na schválenie.</p>
       </div>
+        </div>
+      </details>
+
       <div class="tabs">
         <button class="tab-btn comment-tab-btn active" onclick="setCommentTab('pending', this)">Na schválenie (<span id="ccount-pending">0</span>)</button>
         <button class="tab-btn comment-tab-btn" onclick="setCommentTab('approved', this)">Schválené (<span id="ccount-approved">0</span>)</button>
@@ -2549,6 +2757,7 @@
     <!-- ── Sekcia: Plánovač ───────────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="planovac">
       <h2 class="section-title">Plánovač úloh</h2>
+      <p class="page-desc">Kedy sa spúšťajú automatické úlohy. Časy sú v slovenskom čase.</p>
       <p class="settings-hint" style="margin:-6px 0 14px;">
         Časy sú v <b>slovenskom čase</b> — zmena letného a zimného času nič neposunie.
         Viac časov oddeľ čiarkou, napr. <code>07:30, 12:30, 18:30</code>. Úlohy sa kontrolujú
@@ -2565,6 +2774,7 @@
     <!-- ── Sekcia: Registrovaní používatelia ─────────────────────────── -->
     <section class="admin-section admin-page" data-page="ucty">
       <h2 class="section-title">Registrovaní používatelia a newsletter</h2>
+      <p class="page-desc">Registrovaní návštevníci a odberatelia newslettera.</p>
 
       <div class="aff-stats" id="uc-data"></div>
 
@@ -2605,6 +2815,7 @@
     <!-- ── Sekcia: Letenky ─────────────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="letenky">
       <h2 class="section-title">Letenky — mapa lacných letov</h2>
+      <p class="page-desc">Záložka s mapou lacných letov.</p>
 
       <div class="aff-stats" id="lt-data"></div>
 
@@ -2632,6 +2843,7 @@
     <!-- ── Sekcia: Affiliate odkazy ───────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="affiliate">
       <h2 class="section-title">Affiliate</h2>
+      <p class="page-desc">Partnerské odkazy, kampane a príležitosti na zárobok.</p>
 
       <div class="af-stav" id="aff-stats"></div>
 
@@ -2704,13 +2916,13 @@
       <div class="af-card">
         <h3><svg class="ai-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7"/></svg> Letenky – odkazy na rezerváciu</h3>
       <div>
-        <label style="font-size:.85rem; font-weight:600; display:block; margin-bottom:5px;">Tlačidlo „Rezervovať“ vedie</label>
+        <label style="font-size: .875rem; font-weight:600; display:block; margin-bottom:5px;">Tlačidlo „Rezervovať“ vedie</label>
         <select id="lt-odkazy" onchange="saveLetenky({ odkazy: this.value })" style="padding:7px 10px; border-radius:6px; border:1.5px solid var(--line); font:inherit;">
           <option value="dopravca">priamo k dopravcovi (Ryanair) — s vyplneným letom</option>
           <option value="kayak">na Kayak — porovnanie všetkých dopravcov</option>
           <option value="momondo">na Momondo — porovnanie všetkých dopravcov</option>
         </select>
-        <label style="font-size:.85rem; font-weight:600; display:block; margin:12px 0 5px;">Affiliate šablóna (nepovinné)</label>
+        <label style="font-size: .875rem; font-weight:600; display:block; margin:12px 0 5px;">Affiliate šablóna (nepovinné)</label>
         <input type="text" id="lt-affiliate" placeholder="https://partner.example/click?u={url}"
                style="width:100%; max-width:560px;" onchange="saveLetenky({ affiliate: this.value })">
         <p class="settings-hint">
@@ -2727,7 +2939,8 @@
     <!-- ── Predajcovia ─────────────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="predajcovia">
       <h2 class="section-title">Predajcovia a ich odkazy</h2>
-      <p style="font-size:.85rem; color:var(--muted); margin:0 0 12px;">
+      <p class="page-desc">Odkazy agenta na obchody a ich nastavenia.</p>
+      <p style="font-size: .875rem; color:var(--muted); margin:0 0 12px;">
         Kam má viesť odkaz pri deale z daného obchodu. Záznam odtiaľto má prednosť
         pred zoznamom zabudovaným v agentovi. Ak vyplníš <strong>URL vyhľadávania</strong>,
         použije sa tá a <code>{q}</code> sa nahradí názvom produktu. Inak sa použije
@@ -2745,6 +2958,7 @@
     <!-- ── Záznam zmien ────────────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="zaznam">
       <h2 class="section-title">Záznam zmien</h2>
+      <p class="page-desc">Kto, kedy a čo zmenil.</p>
       <div class="log-bar">
         <select id="log-obdobie" onchange="loadAuditLog()" aria-label="Obdobie">
           <option value="1">Posledný deň</option>
@@ -2771,6 +2985,7 @@
 
     <section class="admin-section admin-page" data-page="navstevnost">
       <h2 class="section-title">Návštevnosť</h2>
+      <p class="page-desc">Odkiaľ ľudia chodia, čo ich zaujíma a ako dlho zostanú.</p>
       <div class="visits-stats-row">
         <div class="visit-stat-box">
           <div class="visit-stat-number" id="visits-today">–</div>
