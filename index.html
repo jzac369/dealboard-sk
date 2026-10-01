@@ -32,6 +32,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
   import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, increment, query, where, orderBy, serverTimestamp, runTransaction, limit, startAfter, getDocs }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword,
@@ -51,6 +52,21 @@
   // ──────────────────────────────────────────────────────────────────────────
 
   const app  = initializeApp(firebaseConfig);
+
+  // ── App Check ─────────────────────────────────────────────────────
+  // Overí, že požiadavky do databázy posiela naša stránka, a nie skript
+  // niekoho iného. reCAPTCHA v3 beží neviditeľne, návštevník nič neklikne.
+  // Kľúč webu je verejný (patrí do stránky); tajný kľúč je len vo Firebase.
+  // Vynucovanie sa zapína vo Firebase konzole až po kontrole štatistík -
+  // dovtedy App Check len meria a nič neblokuje.
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider('6LdUGdktAAAAAC07J9syqCwkZ2gEN890AoV0S2zx'),
+      isTokenAutoRefreshEnabled: true,
+    });
+  } catch (e) {
+    console.warn('App Check sa nespustil:', e);
+  }
   const db   = getFirestore(app);
   const auth = getAuth(app);
 
@@ -1286,6 +1302,10 @@
 
 
 <style>
+  /* Odznak reCAPTCHA skrytý - informácia o nej je v pätičke (Google to
+     takto dovoľuje); v rohu by na mobile prekrýval tlačidlá. */
+  .grecaptcha-badge { visibility: hidden !important; }
+
   /* ── Tokens ─────────────────────────────────────────────────────────── */
   :root {
     --orange:    #E8590C;
@@ -6028,6 +6048,9 @@ body.food-page { background: #FAF8F5; }
 </div>
 <footer style="background:var(--card); border-top:1px solid var(--line); margin-top:24px; padding:24px 16px;">
   <div style="max-width:1120px; margin:0 auto; font-size:.8rem; color:var(--muted); line-height:1.6;">
+    <span style="display:block; font-size:.72rem; margin-bottom:10px;">Stránku chráni reCAPTCHA – platia
+    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:inherit;">Zásady ochrany súkromia</a>
+    a <a href="https://policies.google.com/terms" target="_blank" rel="noopener" style="color:inherit;">Zmluvné podmienky</a> spoločnosti Google.</span>
     <a href="/podmienky.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Podmienky používania</a>
     &nbsp;·&nbsp;
     <a href="/ochrana-udajov.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Ochrana osobných údajov</a>
