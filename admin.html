@@ -87,7 +87,8 @@
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
   import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, where, orderBy, limit, setDoc, getDoc, addDoc, getDocs, serverTimestamp, deleteField }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+           createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   // ─── Rovnaké Firebase údaje ako v index.html ───────────────────────────────
@@ -693,6 +694,50 @@
 
   // CSV pre import do služby na rozosielanie (MailerLite, Brevo...).
   // Len overené adresy so zapnutým odberom - iné tam nepatria.
+  // ── Pridanie používateľa z adminu ─────────────────────────────────
+  // Účet sa vytvorí cez druhú, oddelenú inštanciu Firebase - inak by
+  // createUserWithEmailAndPassword odhlásil admina a prihlásil nového
+  // používateľa. Heslo je náhodné a nikto ho nepozná: človek dostane
+  // e-mail na nastavenie vlastného hesla a druhý na overenie adresy.
+  // Newsletter je vypnutý - súhlas musí dať človek sám vo svojom účte.
+  window.pridajPouzivatela = async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const email = form.elements.email.value.trim().toLowerCase();
+    const meno = form.elements.meno.value.trim().slice(0, 40);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Zadaj platný e-mail.', 'chyba'); return; }
+    if (!await potvrd(`Vytvoriť účet pre ${email}? Príde mu e-mail na nastavenie hesla a overenie adresy.`)) return;
+    const btn = form.querySelector('[type=submit]');
+    btn.disabled = true;
+    const app2 = initializeApp(firebaseConfig, 'pridanie-' + Date.now());
+    const auth2 = getAuth(app2);
+    auth2.languageCode = 'sk';
+    try {
+      const heslo = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(36).padStart(2, '0')).join('') + 'A!9';
+      const cred = await createUserWithEmailAndPassword(auth2, email, heslo);
+      await setDoc(doc(getFirestore(app2), 'users', cred.user.uid), {
+        email: cred.user.email, ...(meno ? { meno } : {}), newsletter: false, overeny: false,
+        vytvorene: serverTimestamp(), upravene: serverTimestamp(),
+      });
+      try { await sendEmailVerification(cred.user, { url: 'https://henkukaj.sk/?ucet=overeny' }); }
+      catch (err) { await sendEmailVerification(cred.user); }
+      await sendPasswordResetEmail(auth2, email);
+      await signOut(auth2);
+      logChange('ucty', 'ucty', `Pridaný používateľ ${email}`);
+      toast(`Účet ${email} je vytvorený. Prišli mu dva e-maily: overenie adresy a nastavenie hesla.`);
+      form.reset();
+      loadUzivatelia();
+    } catch (err) {
+      const kod = err.code || '';
+      toast(kod === 'auth/email-already-in-use' ? 'Tento e-mail už má účet.'
+        : kod === 'auth/invalid-email' ? 'Neplatný e-mail.'
+        : 'Účet sa nepodarilo vytvoriť: ' + err.message, 'chyba');
+    } finally {
+      btn.disabled = false;
+      try { await signOut(auth2); } catch (err) {}
+    }
+  };
+
   window.exportOdberatelov = function() {
     const odber = uzivatelia.filter(u => u.newsletter && u.overeny);
     if (!odber.length) { alert('Zatiaľ nie sú žiadni odberatelia s overeným e-mailom.'); return; }
@@ -3092,6 +3137,20 @@
           <span id="uc-stav-zap"></span>
           <a href="./?nahlad=ucet" target="_blank" rel="noopener">henkukaj.sk/?nahlad=ucet</a>.
           Pridávanie dealov, hlasovanie aj komentáre fungujú ďalej aj bez účtu.
+        </p>
+      </div>
+
+      <div class="settings-panel">
+        <h3 style="font-size:1rem; margin:0 0 10px;">Pridať používateľa</h3>
+        <form class="riadok-pole" onsubmit="pridajPouzivatela(event)" autocomplete="off">
+          <input type="email" name="email" placeholder="e-mail" required style="flex:2">
+          <input type="text" name="meno" placeholder="meno (nepovinné)" maxlength="40" style="flex:1">
+          <button class="btn btn-save" type="submit"><svg class="ix"><use href="#ix-plus"></use></svg> Vytvoriť účet</button>
+        </form>
+        <p class="settings-hint" style="margin-top:8px;">
+          Heslo nezadávaš ty – človek dostane e-mail s odkazom na nastavenie vlastného hesla a druhý na overenie adresy.
+          Newsletter ostane vypnutý; zapnúť si ho musí sám vo svojom účte (súhlas sa nedá dať za niekoho).
+          Keď mu má pribudnúť prístup do adminu, pridaj ho potom v sekcii <a href="#admini">Administrátori</a>.
         </p>
       </div>
 
