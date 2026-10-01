@@ -23,7 +23,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+  import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
   import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, where, orderBy, limit, setDoc, getDoc, addDoc, getDocs, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
@@ -44,13 +44,14 @@
 
   // ── App Check ─────────────────────────────────────────────────────
   // Overí, že požiadavky do databázy posiela naša stránka, a nie skript
-  // niekoho iného. reCAPTCHA v3 beží neviditeľne, návštevník nič neklikne.
+  // niekoho iného. reCAPTCHA (Fraud Defense, bývalá reCAPTCHA Enterprise;
+  // klasickú v3 Google zrušil) beží neviditeľne, návštevník nič neklikne.
   // Kľúč webu je verejný (patrí do stránky); tajný kľúč je len vo Firebase.
   // Vynucovanie sa zapína vo Firebase konzole až po kontrole štatistík -
   // dovtedy App Check len meria a nič neblokuje.
   try {
     initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider('6LdUGdktAAAAAC07J9syqCwkZ2gEN890AoV0S2zx'),
+      provider: new ReCaptchaEnterpriseProvider('6LdUGdktAAAAAC07J9syqCwkZ2gEN890AoV0S2zx'),
       isTokenAutoRefreshEnabled: true,
     });
   } catch (e) {
