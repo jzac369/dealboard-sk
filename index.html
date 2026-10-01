@@ -1164,7 +1164,8 @@
   // ── Zľavové kódy: stránkované načítavanie (20 na stranu) + infinite scroll ─
   window.allCoupons = [];
   window.activeCouponSort = 'new';
-  const COUPONS_PAGE_SIZE = 20;
+  // Všetky kódy naraz: filtre a počty na stránke musia vidieť celý zoznam.
+  const COUPONS_PAGE_SIZE = 300;
   const COUPONS_SEARCH_CAP = 200;
   window.couponsLastDoc = null;
   window.couponsHasMore = true;
@@ -1319,6 +1320,114 @@
   /* Odznak reCAPTCHA skrytý - informácia o nej je v pätičke (Google to
      takto dovoľuje); v rohu by na mobile prekrýval tlačidlá. */
   .grecaptcha-badge { visibility: hidden !important; }
+
+/* ── Spoločná hlavička záložiek ─────────────────────────────────────
+   Jedna nízka hlavička nad obsahom, rovnako široká na každej záložke;
+   pri prepnutí sa mení len fotka a text (setMainSection -> nastavHlavicku).
+   Fotka je vpravo a plynulo prechádza do tmavomodrej; farba pozadia (--c)
+   je presne farba ľavého okraja fotky, aby nebolo vidieť šev. */
+.hk-hero-wrap { max-width: 1120px; margin: 16px auto 16px; padding: 0 16px; }
+.hk-hero { position: relative; overflow: hidden; color: #fff; height: 148px; display: flex; align-items: center;
+  border-radius: 14px; background: var(--c) var(--img) right center / auto 100% no-repeat;
+  box-shadow: 0 6px 20px rgba(11,37,69,.16); transition: background-color .2s; }
+.hk-hero-in { position: relative; padding: 0 34px; max-width: 620px; }
+.hk-kicker { display: inline-block; font-size: .66rem; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  color: #FFB74D; background: rgba(255,183,77,.14); border: 1px solid rgba(255,183,77,.35); padding: 3px 9px;
+  border-radius: 999px; margin-bottom: 8px; }
+.hk-hero h1 { font-size: 1.95rem; line-height: 1.05; letter-spacing: -.6px; margin: 0 0 6px; color: #fff; }
+.hk-hero h1 .hl { color: #FF8A3D; }
+.hk-hero p { font-size: .92rem; line-height: 1.4; color: rgba(255,255,255,.82); margin: 0; }
+/* Medzeru pod hlavičkou dáva hlavička - prvé prvky záložiek bez okraja. */
+#deals-main > .tabs-bar:first-child { margin-top: 0; }
+#flights-main > .lt-filters, #food-main > .fd-tools, #leaflets-main > .lf-grid, #coupons-main > .kd-stats { margin-top: 0; }
+@media (max-width: 1024px) {
+  .hk-hero { height: 132px; }
+  .hk-hero-in { padding: 0 26px; max-width: 64%; }
+  .hk-hero h1 { font-size: 1.7rem; }
+}
+@media (max-width: 640px) {
+  .hk-hero-wrap { margin: 12px auto 12px; padding: 0 12px; }
+  .hk-hero { height: 150px; border-radius: 12px; background-position: 75% center; }
+  .hk-hero::before { content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, var(--c) 0%, var(--c) 38%, color-mix(in srgb, var(--c) 55%, transparent) 62%, transparent 85%); }
+  .hk-hero-in { padding: 0 16px; max-width: 72%; }
+  .hk-kicker { font-size: .6rem; margin-bottom: 6px; }
+  .hk-hero h1 { font-size: 1.35rem; margin-bottom: 4px; }
+  .hk-hero p { font-size: .78rem; }
+}
+
+/* ── Zľavové kódy ─────────────────────────────────────────── */
+.kd-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+.kd-stat { background: var(--card); border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  box-shadow: var(--shadow); }
+.kd-stat .ico { width: 38px; height: 38px; border-radius: 10px; background: var(--badge); color: var(--orange);
+  display: flex; align-items: center; justify-content: center; flex: none; }
+.kd-stat .ico .ic { width: 20px; height: 20px; }
+.kd-stat b { display: block; font-size: 1.2rem; line-height: 1.1; }
+.kd-stat small { font-size: .74rem; color: var(--muted); font-weight: 600; }
+.kd-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.kd-search { flex: 1 1 320px; display: flex; align-items: center; gap: 10px; background: var(--card);
+  border: 1.5px solid var(--line); border-radius: 14px; padding: 0 14px; height: 48px; }
+.kd-search:focus-within { border-color: var(--orange); }
+.kd-search .ic { width: 18px; height: 18px; color: var(--muted); }
+.kd-search input { flex: 1; border: none; outline: none; background: none; font: inherit; font-size: .92rem; }
+.kd-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.kd-chip { font: inherit; font-size: .82rem; font-weight: 700; background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 999px; padding: 8px 14px; cursor: pointer; color: var(--ink); white-space: nowrap; flex: none; }
+.kd-chip.on { border-color: var(--orange); color: var(--orange-dk); background: #FFF6EF; }
+.kd-chip small { font-weight: 600; color: var(--muted); margin-left: 2px; }
+.kd-chip:disabled { opacity: .45; cursor: default; }
+
+.kd-list { display: flex; flex-direction: column; gap: 10px; }
+/* Jeden vodorovný pás: logo | text | kód + tlačidlo. Predtým boli vpravo
+   tri riadky pod sebou a karta mala ~150 px; takto ~80 px. */
+.kd-card { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: center;
+  background: var(--card); border-radius: 14px; padding: 12px 16px; box-shadow: var(--shadow);
+  border-left: 4px solid var(--orange); }
+.kd-card .ct-tile { width: 44px; height: 44px; }
+.kd-title { font-size: 1rem; font-weight: 800; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kd-title .num { color: var(--orange); }
+.kd-title .obchod { font-weight: 600; color: var(--muted); font-size: .86rem; }
+.kd-sub { font-size: .8rem; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kd-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; align-items: center; }
+.kd-badge { font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: #555; }
+.kd-badge.ok { background: #E6F5EA; color: #1E7A3A; }
+.kd-badge.warn { background: #FFF1E0; color: #9A4A00; }
+.kd-hlas { display: inline-flex; align-items: center; gap: 2px; margin-left: 2px; }
+.kd-hlas button { width: 26px; height: 22px; border: none; background: none; border-radius: 6px; cursor: pointer;
+  color: var(--muted); display: inline-flex; align-items: center; justify-content: center; }
+.kd-hlas button svg { width: 15px; height: 15px; }
+.kd-hlas button:hover { background: var(--bg); color: var(--ink); }
+.kd-hlas button.up:hover { color: #1E7A3A; } .kd-hlas button.dn:hover { color: #C0392B; }
+.kd-hlas .n { font-size: .72rem; font-weight: 700; color: #1E7A3A; margin-right: 2px; }
+.kd-akcie { display: flex; gap: 8px; align-items: center; }
+.kd-code { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1.5px dashed #F2A56B;
+  border-radius: 10px; background: #FFF8F2; cursor: pointer; font: inherit; color: #7A3E12; min-width: 128px; }
+.kd-code code { font-size: .9rem; font-weight: 800; letter-spacing: .5px; flex: 1; text-align: left;
+  max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kd-code svg { width: 16px; height: 16px; color: var(--orange); flex: none; }
+.kd-code:hover { border-color: var(--orange); }
+.kd-code.is-copied { border-color: #2E8B3D; background: #EEF8F0; color: #1E6B2E; }
+.kd-go { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 10px; white-space: nowrap;
+  background: linear-gradient(180deg, #F06A1D, var(--orange-dk)); color: #fff; font-weight: 800; font-size: .86rem;
+  text-decoration: none; }
+.kd-go:hover { filter: brightness(1.05); }
+.kd-card.is-expired { border-left-color: #C9C9C9; opacity: .6; }
+.kd-card.is-expired .kd-title .num { color: inherit; }
+.kd-card.is-expired .kd-code { border-color: #ccc; background: #f5f5f5; color: #777; cursor: default; }
+.kd-card.is-expired .kd-code svg { color: #aaa; }
+.kd-card.is-expired .kd-go { background: #B8B8B8; }
+.kd-oddel { font-size: .74rem; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--muted);
+  margin: 10px 4px 0; }
+@media (max-width: 760px) {
+  .kd-stats { grid-template-columns: 1fr 1fr; }
+  .kd-card { grid-template-columns: 40px minmax(0, 1fr); gap: 10px; padding: 12px; }
+  .kd-card .ct-tile { width: 40px; height: 40px; }
+  .kd-akcie { grid-column: 1 / -1; }
+  .kd-code { flex: 1; } .kd-code code { max-width: none; }
+  .kd-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+}
+
 
   /* ── Tokens ─────────────────────────────────────────────────────────── */
   :root {
@@ -2846,6 +2955,16 @@ body.food-page { background: #FAF8F5; }
   </div>
 </div>
 
+<!-- Spoločná hlavička záložiek (texty a fotku mení setMainSection) -->
+<div class="hk-hero-wrap">
+  <section class="hk-hero" id="hk-hero" style="--img:url(assets/images/hero-dealy.webp); --c:#08294E">
+    <div class="hk-hero-in">
+      <span class="hk-kicker" id="hk-kicker">Komunitné dealy</span>
+      <h1 id="hk-h1">Najlepšie <span class="hl">zľavy</span> dňa</h1>
+      <p id="hk-p">Overené akcie zo slovenských a českých e-shopov. Hlasuj, ukladaj a pridávaj vlastné.</p>
+    </div>
+  </section>
+</div>
 <div class="container">
   <!-- Main: Deals -->
   <main id="deals-main">
@@ -2879,21 +2998,6 @@ body.food-page { background: #FAF8F5; }
 
   <!-- Main: Letenky (mapa lacných letov) -->
   <main id="flights-main" style="display:none;">
-    <section class="lt-hero">
-      <svg class="lt-hero-art" viewBox="0 0 420 220" aria-hidden="true">
-        <path d="M20 190 C 140 20, 300 20, 400 120" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2" stroke-dasharray="6 8"/>
-        <path d="M60 210 C 170 90, 280 80, 380 40" fill="none" stroke="rgba(255,183,77,.55)" stroke-width="2" stroke-dasharray="6 8"/>
-        <circle cx="20" cy="190" r="6" fill="#FFB74D"/><circle cx="400" cy="120" r="5" fill="#fff"/>
-        <circle cx="60" cy="210" r="5" fill="#fff"/><circle cx="380" cy="40" r="6" fill="#FFB74D"/>
-        <g transform="translate(262 52) rotate(28)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plane" width="46" height="46"/></g>
-      </svg>
-      <div class="lt-hero-text">
-        <span class="lt-kicker"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Letenková mapa</span>
-        <h1>Kam za pár eur?</h1>
-        <p>Najlacnejšie letenky z Bratislavy, Viedne, Košíc, Brna a Prahy na jednej mape. Zvoľ si rozpočet a dĺžku cesty – hneď uvidíš, kam sa dá letieť.</p>
-        <div class="lt-stats" id="lt-stats"></div>
-      </div>
-    </section>
 
     <div class="lt-filters" id="lt-filters"></div>
 
@@ -2927,14 +3031,11 @@ body.food-page { background: #FAF8F5; }
 
   <!-- Main: Coupons -->
   <main id="coupons-main" style="display:none;">
-    <div class="tabs-bar">
-      <div class="sort-bar">
-        <button class="sort-btn active" onclick="setCouponSort('new', this)"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> Najnovšie</button>
-        <button class="sort-btn" onclick="setCouponSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najpopulárnejšie</button>
-      </div>
-      <div class="header-search" style="max-width:220px;">
-        <input type="text" id="coupon-search-input" placeholder="Hľadaj kód…" oninput="filterCoupons()">
-      </div>
+    <div class="kd-stats" id="kd-stats"></div>
+    <div class="kd-tools">
+      <label class="kd-search"><svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg>
+        <input type="search" id="kd-hladaj" placeholder="Hľadaj obchod, kód alebo typ zľavy…" oninput="renderCouponsList()"></label>
+      <div class="kd-chips" id="kd-chips"></div>
     </div>
     <div class="coupons-list" id="coupons-list">
       <div class="loading">Načítavam zľavové kódy…</div>
@@ -2943,35 +3044,6 @@ body.food-page { background: #FAF8F5; }
 
   <!-- Main: Leaflets -->
   <main id="food-main" style="display:none;">
-    <div class="fd-hero">
-      <div class="fd-hero-text">
-        <h1>Najlacnejšie potraviny</h1>
-        <p>Porovnajte ceny základných potravín vo všetkých veľkých reťazcoch.</p>
-      </div>
-      <!-- Kým nebude hotová fotka, kreslíme tašku vektorovo. Prázdne
-           miesto by v hero časti vyzeralo ako chyba. -->
-      <img id="fd-hero-img" class="fd-hero-img" src="images/potraviny-taska.png" alt=""
-           onerror="this.style.display='none';document.getElementById('fd-hero-svg').style.display='block';">
-      <svg id="fd-hero-svg" class="fd-hero-img" viewBox="0 0 272 164" aria-hidden="true" style="display:none;">
-        <ellipse cx="136" cy="152" rx="104" ry="10" fill="#EFE8DD"/>
-        <ellipse cx="119" cy="52" rx="26" ry="22" fill="#9CCF55"/>
-        <ellipse cx="102" cy="48" rx="17" ry="15" fill="#7FB93F"/>
-        <ellipse cx="136" cy="47" rx="16" ry="14" fill="#7FB93F"/>
-        <rect x="115" y="66" width="9" height="16" rx="4" fill="#4E8C22"/>
-        <path d="M160 82 L174 34 q3 -9 7 0 L194 82 Z" fill="#F0932B"/>
-        <path d="M177 36 q6 -16 16 -16 q-6 12 -13 17" fill="#5FA22B"/>
-        <path d="M164 72 q11 -5 22 0 M167 60 q9 -4 18 0" stroke="#D97B14" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-        <rect x="70" y="36" width="30" height="52" rx="5" fill="#BFDDF7"/>
-        <rect x="70" y="36" width="30" height="15" rx="5" fill="#4A96E0"/>
-        <ellipse cx="208" cy="62" rx="27" ry="19" fill="#D9A25E" transform="rotate(-16 208 62)"/>
-        <path d="M192 54 l7 -5 M202 50 l7 -5 M212 47 l7 -5" stroke="#B87D3C" stroke-width="2.4" stroke-linecap="round"/>
-        <path d="M44 74 h184 l-14 74 a13 13 0 0 1 -13 11 H71 a13 13 0 0 1 -13 -11 Z" fill="#E8B872"/>
-        <path d="M44 74 h184 l-3.4 18 H47.4 Z" fill="#D89E4A"/>
-        <path d="M100 92 v67 M172 92 v67" stroke="#D89E4A" stroke-width="2.2" opacity=".5"/>
-        <circle cx="240" cy="120" r="21" fill="#E05A4E"/>
-        <path d="M240 101 q4 -11 13 -11 q-4 9 -11 11" fill="#5FA22B"/>
-      </svg>
-    </div>
 
     <div class="fd-tools">
       <div class="fd-search">
@@ -3004,17 +3076,6 @@ body.food-page { background: #FAF8F5; }
   </main>
 
   <main id="leaflets-main" style="display:none;">
-    <div class="lf-hero">
-      <div class="lf-hero-text">
-        <h1><span class="lf-hero-ico"><svg class="ic" aria-hidden="true"><use href="#i-news"></use></svg></span>
-            Aktuálne <span class="hl">letáky</span></h1>
-        <p>Kliknite na obchod a otvorte jeho najnovší akciový leták v novej karte.
-           Vždy aktuálne, priamo zo stránky obchodu.</p>
-      </div>
-      <div class="lf-hero-art">
-        <img src="images/potraviny-taska.png" alt="" loading="lazy">
-      </div>
-    </div>
 
     <div class="lf-grid">
       <div class="lf-cards" id="leaflet-grid"></div>
@@ -3622,9 +3683,8 @@ body.food-page { background: #FAF8F5; }
     const pct   = discount(d);
     const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
     const orig  = d.originalPrice ? `<span class="price-was">${price(d.originalPrice, d.currency)}</span>` : '';
-    const img   = d.imageUrl
-      ? `<div class="deal-img"><img src="${escapeAttr(d.imageUrl)}" alt="" loading="lazy"></div>`
-      : '';
+    // Bez vlastnej fotky zástupný obrázok - prázdne miesto pôsobilo ako chyba.
+    const img   = `<div class="deal-img"><img src="${escapeAttr(d.imageUrl || 'assets/images/deal-bez-fotky.webp')}" alt="" loading="lazy"></div>`;
     const cat   = d.category || '';
     const color = CAT_COLORS[cat] || '#868E96';
     const expired = !!d.expired;
@@ -3695,7 +3755,21 @@ body.food-page { background: #FAF8F5; }
   };
 
   // ── Sekcia: Dealy / Zľavové kódy ────────────────────────────────────────────
+  const HLAVICKY = {"deals": {"img": "hero-dealy", "c": "#08294E", "k": "Komunitné dealy", "h": "Najlepšie <span class=\"hl\">zľavy</span> dňa", "p": "Overené akcie zo slovenských a českých e-shopov. Hlasuj, ukladaj a pridávaj vlastné."}, "flights": {"img": "hero-letenky", "c": "#06244A", "k": "Letenková mapa", "h": "Kam za <span class=\"hl\">pár eur?</span>", "p": "Najlacnejšie letenky z Bratislavy, Viedne, Košíc, Brna a Prahy na jednej mape."}, "food": {"img": "hero-potraviny", "c": "#082B55", "k": "Porovnanie cien", "h": "Najlacnejšie <span class=\"hl\">potraviny</span>", "p": "Porovnaj ceny základných potravín vo všetkých veľkých reťazcoch."}, "leaflets": {"img": "hero-letaky", "c": "#07284F", "k": "Akciové letáky", "h": "Aktuálne <span class=\"hl\">letáky</span>", "p": "Najnovšie akciové letáky obchodov na jednom mieste – vždy priamo od obchodu."}, "coupons": {"img": "hero-kody", "c": "#09284E", "k": "Kupóny", "h": "Zľavové <span class=\"hl\">kódy</span>", "p": "Overené kódy do e-shopov. Skopíruj, vlož do košíka a ušetri."}};
+  function nastavHlavicku(section) {
+    const h = HLAVICKY[section], el = document.getElementById('hk-hero');
+    if (!h || !el) return;
+    el.style.setProperty('--img', `url(assets/images/${h.img}.webp)`);
+    el.style.setProperty('--c', h.c);
+    document.getElementById('hk-kicker').textContent = h.k;
+    document.getElementById('hk-h1').innerHTML = h.h;
+    document.getElementById('hk-p').textContent = h.p;
+  }
+  // Fotky ostatných záložiek dopredu (sú malé), aby prepnutie neblikalo.
+  window.addEventListener('load', () => Object.values(HLAVICKY).forEach(h => { const i = new Image(); i.src = `assets/images/${h.img}.webp`; }));
+
   window.setMainSection = function(section, btn) {
+    nastavHlavicku(section);
     document.querySelectorAll('.main-section-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     // Na telefóne sa lišta posúva do strany. Bez tohto by človek klikol
@@ -4659,7 +4733,8 @@ body.food-page { background: #FAF8F5; }
     }
     const kedy = new Date(ltData.vytvorene);
     const hod = `${kedy.getDate()}. ${kedy.getMonth() + 1}. o ${String(kedy.getHours()).padStart(2, '0')}:${String(kedy.getMinutes()).padStart(2, '0')}`;
-    document.getElementById('lt-stats').innerHTML = `
+    const ltStats = document.getElementById('lt-stats');
+    if (ltStats) ltStats.innerHTML = `
       <div class="lt-stat"><b>${Object.keys(ltData.letiska).length}</b>destinácií</div>
       <div class="lt-stat"><b>${ltData.trasy.length}</b>priamych liniek</div>
       <div class="lt-stat"><b>od ${naj < Infinity ? ltCena(Math.round(naj * 100) / 100) : '—'}</b>tam aj späť</div>
@@ -5462,30 +5537,6 @@ body.food-page { background: #FAF8F5; }
   }
 
   // ── Zľavové kódy: render ─────────────────────────────────────────────────
-  function renderCouponsList() {
-    const el = document.getElementById('coupons-list');
-    if (!window.allCoupons.length) {
-      if (window.couponsLoading) {
-        el.innerHTML = `<div class="loading">Načítavam zľavové kódy…</div>`;
-      } else {
-        el.innerHTML = `<div class="empty"><div class="icon">🎟️</div>Žiadne zľavové kódy nenájdené.</div>`;
-      }
-      return;
-    }
-    let html = window.allCoupons.map(couponCard).join('');
-    if (!window.couponsSearchMode && window.couponsHasMore) {
-      html += `<div id="coupons-load-sentinel" class="loading" style="padding:24px 0;">${window.couponsLoading ? 'Načítavam ďalšie kódy…' : ''}</div>`;
-    } else if (window.couponsSearchMode && window.allCoupons.length >= window.COUPONS_SEARCH_CAP) {
-      html += `<div class="empty" style="padding:14px 0; font-size:.85rem;">Zobrazených je prvých ${window.COUPONS_SEARCH_CAP} výsledkov – skús vyhľadávanie zúžiť.</div>`;
-    }
-    el.innerHTML = html;
-    if (!window.couponsSearchMode && window.couponsHasMore) {
-      window.ensureCouponsSentinelObserver();
-      const sentinel = document.getElementById('coupons-load-sentinel');
-      if (sentinel) window.couponsSentinelObserver.observe(sentinel);
-    }
-  }
-
   let couponsSearchDebounce = null;
   window.filterCoupons = function() {
     clearTimeout(couponsSearchDebounce);
@@ -5531,61 +5582,106 @@ body.food-page { background: #FAF8F5; }
     </span>`;
   }
 
+  // ── Zľavové kódy: karta, filtre, štatistiky ───────────────────────
+  const FILTRE = [['vsetky', 'Všetky'], ['nove', 'Nové'], ['top', 'Najpoužívanejšie'],
+                  ['koncia', 'Končia čoskoro'], ['doprava', 'Doprava zdarma']];
+  let filter = 'vsetky';
+  const dnes = () => new Date().toISOString().slice(0, 10);
+  const dniDo = iso => Math.round((new Date(iso + 'T00:00:00') - new Date(dnes() + 'T00:00:00')) / 86400000);
+  const cas = c => (c.timestamp && c.timestamp.toDate) ? c.timestamp.toDate() : null;
+  const jeDoprava = c => /doprav|poštovn|postovn|shipping/i.test(`${c.discount} ${c.description}`);
+
+  function kedyPridane(c) {
+    const d = cas(c); if (!d) return '';
+    const dni = Math.floor((Date.now() - d) / 86400000);
+    return dni <= 0 ? 'Pridané dnes' : dni === 1 ? 'Pridané včera' : dni < 5 ? `Pridané pred ${dni} dňami` : `Pridané ${d.getDate()}. ${d.getMonth() + 1}.`;
+  }
+  // Číslo zľavy (%, €) zvýrazníme oranžovou.
+  const zvyrazni = t => escapeHtml(t || '').replace(/(\d+(?:[.,]\d+)?\s?(?:%|€|eur\b|Kč))/gi, '<span class="num">$1</span>');
+
+  // Palec hore/dole - vektor, nie emotikon (Tabler, rovnaký štýl ako ostatné ikony).
+  const PALEC_HORE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v8a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-7a1 1 0 0 1 1 -1h3a4 4 0 0 0 4 -4v-1a2 2 0 0 1 4 0v5h3a2 2 0 0 1 2 2l-1 5a2 3 0 0 1 -2 2h-7a3 3 0 0 1 -3 -3"/></svg>';
+  const PALEC_DOLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 13v-8a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v7a1 1 0 0 0 1 1h3a4 4 0 0 1 4 4v1a2 2 0 0 0 4 0v-5h3a2 2 0 0 0 2 -2l-1 -5a2 3 0 0 0 -2 -2h-7a3 3 0 0 0 -3 3"/></svg>';
+
+  // Kopírovanie z rámčeka s kódom (iné tlačidlo než pôvodné copyCoupon).
+  window.kdKopiruj = function (id, kod, el) {
+    navigator.clipboard.writeText(kod).then(() => {
+      el.classList.add('is-copied');
+      const c = el.querySelector('code'); const povodny = c.textContent; c.textContent = 'Skopírované ✓';
+      setTimeout(() => { el.classList.remove('is-copied'); c.textContent = povodny; }, 1500);
+    });
+  };
+
   function couponCard(c) {
     const expired = couponExpired(c);
     const kod = c.code || '';
-
-    // Riadok s platnosťou. Pri exspirovanom hovoríme, kedy skončila -
-    // je to užitočnejšie než len konštatovať, že skončila.
-    const datum = c.expiryDate ? shortDate(c.expiryDate) : '';
-    const platnost = datum
-      ? `<span class="ct-when${expired ? ' is-over' : ''}">${icon(expired ? 'clock-off' : 'clock')}
-           ${expired ? 'Platnosť skončila' : 'Platí do'} ${datum}</span>`
-      : `<span class="ct-when">${icon('clock')} Bez uvedenej platnosti</span>`;
-
+    const odznaky = [];
+    if (!expired && (c.votes || 0) >= 3) odznaky.push(`<span class="kd-badge ok">Potvrdilo ${c.votes} ľudí</span>`);
+    const pridane = kedyPridane(c); if (pridane) odznaky.push(`<span class="kd-badge">${pridane}</span>`);
+    if (c.expiryISO) {
+      const n = dniDo(c.expiryISO);
+      odznaky.push(expired ? `<span class="kd-badge">Skončil ${shortDate(c.expiryDate)}</span>`
+        : n <= 7 ? `<span class="kd-badge warn">Končí ${n <= 0 ? 'dnes' : n === 1 ? 'zajtra' : `o ${n} dní`}</span>`
+        : `<span class="kd-badge">Do ${shortDate(c.expiryDate)}</span>`);
+    }
     const popis = (c.description || '').trim();
-    const podtitul = [
-      c.store ? `<b>${escapeHtml(c.store)}</b>` : '',
-      popis ? escapeHtml(popis) : ''
-    ].filter(Boolean).join(' · ');
-
-    const autor = c.author
-      ? `<span class="ct-author"><span class="avatar" style="background:${authorColor(c.author)}">${escapeHtml(authorInitials(c.author))}</span>${escapeHtml(stripEmoji(c.author))}</span>`
-      : '';
-
+    const hlas = expired ? '' : `<span class="kd-hlas">
+        ${(c.votes || 0) > 0 ? `<span class="n" title="Toľkokrát kód niekomu fungoval">${c.votes}×</span>` : ''}
+        <button class="up" onclick="voteCoupon('${c.id}', 1)" title="Funguje" aria-label="Funguje">${PALEC_HORE}</button>
+        <button class="dn" onclick="voteCoupon('${c.id}', -1)" title="Nefunguje" aria-label="Nefunguje">${PALEC_DOLE}</button>
+      </span>`;
     return `
-    <div class="coupon-card${expired ? ' is-expired' : ''}" id="coupon-${c.id}">
+    <div class="kd-card${expired ? ' is-expired' : ''}" id="coupon-${c.id}">
       ${shopTile(c)}
-
-      <div class="ct-code">
-        <code>${escapeHtml(kod)}</code>
-        <button class="coupon-copy-btn" id="copy-btn-${c.id}"
-                onclick="copyCoupon(${jsArg(c.id)}, ${jsArg(kod)})"
-                ${expired ? 'disabled title="Kód už neplatí"' : ''}>
-          ${icon('copy')} <span>Kopírovať</span>
-        </button>
+      <div style="min-width:0;">
+        <div class="kd-title">${expired ? 'Starší kód: ' : ''}${zvyrazni(c.discount || 'Zľavový kód')}${c.store ? ` <span class="obchod">· ${escapeHtml(c.store)}</span>` : ''}</div>
+        ${popis ? `<div class="kd-sub" title="${escapeAttr(popis)}">${escapeHtml(popis)}</div>` : ''}
+        <div class="kd-badges">${odznaky.join('')}${hlas}</div>
       </div>
-
-      <div class="ct-body">
-        <div class="ct-title">
-          <span class="ct-title-text">${escapeHtml(c.discount || '')}</span>
-          ${expired ? '<span class="expired-badge">EXSPIROVANÉ</span>' : ''}
-        </div>
-        <div class="ct-sub">${podtitul}</div>
-        <div class="ct-foot">${platnost}${autor}</div>
+      <div class="kd-akcie">
+        <button class="kd-code" onclick="kdKopiruj(${jsArg(c.id)}, ${jsArg(kod)}, this)" ${expired ? 'disabled' : ''} title="Kliknutím skopíruješ kód">
+          <code>${escapeHtml(kod)}</code>${icon('copy')}</button>
+        <a class="kd-go" href="${outUrl(c.url, 'coupon')}" data-raw="${escapeAttr(c.url || '')}" data-kind="coupon"
+           target="_blank" rel="nofollow sponsored noopener"
+           onclick="navigator.clipboard && navigator.clipboard.writeText(${jsArg(kod)})"
+           title="Skopíruje kód a otvorí obchod">${expired ? 'Do obchodu →' : 'Kopírovať a prejsť →'}</a>
       </div>
-
-      <div class="vote-seg" data-vote-for="c-${c.id}">
-        <button class="vs-dn" onclick="voteCoupon('${c.id}', -1)" title="Nefunguje" aria-label="Nefunguje">${icon('minus')}</button>
-        <span class="vs-num">${c.votes || 0}°</span>
-        <button class="vs-up" onclick="voteCoupon('${c.id}', 1)" title="Funguje" aria-label="Funguje">${icon('plus')}</button>
-      </div>
-
-      <a class="coupon-go${expired ? ' btn-off' : ''}" href="${outUrl(c.url, 'coupon')}" data-raw="${escapeAttr(c.url || '')}" data-kind="coupon" target="_blank" rel="nofollow sponsored noopener">
-        ${expired ? 'Skúsiť obchod →' : 'Do e-shopu →'}
-      </a>
     </div>`;
   }
+
+  // Zoznam: platné hore podľa filtra, neplatné na konci pod nadpisom.
+  function renderCouponsList() {
+    const el = document.getElementById('coupons-list');
+    const vsetky = window.allCoupons || [];
+    const platne = vsetky.filter(c => !couponExpired(c));
+    document.getElementById('kd-stats').innerHTML = `
+      <div class="kd-stat"><span class="ico">${icon('ticket')}</span><div><b>${platne.length}</b><small>aktívnych kódov</small></div></div>
+      <div class="kd-stat"><span class="ico">${icon('building-store')}</span><div><b>${new Set(platne.map(c => (c.store || '').toLowerCase())).size}</b><small>e-shopov</small></div></div>`;
+    const pocty = {
+      vsetky: platne.length, top: platne.length,
+      nove: platne.filter(c => cas(c) && (Date.now() - cas(c)) < 7 * 86400000).length,
+      koncia: platne.filter(c => c.expiryISO && dniDo(c.expiryISO) <= 14).length,
+      doprava: platne.filter(jeDoprava).length,
+    };
+    document.getElementById('kd-chips').innerHTML = FILTRE.map(([k, t]) =>
+      `<button class="kd-chip${filter === k ? ' on' : ''}" onclick="kdFilter('${k}')" ${pocty[k] ? '' : 'disabled'}>${t}${k !== 'top' ? ` <small>${pocty[k]}</small>` : ''}</button>`).join('');
+    if (!vsetky.length) { el.innerHTML = window.couponsLoading ? '<div class="loading">Načítavam zľavové kódy…</div>' : '<div class="empty">Žiadne kódy.</div>'; return; }
+    const q = (document.getElementById('kd-hladaj').value || '').trim().toLowerCase();
+    let zoz = vsetky.filter(c => !q || `${c.code} ${c.store} ${c.discount} ${c.description}`.toLowerCase().includes(q));
+    if (filter === 'nove') zoz = zoz.filter(c => cas(c) && (Date.now() - cas(c)) < 7 * 86400000);
+    if (filter === 'doprava') zoz = zoz.filter(jeDoprava);
+    if (filter === 'koncia') zoz = zoz.filter(c => c.expiryISO && !couponExpired(c) && dniDo(c.expiryISO) <= 14);
+    const platnePrve = zoz.filter(c => !couponExpired(c)), stare = zoz.filter(c => couponExpired(c));
+    if (filter === 'top') platnePrve.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+    else if (filter === 'koncia') platnePrve.sort((a, b) => a.expiryISO.localeCompare(b.expiryISO));
+    else platnePrve.sort((a, b) => (cas(b) || 0) - (cas(a) || 0));
+    el.className = 'coupons-list kd-list';
+    el.innerHTML = (platnePrve.map(couponCard).join('') ||
+        '<div class="empty" style="padding:30px;">Pre tento filter teraz nemáme platný kód.</div>') +
+      (stare.length ? `<div class="kd-oddel">Neplatné kódy</div>` + stare.map(couponCard).join('') : '');
+  }
+  window.renderCouponsList = renderCouponsList;
+  window.kdFilter = k => { filter = k; renderCouponsList(); };
 
   function escapeAttr(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
