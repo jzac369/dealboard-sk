@@ -1416,7 +1416,9 @@
   /* ── Top category nav ───────────────────────────────────────────────── */
   .cat-nav-wrap { background: var(--card); border-bottom: 1px solid var(--line); }
   .cat-nav { max-width: 1120px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px;
-    overflow-x: auto; }
+    overflow-x: auto; scrollbar-width: none; }
+  /* Lišta sa posúva prstom alebo kolieskom; viditeľný posuvník pôsobil ako chyba. */
+  .cat-nav::-webkit-scrollbar { display: none; }
   .cat-nav button {
     background: none; border: none; white-space: nowrap;
     padding: 12px 14px; cursor: pointer;
@@ -2048,7 +2050,10 @@
    zmestiť do jedného riadka - stránka začala pretekať doprava. Necháme
    ju zalomiť skôr; druhý riadok je menšie zlo než vodorovné posúvanie. */
 @media (max-width: 880px) {
-  .header-inner { flex-wrap: wrap; row-gap: 10px; }
+  /* Zalomená hlavička musí narásť - s pevnou výškou 84 px prekrývala
+     druhým riadkom lištu kategórií pod sebou. */
+  header { height: auto; }
+  .header-inner { flex-wrap: wrap; row-gap: 10px; padding-top: 8px; padding-bottom: 8px; }
   .main-section-btn { padding: 7px 13px; }
 }
 
@@ -2383,6 +2388,7 @@
    každý na inú stranu. */
 .lt-origin.o-BTS { transform: translate(4px, -50%); }
 .lt-origin.o-VIE { transform: translate(calc(-100% - 4px), -50%); }
+.lt-origin.o-BRQ { transform: translate(-50%, calc(-100% - 6px)); }
 .lt-origin .ic { width: 14px; height: 14px; color: #FFB74D; }
 .lt-origin.off { background: #7A8799; }
 .lt-arc { stroke: #1E4D8C; stroke-opacity: .16; stroke-width: 1.2; fill: none; }
@@ -2858,7 +2864,7 @@ body.food-page { background: #FAF8F5; }
       <div class="lt-hero-text">
         <span class="lt-kicker"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Letenková mapa</span>
         <h1>Kam za pár eur?</h1>
-        <p>Najlacnejšie letenky z Bratislavy, Viedne a Košíc na jednej mape. Zvoľ si rozpočet a dĺžku cesty – hneď uvidíš, kam sa dá letieť.</p>
+        <p>Najlacnejšie letenky z Bratislavy, Viedne, Košíc, Brna a Prahy na jednej mape. Zvoľ si rozpočet a dĺžku cesty – hneď uvidíš, kam sa dá letieť.</p>
         <div class="lt-stats" id="lt-stats"></div>
       </div>
     </section>
@@ -4166,7 +4172,8 @@ body.food-page { background: #FAF8F5; }
 
   const LT_DNI = ['ne', 'po', 'ut', 'st', 'št', 'pi', 'so'];
   const LT_MES = ['jan', 'feb', 'mar', 'apr', 'máj', 'jún', 'júl', 'aug', 'sep', 'okt', 'nov', 'dec'];
-  const LT_ODKIAL = { BTS: ['Bratislava', 'Bratislavy'], VIE: ['Viedeň', 'Viedne'], KSC: ['Košice', 'Košíc'] };
+  const LT_ODKIAL = { BTS: ['Bratislava', 'Bratislavy'], VIE: ['Viedeň', 'Viedne'], KSC: ['Košice', 'Košíc'],
+    BRQ: ['Brno', 'Brna'], PRG: ['Praha', 'Prahy'] };
   const LT_TYPY = {
     kratky: { od: 2, do: 4, nazov: 'Predĺžený víkend', pozn: '2–4 noci' },
     tyzden: { od: 5, do: 8, nazov: 'Týždeň', pozn: '5–8 nocí' },

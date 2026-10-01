@@ -2,8 +2,8 @@
 Dáta pre letenkovú mapu na stránke (záložka Letenky).
 
 ČO TO ROBÍ
-Pre každú trasu z Bratislavy, Viedne a Košíc stiahne najlacnejšiu cenu
-na každý deň - tam aj späť - na zhruba štyri mesiace dopredu. Výsledok
+Pre každú trasu z Bratislavy, Viedne, Košíc, Brna a Prahy stiahne najlacnejšiu cenu
+na každý deň - tam aj späť - na päť mesiacov dopredu. Výsledok
 je jeden statický súbor assets/letenky/ceny.json, ktorý si stránka
 načíta a kombinácie "odlet + návrat" si podľa filtrov návštevníka
 (cena, dĺžka pobytu, víkend...) poskladá sama v prehliadači.
@@ -49,6 +49,8 @@ ODKIAL = {
     "BTS": {"n": "Bratislava", "lat": 48.1702, "lon": 17.2127},
     "VIE": {"n": "Viedeň", "lat": 48.1103, "lon": 16.5697},
     "KSC": {"n": "Košice", "lat": 48.6631, "lon": 21.2411},
+    "BRQ": {"n": "Brno", "lat": 49.1513, "lon": 16.6944},
+    "PRG": {"n": "Praha", "lat": 50.1008, "lon": 14.2600},
 }
 
 # Koľko kalendárnych mesiacov dopredu (aktuálny + ďalšie). Pokrývame celé
@@ -63,7 +65,7 @@ def dni_dopredu(zaciatok: date, mesiacov: int = MESIACOV) -> int:
     rok += (mes - 1) // 12
     mes = (mes - 1) % 12 + 1
     return (date(rok, mes, 1) - zaciatok).days
-VLAKNA = 4          # zdvorilá paralelnosť; 1100 požiadaviek za ~3 minúty
+VLAKNA = 2          # zdvorilá paralelnosť - pri 4 vláknach Ryanair časť požiadaviek odmietal
 
 RYANAIR_TRASY = "https://www.ryanair.com/api/views/locate/searchWidget/routes/en/airport/{}"
 RYANAIR_DNI = "https://services-api.ryanair.com/farfnd/v4/oneWayFares/{}/{}/cheapestPerDay"
@@ -115,6 +117,10 @@ DESTINACIE = {
     "QSR": ("Salerno (Amalfi)", "more"), "RHO": ("Rodos", "more"), "RMI": ("Rimini", "more"),
     "SUF": ("Lamezia", "more"), "TFS": ("Tenerife", "more"), "TPS": ("Trapani", "more"),
     "ZAD": ("Zadar", "more"), "ZTH": ("Zakynthos", "more"),
+    # z Prahy a Brna
+    "BRS": ("Bristol", "mesto"), "BUD": ("Budapešť", "mesto"), "EMA": ("Nottingham (East Midlands)", "mesto"),
+    "GOT": ("Göteborg", "mesto"), "POZ": ("Poznaň", "mesto"), "RIX": ("Riga", "mesto"),
+    "SVQ": ("Sevilla", "mesto"), "TRS": ("Terst", "mesto"), "PSR": ("Pescara", "more"),
 }
 
 KRAJINY = {
@@ -133,18 +139,23 @@ _session = requests.Session()
 _session.headers.update(HLAVICKY)
 
 
-def _json(url: str, params: dict | None = None, pokusy: int = 3):
+CHYBY = {"odmietnute": 0, "zlyhane": 0}
+
+
+def _json(url: str, params: dict | None = None, pokusy: int = 5):
     for i in range(pokusy):
         try:
             r = _session.get(url, params=params, timeout=20)
             if r.status_code == 200:
                 return r.json()
-            if r.status_code in (429, 500, 502, 503, 504):
-                time.sleep(2 + 3 * i)
+            if r.status_code in (403, 429, 500, 502, 503, 504):
+                CHYBY["odmietnute"] += 1
+                time.sleep(3 * 2 ** i)          # 3, 6, 12, 24, 48 s
                 continue
             return None
         except (requests.RequestException, ValueError):
-            time.sleep(2 + 3 * i)
+            time.sleep(3 * 2 ** i)
+    CHYBY["zlyhane"] += 1
     return None
 
 
@@ -251,6 +262,7 @@ def main() -> int:
         json.dump(vystup, f, ensure_ascii=False, separators=(",", ":"))
     velkost = os.path.getsize(VYSTUP) // 1024
     logger.info("Zapísané: %d trás, %d destinácií, %d kB", len(trasy), len(letiska), velkost)
+    logger.info("Odmietnuté požiadavky (zopakované): %d, definitívne zlyhané: %d", CHYBY["odmietnute"], CHYBY["zlyhane"])
     return 0
 
 

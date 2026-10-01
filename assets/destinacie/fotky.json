@@ -83,6 +83,18 @@
   "subor": "Bari_-_Lungomare_Imperatore_Augusto_&_Mare.jpg",
   "zdroj": "https://commons.wikimedia.org/wiki/File:Bari_-_Lungomare_Imperatore_Augusto_%26_Mare.jpg"
  },
+ "BRS": {
+  "autor": "Chris Lathom-Sharp",
+  "licencia": "CC BY-SA 4.0",
+  "subor": "Clifton_Suspension_Bridge_and_the_Observatory_in_Bristol,_England.jpg",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:Clifton_Suspension_Bridge_and_the_Observatory_in_Bristol,_England.jpg"
+ },
+ "BUD": {
+  "autor": "Visions of Domino",
+  "licencia": "CC BY 2.0",
+  "subor": "View_from_Gellért_Hill_to_the_Danube,_Hungary_-_Budapest_(28493220635).jpg",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:View_from_Gell%C3%A9rt_Hill_to_the_Danube,_Hungary_-_Budapest_(28493220635).jpg"
+ },
  "BVA": {
   "autor": "Yann Caradec from Paris, France",
   "licencia": "CC BY-SA 2.0",
@@ -173,6 +185,12 @@
   "subor": "Lichttoren_Eindhoven_1_-_Cropped.jpg",
   "zdroj": "https://commons.wikimedia.org/wiki/File:Lichttoren_Eindhoven_1_-_Cropped.jpg"
  },
+ "EMA": {
+  "autor": "John Sutton",
+  "licencia": "CC BY-SA 2.0",
+  "subor": "Nottingham_Council_House_on_Coronation_Day_-_geograph.org.uk_-_7477109.jpg",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:Nottingham_Council_House_on_Coronation_Day_-_geograph.org.uk_-_7477109.jpg"
+ },
  "FAO": {
   "autor": "Arne Müseler",
   "licencia": "CC BY-SA 3.0 de",
@@ -196,6 +214,12 @@
   "licencia": "CC BY-SA 3.0",
   "subor": "Calle_Dlugie_Pobrzeze,_Gdansk,_Polonia,_2013-05-20,_DD_06.jpg",
   "zdroj": "https://commons.wikimedia.org/wiki/File:Calle_Dlugie_Pobrzeze,_Gdansk,_Polonia,_2013-05-20,_DD_06.jpg"
+ },
+ "GOT": {
+  "autor": "Bengt Nyman from Vaxholm, Sweden",
+  "licencia": "CC BY 2.0",
+  "subor": "Göteborg_2503_stitch_(28573994096).jpg",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:G%C3%B6teborg_2503_stitch_(28573994096).jpg"
  },
  "HEL": {
   "autor": "Michal Pise, Michal.Pise",
@@ -359,6 +383,12 @@
   "subor": "Sicilia_Palermo5_tango7174.jpg",
   "zdroj": "https://commons.wikimedia.org/wiki/File:Sicilia_Palermo5_tango7174.jpg"
  },
+ "POZ": {
+  "autor": "Aneta Pawska",
+  "licencia": "CC BY-SA 4.0",
+  "subor": "Stary_Rynek_w_Poznaniu,_widok_z_drona_(cropped).jpg",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:Stary_Rynek_w_Poznaniu,_widok_z_drona_(cropped).jpg"
+ },
  "PRG": {
   "autor": "Moyan Brenn from Italy",
   "licencia": "CC BY 2.0",
@@ -370,6 +400,12 @@
   "licencia": "CC BY-SA 3.0 de",
   "subor": "Italy_-_Pisa.jpg",
   "zdroj": "https://commons.wikimedia.org/wiki/File:Italy_-_Pisa.jpg"
+ },
+ "PSR": {
+  "autor": "Giulio Gigante, Luca Aless, Visit Abruzzo",
+  "licencia": "CC BY 2.5",
+  "subor": "Pescara_Montage_2018.png",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:Pescara_Montage_2018.png"
  },
  "PUY": {
   "autor": "Orlovic",
@@ -394,6 +430,12 @@
   "licencia": "CC BY-SA 4.0",
   "subor": "20210826-Lindos-DJI_0205.jpg",
   "zdroj": "https://commons.wikimedia.org/wiki/File:20210826-Lindos-DJI_0205.jpg"
+ },
+ "RIX": {
+  "autor": "Jorge Franganillo from Barcelona, Spain",
+  "licencia": "CC BY 2.0",
+  "subor": "Riga_(33844464828).jpg",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:Riga_(33844464828).jpg"
  },
  "RMI": {
   "autor": "RiminiCity",
@@ -425,6 +467,12 @@
   "subor": "PanoramaLamezia.jpg",
   "zdroj": "https://commons.wikimedia.org/wiki/File:PanoramaLamezia.jpg"
  },
+ "SVQ": {
+  "autor": "Ingo Mehling",
+  "licencia": "CC BY-SA 4.0",
+  "subor": "Sevilla_Cathedral_-_Southeast.jpg",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:Sevilla_Cathedral_-_Southeast.jpg"
+ },
  "TFS": {
   "autor": "David Parkes",
   "licencia": "CC BY-SA 2.0",
@@ -448,6 +496,12 @@
   "licencia": "CC BY-SA 4.0",
   "subor": "Torino_Piazza_Castello_11.jpg",
   "zdroj": "https://commons.wikimedia.org/wiki/File:Torino_Piazza_Castello_11.jpg"
+ },
+ "TRS": {
+  "autor": "Nick Savchenko from Kiev, Ukraine",
+  "licencia": "CC BY-SA 2.0",
+  "subor": "Trieste_(28766391880).jpg",
+  "zdroj": "https://commons.wikimedia.org/wiki/File:Trieste_(28766391880).jpg"
  },
  "TSF": {
   "autor": "MaiDireLollo",

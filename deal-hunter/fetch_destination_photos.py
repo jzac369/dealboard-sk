@@ -73,6 +73,9 @@ DESTINACIE = {
     "KGS": "Kos", "KLX": "Kalamata", "LCA": "Larnaca", "LPA": "Las Palmas",
     "OLB": "Olbia", "PUY": "Pula", "PVK": "Preveza", "QSR": "Amalfi Coast",
     "RHO": "Lindos", "RMI": "Rimini", "TFS": "Los Cristianos", "ZTH": "Zakynthos",
+    # z Prahy a Brna
+    "BRS": "Bristol", "BUD": "Budapest", "EMA": "Nottingham", "GOT": "Gothenburg",
+    "POZ": "Poznań", "RIX": "Riga", "SVQ": "Seville", "TRS": "Trieste", "PSR": "Pescara",
 }
 
 
