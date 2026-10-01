@@ -211,6 +211,11 @@ def kontrola(db, nasucho: bool) -> None:
     zverejni_naplanovane(db, teraz, nasucho)
     posli_pripomienky(db, teraz, nasucho)
     spusti_facebook_naplanovane(db, teraz, nasucho)
+    try:
+        import emaily
+        emaily.spracuj_registracie(db, nasucho)
+    except Exception as e:
+        logger.warning("E-maily po registrácii zlyhali: %s", e)
 
     spustit = co_spustit(rozvrh, teraz)
     if not spustit:

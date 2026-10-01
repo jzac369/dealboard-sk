@@ -425,3 +425,141 @@ document.addEventListener('hk:prihlaseny', () => {
     U.upozornenia('letenky', h > 30 ? [{ text: `Ceny leteniek sú ${Math.round(h)} h staré`, href: '#zdravie', typ: 'chyba' }] : []);
   }).catch(() => {});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// E-maily (vlastná schránka @henkukaj.sk cez SMTP)
+// ═══════════════════════════════════════════════════════════════════
+// Heslo k schránke sa v admine nezadáva ani neukladá: Firebase ho má vo
+// svojej konzole (overovacie e-maily) a plánovač v tajných nastaveniach
+// GitHubu (uvítanie, upozornenia, skúšobný e-mail).
+// Automatické e-maily idú zo samostatnej schránky noreply@ - info@ ostáva
+// na bežnú poštu a odpovede ľudí sa do nej dostanú cez Reply-To.
+const EMAIL_PREDVOLENE = {
+  odosielatelMeno: 'HenKukaj.sk', odosielatelEmail: 'noreply@henkukaj.sk', smtpHost: 'smtp.hostcreators.sk', smtpPort: 465,
+  sifrovanie: 'ssl', pouzivatel: 'noreply@henkukaj.sk', odpovedNa: 'info@henkukaj.sk',
+  uvitanieZap: false, uvitaniePredmet: 'Vitaj na HenKukaj.sk',
+  uvitanieText: 'Ahoj {meno},\n\nďakujeme za registráciu na HenKukaj.sk. Odteraz si môžeš ukladať dealy, nastaviť si obľúbené letiská a odoberať novinky.\n\nNajlepšie zľavy dňa nájdeš na https://henkukaj.sk\n\nTím HenKukaj.sk',
+  novaRegistraciaZap: false, novaRegistraciaKomu: 'info@henkukaj.sk',
+};
+const kopia = t => `<button type="button" class="btn btn-ic" data-kopia="${esc(t)}" title="Kopírovať"><svg class="ix"><use href="#ix-copy"></use></svg></button>`;
+U.stranka('emaily', {
+  async init(el) {
+    const s = await fs.getDoc(U.ref('nastavenia_admin', 'email'));
+    const n = { ...EMAIL_PREDVOLENE, ...(s.exists() ? s.data() : {}) };
+    const riadok = (lab, hod) => `<tr><td>${lab}</td><td><code>${esc(hod)}</code></td><td class="r">${kopia(hod)}</td></tr>`;
+    el.innerHTML = `
+      <div class="karta">
+        <h3 class="karta-nadpis">Krok 0 – schránka na odosielanie</h3>
+        <p class="settings-hint">Automatické e-maily je lepšie posielať zo samostatnej schránky (napr. <b>noreply@henkukaj.sk</b>), nie z info@:
+          má vlastné heslo (keby uniklo, info@ ostane v bezpečí), do info@ nechodia nedoručenky a odpovede ľudí aj tak dorazia
+          na info@ (nastavenie „Odpovede posielať na“). Schránku vytvoríš v administrácii hostingu Hostcreators.</p>
+      </div>
+      <div class="karta">
+        <h3 class="karta-nadpis">Krok 1 – e-maily pri registrácii (Firebase)</h3>
+        <p class="settings-hint">Overenie e-mailu a obnovu hesla posiela Firebase. Bez tohto nastavenia chodia z adresy
+          <code>noreply@dealboard-e60bf.firebaseapp.com</code> a často končia v spame. Po nastavení pôjdu z <b>${esc(n.odosielatelEmail)}</b>.</p>
+        <ol class="em-kroky">
+          <li>Otvor <a href="https://console.firebase.google.com/project/dealboard-e60bf/authentication/emails" target="_blank" rel="noopener">Firebase → Authentication → Templates</a>.</li>
+          <li>Klikni na <b>SMTP settings</b>, zapni <b>Enable</b> a vyplň:</li>
+        </ol>
+        <div class="tab-wrap"><table class="tab"><tbody>
+          ${riadok('Sender address', n.odosielatelEmail)}${riadok('SMTP server host', n.smtpHost)}${riadok('SMTP server port', String(n.smtpPort))}
+          ${riadok('SMTP account username', n.pouzivatel)}${riadok('SMTP security mode', n.sifrovanie === 'ssl' ? 'SSL' : 'STARTTLS')}
+          <tr><td>SMTP account password</td><td colspan="2"><i>heslo k schránke – zadaj ho sám, nikam inam ho nepíš</i></td></tr></tbody></table></div>
+        <ol class="em-kroky" start="3">
+          <li>Ulož (<b>Save</b>). Potom pri <b>Email address verification</b> a <b>Password reset</b> klikni na ceruzku,
+            nastav <b>Sender name</b> na <code>${esc(n.odosielatelMeno)}</code>, <b>Reply-to</b> na <code>${esc(n.odpovedNa)}</code>
+            a jazyk šablóny (<b>Template language</b>) na <b>Slovak</b>.</li>
+          <li>Vyskúšaj: na <a href="https://henkukaj.sk/?nahlad=ucet" target="_blank" rel="noopener">stránke</a> si daj „Zabudnuté heslo“ – e-mail by mal prísť od ${esc(n.odosielatelEmail)}.</li>
+        </ol>
+      </div>
+      <div class="karta">
+        <h3 class="karta-nadpis">Krok 2 – heslo pre plánovač (GitHub)</h3>
+        <p class="settings-hint">Uvítacie e-maily, upozornenia a skúšobný e-mail posiela plánovač. Heslo potrebuje v tajných nastaveniach
+          GitHubu – tam ho nevidí nikto, ani stránka.</p>
+        <ol class="em-kroky">
+          <li>Otvor <a href="https://github.com/jzac369/dealboard-sk/settings/secrets/actions/new" target="_blank" rel="noopener">GitHub → Settings → Secrets → New repository secret</a>.</li>
+          <li><b>Name:</b> <code>SMTP_PASSWORD</code> ${kopia('SMTP_PASSWORD')} · <b>Secret:</b> heslo k schránke · <b>Add secret</b>.</li>
+          <li>Plánovač si heslo načíta pri najbližšom reštarte (najneskôr do 6 h). Daj mi vedieť a reštartujem ho hneď.</li>
+        </ol>
+      </div>
+      <form class="karta" id="em-form" autocomplete="off">
+        <h3 class="karta-nadpis">Odosielateľ</h3>
+        <div class="form-mriezka">
+          <label>Meno odosielateľa<input type="text" name="odosielatelMeno" value="${esc(n.odosielatelMeno)}"></label>
+          <label>E-mail odosielateľa<input type="email" name="odosielatelEmail" value="${esc(n.odosielatelEmail)}"></label>
+          <label>SMTP server<input type="text" name="smtpHost" value="${esc(n.smtpHost)}"></label>
+          <label>Port<input type="number" name="smtpPort" value="${esc(n.smtpPort)}"></label>
+          <label>Šifrovanie<select name="sifrovanie"><option value="ssl"${n.sifrovanie === 'ssl' ? ' selected' : ''}>SSL (port 465)</option>
+            <option value="starttls"${n.sifrovanie === 'starttls' ? ' selected' : ''}>STARTTLS (port 587)</option></select></label>
+          <label>Prihlasovacie meno<input type="text" name="pouzivatel" value="${esc(n.pouzivatel)}"></label>
+          <label class="cela">Odpovede posielať na<input type="email" name="odpovedNa" value="${esc(n.odpovedNa)}"></label>
+        </div>
+        <h3 class="karta-nadpis" style="margin-top:18px">Automatické e-maily</h3>
+        <label class="zaskrt"><input type="checkbox" name="uvitanieZap"${n.uvitanieZap ? ' checked' : ''}> Uvítací e-mail po overení registrácie</label>
+        <div class="form-mriezka" style="margin:10px 0 14px">
+          <label class="cela">Predmet<input type="text" name="uvitaniePredmet" value="${esc(n.uvitaniePredmet)}" maxlength="120"></label>
+          <label class="cela">Text (<code>{meno}</code> sa nahradí menom)<textarea name="uvitanieText" rows="7">${esc(n.uvitanieText)}</textarea></label>
+        </div>
+        <label class="zaskrt"><input type="checkbox" name="novaRegistraciaZap"${n.novaRegistraciaZap ? ' checked' : ''}> Upozorniť ma e-mailom na každú novú registráciu</label>
+        <div class="form-mriezka" style="margin-top:10px"><label>Na adresu<input type="email" name="novaRegistraciaKomu" value="${esc(n.novaRegistraciaKomu)}"></label></div>
+        <p class="settings-hint" style="margin-top:10px">Posielajú sa len pri registráciách od zapnutia – doterajší používatelia nič nedostanú.
+          Plánovač kontroluje nové registrácie každých 5 minút.</p>
+        <div class="tl-rad" style="margin-top:12px"><button class="btn btn-save" type="submit"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť</button></div>
+      </form>
+      <div class="karta"><h3 class="karta-nadpis">Skúšobný e-mail</h3>
+        <div class="riadok-pole"><input type="email" id="em-test" value="${esc(HK().email || '')}">
+          <button class="btn btn-save" id="em-posli" type="button"><svg class="ix"><use href="#ix-send"></use></svg> Poslať skúšobný e-mail</button></div>
+        <div id="em-stav"></div></div>
+      <div class="karta"><h3 class="karta-nadpis">Odoslané e-maily</h3><div id="em-log"></div></div>`;
+    el.addEventListener('click', async e => {
+      const k = e.target.closest('[data-kopia]');
+      if (k) { e.preventDefault(); U.kopiruj(k.dataset.kopia); return; }
+      const b = e.target.closest('[data-em-znova]');
+      if (!b || !await window.potvrd('Povoliť odoslanie tohto e-mailu znova? Plánovač ho skúsi do 5 minút.')) return;
+      await fs.deleteDoc(U.ref('email_log', b.dataset.emZnova));
+      window.toast('Plánovač ho skúsi poslať znova.');
+    });
+    const form = el.querySelector('#em-form');
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = k => form.elements[k];
+      const d = {};
+      ['odosielatelMeno', 'odosielatelEmail', 'smtpHost', 'sifrovanie', 'pouzivatel', 'odpovedNa', 'uvitaniePredmet', 'uvitanieText', 'novaRegistraciaKomu']
+        .forEach(k => { d[k] = f(k).value.trim(); });
+      d.smtpPort = Number(f('smtpPort').value) || 465;
+      d.uvitanieZap = f('uvitanieZap').checked;
+      d.novaRegistraciaZap = f('novaRegistraciaZap').checked;
+      // Čas zapnutia: e-maily dostanú len registrácie od tejto chvíle.
+      if (d.uvitanieZap && !n.uvitanieZap) d.uvitanieOd = new Date();
+      if (d.novaRegistraciaZap && !n.novaRegistraciaZap) d.novaRegistraciaOd = new Date();
+      await U.akcia(form.querySelector('[type=submit]'), async () => {
+        await fs.setDoc(U.ref('nastavenia_admin', 'email'), { ...d, upravene: fs.serverTimestamp() }, { merge: true });
+        Object.assign(n, d);
+        HK().logChange('email', 'ucty', 'E-maily: nastavenia uložené');
+        window.toast('Uložené.');
+      });
+    });
+    el.querySelector('#em-posli').addEventListener('click', e => U.akcia(e.currentTarget, async () => {
+      const komu = el.querySelector('#em-test').value.trim(), st = el.querySelector('#em-stav');
+      st.innerHTML = `<div class="hlaska info"><span class="tocka"></span> ${esc(U.textCakania('caka', 0))}</div>`;
+      try {
+        await U.uloha('test_email', { komu }, (x, ms) => { st.innerHTML = `<div class="hlaska info"><span class="tocka"></span> ${esc(U.textCakania(x, ms))}</div>`; });
+        st.innerHTML = `<div class="hlaska ok">E-mail odoslaný na ${esc(komu)}. Ak nepríde do pár minút, pozri spam.</div>`;
+      } catch (err) {
+        st.innerHTML = `<div class="hlaska chyba">${esc(err.message)}${/SMTP_PASSWORD/.test(err.message) ? ' – dokonči krok 2.' : ''}</div>`;
+      }
+    }));
+    fs.onSnapshot(fs.query(U.kol('email_log'), fs.orderBy('kedy', 'desc'), fs.limit(50)), sn => {
+      const TYP = { test: 'Skúšobný', uvitanie: 'Uvítanie', 'nova-registracia': 'Nová registrácia' };
+      const t = el.querySelector('#em-log');
+      if (t) t.innerHTML = sn.size ? `<div class="tab-wrap"><table class="tab"><tbody>${sn.docs.map(d => {
+        const x = d.data();
+        return `<tr><td class="nowrap">${esc(U.cas(x.kedy))}</td><td>${esc(TYP[x.typ] || x.typ)}<small>${esc(x.komu || '')}${x.pouzivatel ? ' · ' + esc(x.pouzivatel) : ''}</small>
+          ${x.chyba ? `<small class="chyba-t">${esc(x.chyba)}</small>` : ''}</td>
+          <td><span class="badge ${x.ok ? 'badge-approved' : 'badge-rejected'}">${x.ok ? 'odoslané' : 'chyba'}</span></td>
+          <td class="r">${!x.ok && x.typ === 'uvitanie' ? `<button class="btn" data-em-znova="${esc(d.id)}">Poslať znova</button>` : ''}</td></tr>`;
+      }).join('')}</tbody></table></div>` : '<p class="vis-empty">Zatiaľ žiadne.</p>';
+    }, () => {});
+  },
+});

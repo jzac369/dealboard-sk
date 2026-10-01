@@ -378,3 +378,5 @@ body.okno-otvorene { overflow: hidden; }
   .obdobie-vlastne { margin-left: 0; }
   .pal-ov { padding-top: 12px; }
 }
+.em-kroky { margin: 10px 0 10px 20px; line-height: 1.7; }
+.em-kroky code, .tab code { background: var(--bg); padding: 1px 6px; border-radius: 5px; font-size: .8125rem; }

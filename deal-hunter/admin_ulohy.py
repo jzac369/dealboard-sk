@@ -229,7 +229,13 @@ def zopakuj_beh(db, vstup: dict) -> dict:
     return {"zopakovane": beh}
 
 
+def test_email(db, vstup: dict) -> dict:
+    import emaily
+    return emaily.test(db, vstup)
+
+
 SPRACOVATELIA = {
+    "test_email": test_email,
     "nacitaj_url": nacitaj_url,
     "kontrola_platnosti": kontrola_platnosti,
     "spusti_workflow": spusti_workflow,

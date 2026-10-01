@@ -65,6 +65,8 @@ jobs:
           # Naplánované dealy sa v určený čas posielajú na schválenie.
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Heslo k schránke info@henkukaj.sk (e-maily z adminu a po registrácii).
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
 
       - name: Zmazanie kľúča
         if: always()

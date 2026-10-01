@@ -19,11 +19,33 @@ service cloud.firestore {
     // ═══════════════════════════════════════════════════════════════
     //  Od 1. 10. 2026 aj overený e-mail: registrácia návštevníkov je
     //  otvorená a e-mail bez overenia by inak stačilo len napísať.
-    function isAdmin() {
+    function overenyUcet() {
       return request.auth != null
              && request.auth.token.firebase.sign_in_provider == 'password'
-             && request.auth.token.email == 'foresttt11@outlook.com'
              && request.auth.token.email_verified == true;
+    }
+    // Majiteľ je napevno - nikto mu práva nevezme ani omylom zmazaním
+    // záznamu v kolekcii admini.
+    function jeMajitel() {
+      return overenyUcet() && request.auth.token.email == 'foresttt11@outlook.com';
+    }
+    // Ďalší ľudia s prístupom: admini/{email} s poľom rola. Zapisovať
+    // do tejto kolekcie smie len majiteľ. get() sa volá len pre
+    // prihlásených s overeným e-mailom - bežný návštevník tak žiadne
+    // čítanie navyše nespôsobí.
+    function rola() {
+      return get(/databases/$(database)/documents/admini/$(request.auth.token.email)).data.rola;
+    }
+    function maRolu() {
+      return overenyUcet() && exists(/databases/$(database)/documents/admini/$(request.auth.token.email));
+    }
+    function isAdmin() {
+      return jeMajitel() || (maRolu() && rola() == 'admin');
+    }
+    // Moderátor schvaľuje a upravuje dealy, kódy a komentáre. Nastavenia,
+    // používateľov, návštevnosť ani financie nevidí.
+    function isModerator() {
+      return isAdmin() || (maRolu() && rola() == 'moderator');
     }
 
     // Dokumenty od návštevníkov musia mať automatické ID (20 znakov,
@@ -39,8 +61,10 @@ service cloud.firestore {
 
     match /deals/{dealId} {
       // Verejnosť vidí len schválené dealy. Admin vidí všetko.
-      allow read: if resource.data.status == 'approved' || isAdmin();
+      allow read: if resource.data.status == 'approved' || isModerator();
 
+      // Admin môže vytvoriť čokoľvek (obnova zo zálohy, pridanie z odkazu).
+      allow create: if isAdmin();
       // Nový deal: status "pending" alebo "approved" (podľa nastavenia
       // moderácie), platné základné polia, 0 hlasov.
       allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
@@ -69,7 +93,7 @@ service cloud.firestore {
       // "votes", a to najviac o 2 (prepnutie hlasu z + na - je delta*2).
       // Počítadlo komentárov sa smie zvýšiť o presne 1.
       // Admin môže upravovať čokoľvek.
-      allow update: if isAdmin()
+      allow update: if isModerator()
                     || (request.auth != null
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
                         && request.resource.data.votes >= resource.data.votes - 2
@@ -91,8 +115,10 @@ service cloud.firestore {
     // Komentáre – top-level wildcard, aby fungovali collectionGroup
     // dotazy použité v admin paneli.
     match /{path=**}/comments/{commentId} {
-      allow get: if resource.data.status == 'approved' || isAdmin();
-      allow list: if resource.data.status == 'approved' || isAdmin();
+      allow get: if resource.data.status == 'approved' || isModerator();
+      allow list: if resource.data.status == 'approved' || isModerator();
+
+      allow create: if isAdmin();
 
       allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
                     && bezCudzichId() && autoId(commentId)
@@ -103,13 +129,15 @@ service cloud.firestore {
                     && request.resource.data.text.size() > 0
                     && request.resource.data.text.size() < 500;
 
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow update: if isModerator();
+      allow delete: if isModerator();
     }
 
     // Zľavové kódy – rovnaký princíp moderácie ako pri dealoch.
     match /coupons/{couponId} {
-      allow read: if resource.data.status == 'approved' || isAdmin();
+      allow read: if resource.data.status == 'approved' || isModerator();
+
+      allow create: if isAdmin();
 
       allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
                     && bezCudzichId() && autoId(couponId)
@@ -124,7 +152,7 @@ service cloud.firestore {
                     && request.resource.data.url is string
                     && request.resource.data.votes == 0;
 
-      allow update: if isAdmin()
+      allow update: if isModerator()
                     || (request.auth != null
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
                         && request.resource.data.votes >= resource.data.votes - 2
@@ -220,8 +248,11 @@ service cloud.firestore {
     // Úprava a mazanie sú zakázané úplne – denník, ktorý sa dá
     // prepísať, nie je denník.
     match /audit_log/{entryId} {
-      allow read:   if isAdmin();
-      allow create: if isAdmin();
+      allow read:   if isModerator();
+      // Záznam musí niesť e-mail toho, kto ho zapisuje - moderátor sa
+      // nevydá za majiteľa.
+      allow create: if isModerator()
+                    && (!('by' in request.resource.data) || request.resource.data.by == request.auth.token.email);
       allow update, delete: if false;
     }
 
@@ -256,6 +287,65 @@ service cloud.firestore {
     match /food_prices/{docId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    // ── Admin zóna: role, úlohy, financie, marketing ─────────────────
+    // Ľudia s prístupom do adminu. Každý si smie prečítať svoj záznam
+    // (admin podľa neho vie, čo mu ukázať); meniť ich smie len majiteľ.
+    match /admini/{email} {
+      allow read: if isAdmin() || (overenyUcet() && request.auth.token.email == email);
+      allow write: if jeMajitel();
+    }
+
+    // Úlohy pre plánovač (načítanie odkazu, kontrola platnosti,
+    // spustenie workflow). Admin ich len zadáva; vykonáva ich a výsledok
+    // zapisuje plánovač cez service account.
+    match /admin_ulohy/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+                    && request.resource.data.stav == 'caka'
+                    && request.resource.data.typ in ['nacitaj_url', 'kontrola_platnosti', 'spusti_workflow', 'zopakuj_beh'];
+      allow update, delete: if false;
+    }
+
+    // Údaje len pre admin: info od agenta, provízie, príjmy, príspevky
+    // na Facebook, UTM odkazy, pripomienky.
+    match /admin_info/{id} { allow read: if isAdmin(); allow write: if false; }
+    match /provizie/{id} { allow read, write: if isAdmin(); }
+    match /financie/{id} { allow read, write: if isAdmin(); }
+    match /fb_posty/{id} { allow read, write: if isAdmin(); }
+    match /utm_odkazy/{id} { allow read, write: if isAdmin(); }
+    match /pripomienky/{id} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.odoslane == false;
+    }
+
+    // ── Merania z verejnej stránky ───────────────────────────────────
+    // Čo ľudia hľadajú. Len text hľadania, sekcia a počet výsledkov -
+    // nič, čo by identifikovalo človeka.
+    match /hladania/{id} {
+      allow read, delete: if isAdmin();
+      allow create: if request.auth != null && autoId(id)
+                    && request.resource.data.keys().hasOnly(['q', 'sekcia', 'pocet', 'date', 'ts'])
+                    && request.resource.data.q is string
+                    && request.resource.data.q.size() > 0 && request.resource.data.q.size() <= 80
+                    && request.resource.data.sekcia in ['dealy', 'kody', 'potraviny']
+                    && request.resource.data.pocet is int
+                    && request.resource.data.date is string
+                    && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+    // Počítadlá na deň: používanie funkcií a prekliky po dňoch. ID
+    // dokumentu je dátum, polia sú počty. Ako pri deal_clicks sa presné
+    // "+1" overiť nedá - je to štatistika len pre admin.
+    match /pouzitie/{den} {
+      allow read: if isAdmin();
+      allow create, update: if request.auth != null && den.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                            && request.resource.data.size() <= 300;
+    }
+    match /kliky_den/{den} {
+      allow read: if isAdmin();
+      allow create, update: if request.auth != null && den.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                            && request.resource.data.size() <= 3000;
     }
 
     // Kolekcie agent_state a price_watch tu zámerne nie sú.
