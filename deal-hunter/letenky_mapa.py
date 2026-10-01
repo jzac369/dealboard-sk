@@ -51,7 +51,18 @@ ODKIAL = {
     "KSC": {"n": "Košice", "lat": 48.6631, "lon": 21.2411},
 }
 
-DNI_DOPREDU = int(os.environ.get("LETENKY_DNI", 120))
+# Koľko kalendárnych mesiacov dopredu (aktuálny + ďalšie). Pokrývame celé
+# mesiace až do konca posledného, aby filter "Mesiac odletu" nemal na
+# konci useknutý mesiac s pár dňami.
+MESIACOV = int(os.environ.get("LETENKY_MESIACOV", 5))
+
+
+def dni_dopredu(zaciatok: date, mesiacov: int = MESIACOV) -> int:
+    """Počet dní od `zaciatok` po posledný deň `mesiacov`-tého mesiaca (vrátane aktuálneho)."""
+    rok, mes = zaciatok.year, zaciatok.month + mesiacov   # prvý deň mesiaca ZA koncom
+    rok += (mes - 1) // 12
+    mes = (mes - 1) % 12 + 1
+    return (date(rok, mes, 1) - zaciatok).days
 VLAKNA = 4          # zdvorilá paralelnosť; 1100 požiadaviek za ~3 minúty
 
 RYANAIR_TRASY = "https://www.ryanair.com/api/views/locate/searchWidget/routes/en/airport/{}"
@@ -203,7 +214,8 @@ def ryanair(zaciatok: date, dni: int) -> tuple[dict, list[dict]]:
 
 def main() -> int:
     zaciatok = date.today() + timedelta(days=1)   # dnešné lety už neodletia
-    letiska, trasy = ryanair(zaciatok, DNI_DOPREDU)
+    dni = dni_dopredu(zaciatok)
+    letiska, trasy = ryanair(zaciatok, dni)
 
     if len(trasy) < 20:
         # Radšej ponechať včerajšie dáta než mapu vyprázdniť kvôli
@@ -228,7 +240,7 @@ def main() -> int:
     vystup = {
         "vytvorene": datetime.now(timezone.utc).isoformat(timespec="minutes"),
         "zaciatok": zaciatok.isoformat(),
-        "dni": DNI_DOPREDU,
+        "dni": dni,
         "odkial": ODKIAL,
         "letiska": dict(sorted(letiska.items())),
         "spolocnosti": {"FR": "Ryanair"},

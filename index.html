@@ -4290,7 +4290,7 @@ body.food-page { background: #FAF8F5; }
         moz: [30, 40, 50, 75, 100].map(v => [v, `do ${v} €`]) },
       { k: 'typ', lab: 'Dĺžka cesty', moz: Object.entries(LT_TYPY).map(([k, v]) => [k, v.nazov, v.pozn]) },
       { k: 'kedy', lab: 'Kedy', moz: [['all', 'Kedykoľvek'], ['vikend', 'Cez víkend'], ['pracovne', 'Cez pracovné dni']] },
-      { k: 'mesiac', lab: 'Mesiac odletu', moz: [['all', 'Najbližšie 4 mesiace'], ...mesiace] },
+      { k: 'mesiac', lab: 'Mesiac odletu', moz: [['all', mesiace.length <= 4 ? `Najbližšie ${mesiace.length} mesiace` : `Najbližších ${mesiace.length} mesiacov`], ...mesiace] },
       { k: 'druh', lab: 'Kam', moz: [['all', 'Všade'], ['mesto', 'Do mesta'], ['more', 'K moru']] },
     ];
   }
@@ -4571,7 +4571,8 @@ body.food-page { background: #FAF8F5; }
     const msg = document.getElementById('lt-map-msg');
     try {
       if (!ltData) {
-        ltData = await fetch('assets/letenky/ceny.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+        // no-cache: prehliadač si overí, či nie sú novšie ceny (mení sa denne).
+        ltData = await fetch('assets/letenky/ceny.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
         const n = ltData.dni;
         ltDenTyzdna = Array.from({ length: n }, (_, i) => ltDen(i).getUTCDay());
         ltMesiac = Array.from({ length: n }, (_, i) => ltIso(i).slice(0, 7));
