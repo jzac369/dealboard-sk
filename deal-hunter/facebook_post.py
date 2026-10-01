@@ -155,7 +155,9 @@ def sprava(d: dict) -> str:
     zlava = d.get("discountPercent") or 0
 
     riadky = [d.get("title", "").strip()]
-    if cena:
+    if d.get("zadarmo"):
+        riadky.append("Zadarmo")
+    elif cena:
         c = f"{float(cena):.2f}".replace(".", ",")
         if povodna and zlava:
             p = f"{float(povodna):.2f}".replace(".", ",")

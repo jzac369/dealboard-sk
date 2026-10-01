@@ -58,6 +58,9 @@ jobs:
           FIRESTORE_PROJECT_ID: dealboard-e60bf
           GOOGLE_APPLICATION_CREDENTIALS: firebase-credentials.json
           GH_TOKEN: ${{ github.token }}
+          # Naplánované dealy sa v určený čas posielajú na schválenie.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
       - name: Zmazanie kľúča
         if: always()

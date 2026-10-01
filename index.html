@@ -3446,6 +3446,7 @@ body.food-page { background: #FAF8F5; }
   // Vtedy ukážeme samotnú zľavu; "0,00 €" by vyzeralo ako chyba a
   // vymyslená príkladová cena by bola zavádzajúca.
   function cenaDealu(d, currency) {
+    if (d.zadarmo === true) return 'Zadarmo';
     if (Number(d.dealPrice) > 0) return price(d.dealPrice, currency);
     if (Number(d.discountPercent) > 0) return `−${Math.round(d.discountPercent)} %`;
     return '';

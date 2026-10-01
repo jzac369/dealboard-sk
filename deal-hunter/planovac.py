@@ -151,6 +151,41 @@ def co_spustit(rozvrh: dict, teraz: datetime, lokalne: bool = False) -> list[tup
     return vysledok
 
 
+def odosli_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
+    """
+    Dealy pripravené dopredu (status "scheduled" a čas sendAt) pošle v
+    určený čas do Telegramu na schválenie. Dovtedy ich nevidí nikto -
+    ani stránka, ani zoznam na schválenie v admine.
+
+    Status sa mení na "pending" PRED odoslaním: keby správa neodišla,
+    deal aspoň čaká v admine, namiesto toho, aby ho každá ďalšia
+    kontrola posielala znova.
+    """
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    import telegram_bot
+
+    try:
+        docs = list(db.collection("deals").where(filter=FieldFilter("status", "==", "scheduled")).stream())
+    except Exception as e:
+        logger.warning("Naplánované dealy sa nepodarilo načítať: %s", e)
+        return
+    for d in docs:
+        deal = d.to_dict() or {}
+        kedy = deal.get("sendAt")
+        if not kedy or kedy > teraz:
+            continue
+        if nasucho:
+            logger.info("Poslal by som naplánovaný deal %s: %s", d.id, deal.get("title"))
+            continue
+        # Čas dealu = čas odoslania, nie prípravy - inak by sa po
+        # schválení na stránke ukázal ako niekoľko dní starý.
+        d.reference.update({"status": "pending", "timestamp": teraz})
+        if telegram_bot.send_deal_for_approval(d.id, deal):
+            logger.info("Naplánovaný deal poslaný na schválenie: %s", deal.get("title"))
+        else:
+            logger.warning("Telegram správu neprijal - deal %s čaká v admine.", d.id)
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     nasucho = "--nasucho" in sys.argv
@@ -160,6 +195,8 @@ def main() -> int:
     rozvrh = nacitaj(db)
     teraz = datetime.now(ZONA)
     logger.info("Plánovač — %s", teraz.strftime("%d.%m.%Y %H:%M"))
+
+    odosli_naplanovane(db, teraz, nasucho)
 
     spustit = co_spustit(rozvrh, teraz)
     if not spustit:

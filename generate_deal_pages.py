@@ -104,7 +104,9 @@ def render_deal_page(deal_id: str, d: dict) -> str:
     spa_url = f"{SITE_URL}/?deal={deal_id}"
 
     price_html = ""
-    if deal_price:
+    if d.get("zadarmo"):
+        price_html = '<span style="font-size:1.4rem;font-weight:800;color:#2E8B3D;">Zadarmo</span>'
+    elif deal_price:
         price_html = f'<span style="font-size:1.4rem;font-weight:800;color:#2E8B3D;">{deal_price:.2f} {currency_symbol}</span>'
         if original_price and original_price > deal_price:
             price_html += f' <span style="text-decoration:line-through;color:#707070;font-size:0.9rem;">{original_price:.2f} {currency_symbol}</span>'
