@@ -1,32 +1,26 @@
 {
-  "name": "HenKukaj.sk",
+  "id": "/",
+  "name": "HenKukaj.sk – zľavy a dealy",
   "short_name": "HenKukaj",
-  "description": "Komunitné dealy, zľavové kódy a letáky obchodov na jednom mieste.",
-  "start_url": "/?source=pwa",
+  "description": "Komunitné dealy, zľavové kódy, letenky, ceny potravín a letáky obchodov na jednom mieste.",
+  "start_url": "/?utm_source=aplikacia&utm_medium=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#E8590C",
   "lang": "sk",
+  "dir": "ltr",
+  "categories": ["shopping", "lifestyle"],
   "icons": [
-    {
-      "src": "/assets/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/assets/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/assets/icon-512-maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "/assets/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512-maskable.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Dealy", "url": "/?utm_source=aplikacia&utm_medium=skratka#dealy", "icons": [{ "src": "/assets/icon-192.png?v=2", "sizes": "192x192" }] },
+    { "name": "Letenky", "url": "/?utm_source=aplikacia&utm_medium=skratka#letenky", "icons": [{ "src": "/assets/icon-192.png?v=2", "sizes": "192x192" }] },
+    { "name": "Zľavové kódy", "url": "/?utm_source=aplikacia&utm_medium=skratka#kody", "icons": [{ "src": "/assets/icon-192.png?v=2", "sizes": "192x192" }] },
+    { "name": "Ceny potravín", "url": "/?utm_source=aplikacia&utm_medium=skratka#potraviny", "icons": [{ "src": "/assets/icon-192.png?v=2", "sizes": "192x192" }] }
   ]
 }

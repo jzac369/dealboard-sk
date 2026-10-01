@@ -8,8 +8,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#E8590C">
-<link rel="icon" href="/assets/icon-192.png" type="image/png">
-<link rel="apple-touch-icon" href="/assets/icon-192.png">
+<link rel="icon" href="/assets/icon-192.png?v=2" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png?v=2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HenKukaj">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>HenKukaj.sk – Najlepšie zľavy zo SK/CZ e-shopov</title>
 <meta name="description" content="Komunitná stránka so zľavami z overených slovenských a českých e-shopov. Hlasuj za najlepšie dealy, sleduj aktuálne akciové letáky a ušetri na nákupoch.">
 <link rel="canonical" href="https://henkukaj.sk/">
@@ -6653,11 +6657,117 @@ body.food-page { background: #FAF8F5; }
     <a href="/podmienky.html#ako-vyberame" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Ako vyberáme dealy</a>
     &nbsp;·&nbsp;
     <a href="#" onclick="zmenitSuhlas(); return false;" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Nastavenia súhlasu</a>
+    <span id="pwa-pata" hidden>&nbsp;·&nbsp;
+    <a href="#" onclick="pwaInstaluj(); return false;" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Nainštalovať aplikáciu</a></span>
     <br><br>
     📧 Kontakt: <a href="mailto:info@henkukaj.sk" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">info@henkukaj.sk</a>
 
   </div>
 </footer>
+
+<!-- ── Aplikácia (PWA): inštalácia na plochu ─────────────────────────── -->
+<style>
+  .pwa-lista { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 900; display: flex; align-items: center; gap: 12px;
+    background: var(--card, #fff); color: var(--ink, #1a1a1a); border: 1px solid var(--line, #e5e5e5); border-radius: 16px;
+    padding: 12px 12px 12px 14px; box-shadow: 0 14px 40px rgba(0,0,0,.22); max-width: 520px; margin: 0 auto;
+    transform: translateY(140%); transition: transform .3s ease; }
+  .pwa-lista.on { transform: none; }
+  .pwa-lista img { width: 48px; height: 48px; border-radius: 12px; flex: none; }
+  .pwa-lista-t { flex: 1; min-width: 0; line-height: 1.3; }
+  .pwa-lista-t b { display: block; font-size: .95rem; white-space: nowrap; }
+  .pwa-lista-t small { color: var(--muted, #6b6b6b); font-size: .8rem; }
+  .pwa-lista .pwa-ano { background: var(--orange, #E8590C); color: #fff; border: 0; border-radius: 10px; padding: 10px 14px;
+    font: inherit; font-weight: 800; font-size: .88rem; cursor: pointer; flex: none; }
+  .pwa-lista .pwa-nie { background: none; border: 0; color: var(--muted, #6b6b6b); font-size: 1.3rem; line-height: 1;
+    width: 32px; height: 32px; cursor: pointer; flex: none; border-radius: 8px; }
+  .pwa-ios { position: fixed; inset: 0; z-index: 950; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; padding: 12px; }
+  .pwa-ios-box { background: var(--card, #fff); color: var(--ink, #1a1a1a); border-radius: 18px; padding: 22px; max-width: 420px; width: 100%; }
+  .pwa-ios-box h3 { margin: 0 0 12px; font-size: 1.15rem; }
+  .pwa-ios-box ol { margin: 0 0 18px; padding-left: 22px; line-height: 1.7; }
+  .pwa-ios-box button { width: 100%; background: var(--orange, #E8590C); color: #fff; border: 0; border-radius: 12px; padding: 13px; font: inherit; font-weight: 800; cursor: pointer; }
+</style>
+<script>
+  // Inštalovateľná aplikácia: service worker (offline režim) a ponuka
+  // „Nainštalovať“. Chrome a Edge na Androide aj počítači ponúknu vlastné
+  // okno (beforeinstallprompt); iPhone ho nemá, tam ukážeme návod
+  // Zdieľať → Pridať na plochu. Lištu ukážeme najviac raz za 30 dní, až
+  // keď si človek stránku chvíľu prezerá, a nikdy cez lištu súhlasu.
+  (function () {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+    const udalost = k => { if (window.hkUdalost) window.hkUdalost(k); };
+    const nainstalovana = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    if (nainstalovana) { setTimeout(() => udalost('aplikacia_spustenie'), 3000); return; }
+    const ua = navigator.userAgent;
+    const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const iosSafari = ios && /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
+    let vyzva = null;
+
+    function ponuka(dostupna) {
+      document.getElementById('pwa-pata').hidden = !dostupna;
+    }
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); vyzva = e; ponuka(true); naplanujListu(); });
+    window.addEventListener('appinstalled', () => { udalost('aplikacia_nainstalovana'); zavriListu(); ponuka(false); vyzva = null; });
+    if (iosSafari) { ponuka(true); naplanujListu(); }
+
+    window.pwaInstaluj = async function () {
+      udalost('aplikacia_klik');
+      zavriListu();
+      if (vyzva) {
+        vyzva.prompt();
+        const v = await vyzva.userChoice.catch(() => null);
+        if (v && v.outcome === 'accepted') { vyzva = null; ponuka(false); }
+        return;
+      }
+      if (iosSafari) {
+        const o = document.createElement('div');
+        o.className = 'pwa-ios';
+        o.innerHTML = `<div class="pwa-ios-box" role="dialog" aria-label="Pridať na plochu">
+            <h3>Pridaj si HenKukaj na plochu</h3>
+            <ol><li>Ťukni dole na <b>Zdieľať</b> (štvorček so šípkou nahor).</li>
+              <li>Vyber <b>Pridať na plochu</b>.</li><li>Potvrď <b>Pridať</b> vpravo hore.</li></ol>
+            <button type="button">Rozumiem</button></div>`;
+        o.addEventListener('click', e => { if (e.target === o || e.target.tagName === 'BUTTON') o.remove(); });
+        document.body.appendChild(o);
+      }
+    };
+
+    let lista = null, naplanovana = false;
+    function zavriListu(trvalo) {
+      if (lista) { lista.classList.remove('on'); setTimeout(() => lista && lista.remove(), 350); lista = null; }
+      if (trvalo) try { localStorage.setItem('hk_pwa_odmietnute', String(Date.now())); } catch (e) {}
+    }
+    function naplanujListu() {
+      if (naplanovana) return;
+      naplanovana = true;
+      let odm = 0;
+      try { odm = Number(localStorage.getItem('hk_pwa_odmietnute')) || 0; } catch (e) {}
+      if (Date.now() - odm < 30 * 86400000) return;
+      if (!window.matchMedia('(max-width: 760px)').matches) return;   // na počítači stačí odkaz v pätičke
+      let pokusy = 0;
+      const skus = () => {
+        // Nie cez lištu súhlasu ani cez otvorené okno "Pridaj deal".
+        const prekaza = document.getElementById('hk-meranie') || document.querySelector('.promo-popup-overlay, .modal-overlay.open, .pwa-ios');
+        if (prekaza) { if (++pokusy < 40) setTimeout(skus, 5000); return; }
+        lista = document.createElement('div');
+        lista.className = 'pwa-lista';
+        lista.setAttribute('role', 'dialog');
+        lista.setAttribute('aria-label', 'Nainštalovať aplikáciu');
+        lista.innerHTML = `<img src="/assets/icon-192.png?v=2" alt="">
+          <div class="pwa-lista-t"><b>Aplikácia HenKukaj</b><small>Dealy jedným ťuknutím z plochy</small></div>
+          <button type="button" class="pwa-ano">Nainštalovať</button>
+          <button type="button" class="pwa-nie" aria-label="Zavrieť">×</button>`;
+        lista.querySelector('.pwa-ano').onclick = () => window.pwaInstaluj();
+        lista.querySelector('.pwa-nie').onclick = () => { udalost('aplikacia_odmietnutie'); zavriListu(true); };
+        document.body.appendChild(lista);
+        requestAnimationFrame(() => requestAnimationFrame(() => lista && lista.classList.add('on')));
+        udalost('aplikacia_ponuka');
+      };
+      setTimeout(skus, 25000);
+    }
+  })();
+</script>
 
 <script>
   // ── Promo popup "Pridaj deal" – zobrazí sa pri každej 3. návšteve ───────
