@@ -132,6 +132,19 @@
     document.body.appendChild(l);
   }
 
+  // Odkaz "Nastavenia súhlasu" v pätičke. Keď beží lišta Googlu (po
+  // zverejnení správy v AdSense), otvorí jej okno na zmenu súhlasu;
+  // inak znova ukáže našu lištu o meraní návštevnosti.
+  window.zmenitSuhlas = function() {
+    if (window.googlefc && window.googlefc.callbackQueue && typeof window.googlefc.showRevocationMessage === 'function') {
+      window.googlefc.callbackQueue.push(window.googlefc.showRevocationMessage);
+      return;
+    }
+    try { localStorage.removeItem('hk_meranie'); } catch (e) {}
+    cmpOdpovedal = false;
+    nahradnaLista();
+  };
+
   (function watchConsent() {
     // Keď platforma Googlu do 5 s neodpovie použiteľne, prevezme to
     // náhradná lišta.
@@ -1440,6 +1453,16 @@
   /* ── Tabs bar (For you / Hottest / Trending / All) ─────────────────────── */
   .tabs-bar { display: flex; align-items: center; justify-content: space-between;
     margin: 16px 0 6px; flex-wrap: wrap; gap: 10px; }
+  .deals-search { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; margin: 0;
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 24px; padding: 0 16px;
+    height: 44px; cursor: text; transition: border-color .15s, box-shadow .15s; }
+  .deals-search:focus-within { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,89,12,.12); }
+  .deals-search .ic { width: 18px; height: 18px; color: var(--muted); flex: none; }
+  .deals-search input { flex: 1; min-width: 0; border: none; outline: none; background: none;
+    font: inherit; font-size: .92rem; color: var(--ink); padding: 0; height: 100%; }
+  .deals-search input::-webkit-search-cancel-button { cursor: pointer; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .sort-bar { display: flex; gap: 22px; flex-wrap: wrap; }
   @media (max-width: 720px) {
     .tabs-bar .header-search { width: 100%; max-width: 100% !important; flex: none; order: 10; }
@@ -1787,6 +1810,15 @@
     width: 100%; transition: background .15s; }
   .btn-submit:hover { background: var(--orange-dk); }
   .btn-submit:disabled { background: var(--muted); cursor: not-allowed; }
+  /* Chyby priamo pri poli - alert() bol na mobile otravný a nepovedal,
+     ktoré pole je zle. */
+  .req { color: var(--orange-dk); }
+  .field-err { color: #B03A2E; font-size: .78rem; margin-top: 4px; line-height: 1.35; }
+  .field-err:empty { display: none; }
+  input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: #D64545 !important; }
+  .form-err { color: #B03A2E; font-size: .84rem; background: #FDECEA; border-radius: 8px; padding: 9px 12px; line-height: 1.4; }
+  .form-err:empty { display: none; }
+  .form-err a { color: inherit; font-weight: 700; }
 
   /* ── Reklama ────────────────────────────────────────────────────────────
      Miesta sú skryté, kým ich naozaj nenaplníme. Prázdny rámček je
@@ -2786,15 +2818,20 @@ body.food-page { background: #FAF8F5; }
   <!-- Main: Deals -->
   <main id="deals-main">
     <div class="tabs-bar">
+      <!-- Vyhľadávanie má vlastný riadok: vedľa piatich tlačidiel triedenia
+           ostalo pole široké ~120 px a dlhší výraz sa doň nezmestil. -->
+      <label class="deals-search" for="search-input">
+        <svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg>
+        <span class="sr-only">Hľadať v dealoch</span>
+        <input type="search" id="search-input" placeholder="Hľadaj produkt, obchod alebo kategóriu…"
+               oninput="filterDeals()" autocomplete="off" enterkeyhint="search">
+      </label>
       <div class="sort-bar">
         <button class="sort-btn active" onclick="setSort('new', this)"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> Najnovšie</button>
         <button class="sort-btn" onclick="setSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie</button>
         <button class="sort-btn" onclick="setSort('discount', this)"><svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg> Najväčšia zľava</button>
         <button class="sort-btn filter-btn" id="btn-valid-only" onclick="toggleValidOnly(this)" title="Skryť akcie, ktorým vypršala platnosť"><svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg> Len platné</button>
         <button class="sort-btn filter-btn" id="btn-saved-only" onclick="toggleSavedOnly(this)" title="Zobraziť len dealy, ktoré si si uložil"><svg class="ic" aria-hidden="true"><use href="#i-bookmark"></use></svg> Uložené</button>
-      </div>
-      <div class="header-search" style="max-width:220px;">
-        <input type="text" id="search-input" placeholder="Hľadaj deal…" oninput="filterDeals()">
       </div>
     </div>
     <div id="fb-banner-main"></div>
@@ -3064,10 +3101,13 @@ body.food-page { background: #FAF8F5; }
          odvodiť obchod a človek ho má po ruke - práve ho skopíroval.
          Kategória, obrázok, popis a platnosť sú zbalené: vyplní ich
          menšina a na obrazovke brali miesto všetkým ostatným. -->
-    <div class="modal-body">
+    <form class="modal-body" id="deal-form" novalidate onsubmit="handleSubmit(event)">
       <div>
-        <label>Odkaz na deal *</label>
-        <input type="text" id="f-url" placeholder="alza.sk/produkt/... (https:// doplníme automaticky)">
+        <label for="f-url">Odkaz na deal <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="f-url" name="url" required maxlength="1500" inputmode="url" autocomplete="off"
+               autocapitalize="off" spellcheck="false" aria-describedby="f-url-err"
+               placeholder="alza.sk/produkt/... (https:// doplníme automaticky)">
+        <div class="field-err" id="f-url-err"></div>
         <div id="store-detected" class="store-hit" style="display:none;">
           <svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg>
           <span class="store-chip" id="store-chip"></span>
@@ -3076,26 +3116,36 @@ body.food-page { background: #FAF8F5; }
         </div>
       </div>
       <div id="store-manual">
-        <label>E-shop *</label>
-        <input type="text" id="f-store" placeholder="napr. Alza.sk, Mall.cz, Heureka.sk…">
+        <label for="f-store">E-shop <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="f-store" name="store" required maxlength="60" aria-describedby="f-store-err"
+               placeholder="napr. Alza.sk, Mall.cz, Heureka.sk…">
+        <div class="field-err" id="f-store-err"></div>
       </div>
       <div>
-        <label>Názov produktu *</label>
-        <input type="text" id="f-title" placeholder="napr. Samsung Galaxy S24 128GB">
+        <label for="f-title">Názov produktu <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="f-title" name="title" required maxlength="190" aria-describedby="f-title-err"
+               placeholder="napr. Samsung Galaxy S24 128GB">
+        <div class="field-err" id="f-title-err"></div>
       </div>
       <div class="row2">
         <div>
-          <label>Bežná cena (€)</label>
-          <input type="number" id="f-orig" placeholder="299" step="0.01" min="0">
+          <label for="f-orig">Bežná cena (€)</label>
+          <input type="number" id="f-orig" name="originalPrice" placeholder="299" step="0.01" min="0" max="1000000"
+                 inputmode="decimal" aria-describedby="f-orig-err">
+          <div class="field-err" id="f-orig-err"></div>
         </div>
         <div>
-          <label>Akciová cena (€) *</label>
-          <input type="number" id="f-deal" placeholder="199" step="0.01" min="0">
+          <label for="f-deal">Akciová cena (€) <span class="req" aria-hidden="true">*</span></label>
+          <input type="number" id="f-deal" name="dealPrice" required placeholder="199" step="0.01" min="0" max="1000000"
+                 inputmode="decimal" aria-describedby="f-deal-err">
+          <div class="field-err" id="f-deal-err"></div>
         </div>
       </div>
       <div>
-        <label>Tvoja prezývka *</label>
-        <input type="text" id="f-author" placeholder="napr. Jarko123" maxlength="40">
+        <label for="f-author">Tvoja prezývka <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="f-author" name="author" required maxlength="39" autocomplete="nickname"
+               aria-describedby="f-author-err" placeholder="napr. Jarko123">
+        <div class="field-err" id="f-author-err"></div>
       </div>
 
       <button type="button" class="more-toggle" id="more-toggle"
@@ -3108,8 +3158,8 @@ body.food-page { background: #FAF8F5; }
       <div id="more-fields" style="display:none;">
         <div class="row2">
           <div>
-            <label>Kategória</label>
-            <select id="f-cat">
+            <label for="f-cat">Kategória</label>
+            <select id="f-cat" name="category">
               <option>Iné</option>
               <option>Elektronika</option>
               <option>Dom &amp; Záhrada</option>
@@ -3123,14 +3173,16 @@ body.food-page { background: #FAF8F5; }
           <div>
             <label for="f-until">Akcia platí do</label>
             <div class="date-field" id="f-until-field">
-              <input type="date" id="f-until">
+              <input type="date" id="f-until" name="validUntil" aria-describedby="f-until-err">
               <span class="date-ph">deň. mesiac. rok</span>
             </div>
+            <div class="field-err" id="f-until-err"></div>
           </div>
         </div>
         <div>
-          <label>Popis / poznámka</label>
-          <textarea id="f-desc" rows="3" placeholder="Prečo je tento deal super? Historické minimum? Cashback?"></textarea>
+          <label for="f-desc">Popis / poznámka</label>
+          <textarea id="f-desc" name="description" rows="3" maxlength="2000"
+                    placeholder="Prečo je tento deal super? Historické minimum? Cashback?"></textarea>
         </div>
         <div>
           <label for="f-img-file">Obrázok produktu</label>
@@ -3153,9 +3205,11 @@ body.food-page { background: #FAF8F5; }
         <label>Nevyplňujte toto pole</label>
         <input type="text" id="f-honeypot" tabindex="-1" autocomplete="off">
       </div>
-      <p style="font-size:.78rem; color:var(--muted);">Po odoslaní prejde deal kontrolou moderátora a zverejní sa po schválení.</p>
-      <button class="btn-submit" onclick="handleSubmit()">Odoslať na schválenie</button>
-    </div>
+      <div class="form-err" id="deal-err" role="alert"></div>
+      <p style="font-size:.78rem; color:var(--muted);">Po odoslaní prejde deal kontrolou moderátora a zverejní sa po schválení.
+        Polia označené <span class="req">*</span> sú povinné.</p>
+      <button class="btn-submit" type="submit" id="deal-submit">Odoslať na schválenie</button>
+    </form>
   </div>
 </div>
 
@@ -3567,15 +3621,15 @@ body.food-page { background: #FAF8F5; }
             ${storeChip(d.store)}
             ${cat ? `<span class="chip chip-cat">${icon(CAT_ICONS[cat] || 'dots')}${escapeHtml(cat)}</span>` : ''}
           </div>
-          <a class="deal-title" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
+          <a class="deal-title" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="nofollow sponsored noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${escapeHtml(d.title||'')}</a>
           <div class="deal-price-row">
             <span class="price-now">${cenaDealu(d, d.currency)}</span>
             ${orig}
             ${expired ? '' : badge}
           </div>
-          <a class="${ctaClass} btn-go-mobile" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
+          <a class="${ctaClass} btn-go-mobile" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="nofollow sponsored noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
         </div>
-        <a class="${ctaClass} btn-go-desktop" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
+        <a class="${ctaClass} btn-go-desktop" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="nofollow sponsored noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${cta}</a>
       </div>
       <div class="deal-footer" onclick="event.stopPropagation()">
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
@@ -5423,7 +5477,7 @@ body.food-page { background: #FAF8F5; }
         <button class="vs-up" onclick="voteCoupon('${c.id}', 1)" title="Funguje" aria-label="Funguje">${icon('plus')}</button>
       </div>
 
-      <a class="coupon-go${expired ? ' btn-off' : ''}" href="${outUrl(c.url, 'coupon')}" data-raw="${escapeAttr(c.url || '')}" data-kind="coupon" target="_blank" rel="noopener">
+      <a class="coupon-go${expired ? ' btn-off' : ''}" href="${outUrl(c.url, 'coupon')}" data-raw="${escapeAttr(c.url || '')}" data-kind="coupon" target="_blank" rel="nofollow sponsored noopener">
         ${expired ? 'Skúsiť obchod →' : 'Do e-shopu →'}
       </a>
     </div>`;
@@ -5438,6 +5492,14 @@ body.food-page { background: #FAF8F5; }
   // spustí JavaScript - názov "Levi's" rozbil tlačidlo a upravený názov
   // by mohol spustiť kód. JSON urobí z hodnoty platný JS reťazec
   // (s úvodzovkami), escapeAttr ho potom bezpečne vloží do atribútu.
+  // "Nahlásiť neplatný deal" - e-mail s predvyplneným predmetom a odkazom,
+  // aby sme vedeli, o ktorý deal ide.
+  function nahlasOdkaz(d) {
+    const predmet = `Nahlásenie dealu: ${d.title || ''}`.slice(0, 120);
+    const telo = `Deal: ${d.title || ''}\nOdkaz: https://henkukaj.sk/?deal=${d.id}\n\nČo nie je v poriadku (napr. cena, skončená akcia, nefunkčný odkaz):\n`;
+    return 'mailto:info@henkukaj.sk?subject=' + encodeURIComponent(predmet) + '&body=' + encodeURIComponent(telo);
+  }
+
   function jsArg(v) {
     return escapeAttr(JSON.stringify(v == null ? '' : String(v)));
   }
@@ -5716,9 +5778,10 @@ body.food-page { background: #FAF8F5; }
           <span class="vs-num">${d.votes||0}°</span>
           <button class="vs-up" onclick="vote('${d.id}', 1)" title="Dobrý deal" aria-label="Dobrý deal">${icon('plus')}</button>
         </div>
-        <a class="btn-go${d.expired ? ' btn-off' : ''}" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="trackClick('${d.id}')">${d.expired ? 'Pozrieť u predajcu' : 'Zobraziť deal →'}</a>
+        <a class="btn-go${d.expired ? ' btn-off' : ''}" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="nofollow sponsored noopener" onclick="trackClick('${d.id}')">${d.expired ? 'Pozrieť u predajcu' : 'Zobraziť deal →'}</a>
         <a href="#" class="detail-link" onclick="shareDeal(${jsArg(d.id)}, ${jsArg(d.title||'')}, ${Number(d.dealPrice)||0}, ${jsArg(cur)}); return false;">${icon('share')} Zdieľať</a>
         <a href="#" class="detail-link save-btn" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')} Uložiť</a>
+        <a class="detail-link" href="${nahlasOdkaz(d)}">${icon('bell')} Nahlásiť neplatný deal</a>
       </div>
 
       <div style="border-top:1px solid var(--line); margin-top:18px; padding-top:14px;">
@@ -5967,24 +6030,91 @@ body.food-page { background: #FAF8F5; }
     reader.readAsDataURL(file);
   });
 
-  window.handleSubmit = async function() {
-    const author = window.stripEmoji(document.getElementById('f-author').value);
+  // ── Kontrola formulára "Pridaj deal" ──
+  // Chyby sa ukazujú priamo pri poliach. Rovnaké pravidlá (odkaz,
+  // dĺžky) stráži aj databáza - kontrola tu je pre pohodlie človeka,
+  // nie jediná ochrana.
+  function dfChyba(id, text) {
+    const pole = document.getElementById(id);
+    const el = document.getElementById(id + '-err');
+    if (el) el.textContent = text || '';
+    if (pole) pole.setAttribute('aria-invalid', text ? 'true' : 'false');
+    return !text;
+  }
+  function dfPlatnyOdkaz(url) {
+    try {
+      const u = new URL(url);
+      return /^https?:$/.test(u.protocol) && /\.[a-z]{2,}$/i.test(u.hostname) && url.length <= 1500;
+    } catch (e) { return false; }
+  }
+  // Ten istý produkt môže mať v odkaze rôzne sledovacie parametre -
+  // porovnávame adresu bez nich.
+  const dfBezParametrov = url => { try { const u = new URL(url); return (u.hostname.replace(/^www\./, '') + u.pathname).replace(/\/+$/, '').toLowerCase(); } catch (e) { return url; } };
+
+  function dfSkontroluj() {
+    const ok = [];
+    const url = normalizeUrl(document.getElementById('f-url').value.trim());
+    ok.push(dfChyba('f-url', !url ? 'Vlož odkaz na ponuku v e-shope.'
+      : !dfPlatnyOdkaz(url) ? 'Toto nevyzerá ako platný odkaz. Skopíruj ho z adresného riadka e-shopu.' : ''));
+    const store = document.getElementById('f-store').value.trim();
+    ok.push(dfChyba('f-store', store ? '' : 'Napíš, v ktorom e-shope je ponuka.'));
+    const title = document.getElementById('f-title').value.trim();
+    ok.push(dfChyba('f-title', title.length < 3 ? 'Napíš názov produktu (aspoň 3 znaky).' : ''));
+    const deal = parseFloat(document.getElementById('f-deal').value);
+    const origTxt = document.getElementById('f-orig').value;
+    const orig = parseFloat(origTxt);
+    ok.push(dfChyba('f-deal', isNaN(deal) ? 'Zadaj akciovú cenu.' : deal < 0 ? 'Cena nemôže byť záporná.' : ''));
+    ok.push(dfChyba('f-orig', origTxt && (isNaN(orig) || orig < 0) ? 'Zadaj platnú cenu.'
+      : origTxt && !isNaN(deal) && orig <= deal ? 'Bežná cena má byť vyššia ako akciová.' : ''));
+    const author = window.stripEmoji(document.getElementById('f-author').value).trim();
+    ok.push(dfChyba('f-author', author ? '' : 'Napíš prezývku, pod ktorou sa deal zobrazí.'));
+    const until = document.getElementById('f-until').value;
+    ok.push(dfChyba('f-until', until && until < new Date().toISOString().slice(0, 10) ? 'Dátum platnosti už uplynul.' : ''));
+    return ok.every(Boolean);
+  }
+  // Chyba zmizne hneď, ako ju človek opraví.
+  document.addEventListener('input', e => {
+    if (e.target.closest && e.target.closest('#deal-form') && e.target.getAttribute('aria-invalid') === 'true') {
+      dfChyba(e.target.id, '');
+    }
+  });
+
+  window.handleSubmit = async function(e) {
+    if (e) e.preventDefault();
+    const chybaFormulara = document.getElementById('deal-err');
+    chybaFormulara.textContent = '';
+    if (!dfSkontroluj()) {
+      const prve = document.querySelector('#deal-form [aria-invalid="true"]');
+      if (prve) {
+        // Chybné pole môže byť v zbalenej časti (napr. dátum platnosti).
+        if (prve.closest('#more-fields') && document.getElementById('more-fields').style.display === 'none') toggleMore();
+        prve.focus();
+      }
+      return;
+    }
+    const author = window.stripEmoji(document.getElementById('f-author').value).trim();
     const title = document.getElementById('f-title').value.trim();
     const store = document.getElementById('f-store').value.trim();
     const deal  = parseFloat(document.getElementById('f-deal').value);
     const url   = normalizeUrl(document.getElementById('f-url').value.trim());
     const honeypot = document.getElementById('f-honeypot').value.trim();
     const imgFile  = document.getElementById('f-img-file').files[0];
-    if (!author || !title || !store || isNaN(deal) || !url) {
-      alert('Vyplň prosím povinné polia (*).');
+
+    // Duplicita: rovnaký produkt už na stránke je.
+    const kluc = dfBezParametrov(url);
+    const uz = (window.allDeals || []).find(d => !d.expired && d.url && dfBezParametrov(d.url) === kluc);
+    if (uz) {
+      chybaFormulara.innerHTML = `Tento deal už na stránke je:
+        <a href="#" onclick="closeModal(); openDealDetail(${jsArg(uz.id)}); return false;">${escapeHtml(uz.title || 'pozrieť')}</a>.
+        Ak má inú cenu, napíš to do komentára pri ňom.`;
       return;
     }
     if (!window.canSubmit()) {
       const mins = Math.ceil(window.msUntilNextSubmit() / 60000);
-      alert(`Môžeš pridať len 1 deal za 15 minút. Skús to znova o ${mins} min.`);
+      chybaFormulara.textContent = `Môžeš pridať len 1 deal za 15 minút. Skús to znova o ${mins} min.`;
       return;
     }
-    const submitBtn = document.querySelector('.btn-submit');
+    const submitBtn = document.getElementById('deal-submit');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Odosielam…';
     try {
@@ -6001,7 +6131,7 @@ body.food-page { background: #FAF8F5; }
         category: document.getElementById('f-cat').value,
         url,
         imageUrl,
-        description: document.getElementById('f-desc').value.trim(),
+        description: document.getElementById('f-desc').value.trim().slice(0, 2000),
         currency: '€'
       };
       // Platnosť je voliteľná. Keď ju človek zadá, deal sa po dátume
@@ -6025,17 +6155,15 @@ body.food-page { background: #FAF8F5; }
         alert('Ďakujeme! Deal bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
       }
     } catch(e) {
-      if (e.message === 'rate-limit') {
-        alert('Môžeš pridať len 1 deal za 15 minút. Skús to o chvíľu znova.');
-      } else if (e.message === 'spam') {
-        alert('Pri odosielaní nastala chyba. Skús to znova.');
-      } else if (e.message === 'too-large') {
-        alert('Obrázok je príliš veľký. Maximálna veľkosť je 5 MB.');
-      } else if (e.message === 'not-image') {
-        alert('Vybraný súbor nie je obrázok.');
-      } else {
-        alert('Chyba pri ukladaní. Skontroluj Firebase konfiguráciu.');
-      }
+      const spravy = {
+        'rate-limit': 'Môžeš pridať len 1 deal za 15 minút. Skús to o chvíľu znova.',
+        'spam': 'Pri odosielaní nastala chyba. Skús to znova.',
+        'too-large': 'Obrázok je príliš veľký. Maximálna veľkosť je 5 MB.',
+        'not-image': 'Vybraný súbor nie je obrázok.',
+      };
+      chybaFormulara.textContent = spravy[e.message] ||
+        'Deal sa nepodarilo uložiť. Skontroluj pripojenie a skús to znova; ak to nepôjde, napíš nám na info@henkukaj.sk.';
+      console.warn('Odoslanie dealu:', e);
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Odoslať na schválenie';
@@ -6055,6 +6183,10 @@ body.food-page { background: #FAF8F5; }
     <a href="/podmienky.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Podmienky používania</a>
     &nbsp;·&nbsp;
     <a href="/ochrana-udajov.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Ochrana osobných údajov</a>
+    &nbsp;·&nbsp;
+    <a href="/podmienky.html#ako-vyberame" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Ako vyberáme dealy</a>
+    &nbsp;·&nbsp;
+    <a href="#" onclick="zmenitSuhlas(); return false;" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Nastavenia súhlasu</a>
     <br><br>
     📧 Kontakt: <a href="mailto:info@henkukaj.sk" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">info@henkukaj.sk</a>
 

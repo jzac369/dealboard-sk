@@ -19,8 +19,10 @@ Nepotrebuje Selenium ani žiadny scraping - len číta z vlastnej Firestore DB,
 takže nehrozí žiadna blokácia na úrovni IP adries.
 """
 
+import json
 import os
 import re
+from datetime import date
 import html
 import unicodedata
 import logging
@@ -87,6 +89,73 @@ def affiliate_url(url: str) -> str:
     return f"https://go.dognet.com/?chid={quote(chid, safe='')}&url={quote(url, safe='')}"
 
 
+# Expirovaný deal ešte 30 dní nechávame v indexe (ľudia ho hľadajú, stránka
+# im povie, že akcia skončila), potom noindex a von zo sitemap - inak by
+# Google ponúkal stovky dávno neplatných akcií.
+DNI_PO_EXPIRACII = 30
+
+
+def _datum_dealu(d: dict):
+    """Dátum dealu (timestamp z Firestore) alebo None."""
+    ts = d.get("timestamp")
+    try:
+        return ts.date() if ts else None
+    except AttributeError:
+        return None
+
+
+def je_expirovany(d: dict) -> bool:
+    if d.get("expired"):
+        return True
+    platnost = d.get("validUntilISO")
+    return bool(platnost) and platnost < date.today().isoformat()
+
+
+def dlho_expirovany(d: dict) -> bool:
+    """Expirovaný dlhšie než DNI_PO_EXPIRACII (podľa platnosti, inak dátumu dealu)."""
+    if not je_expirovany(d):
+        return False
+    try:
+        od = date.fromisoformat(d["validUntilISO"]) if d.get("validUntilISO") else _datum_dealu(d)
+    except ValueError:
+        od = _datum_dealu(d)
+    return bool(od) and (date.today() - od).days > DNI_PO_EXPIRACII
+
+
+def structured_data(d: dict, title: str, store: str, image_url: str, description: str,
+                    target_url: str, currency_code: str) -> str:
+    """
+    JSON-LD pre Google (Product + Offer). Skladá sa ako slovník a cez
+    json.dumps - predtým to bol Python repr() s apostrofmi, čo nie je
+    platný JSON a Google ho celý ignoroval.
+    """
+    data = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": title,
+        "image": image_url,
+        "description": description,
+    }
+    if store:
+        data["brand"] = {"@type": "Brand", "name": store}
+    cena = d.get("dealPrice")
+    if cena or d.get("zadarmo"):
+        offer = {
+            "@type": "Offer",
+            "price": "0.00" if d.get("zadarmo") else f"{float(cena):.2f}",
+            "priceCurrency": currency_code,
+            "url": target_url,
+            "availability": "https://schema.org/Discontinued" if je_expirovany(d) else "https://schema.org/InStock",
+        }
+        if d.get("validUntilISO"):
+            offer["priceValidUntil"] = d["validUntilISO"]
+        if store:
+            offer["seller"] = {"@type": "Organization", "name": store}
+        data["offers"] = offer
+    # "</" by v <script> mohlo predčasne ukončiť blok.
+    return json.dumps(data, ensure_ascii=False, indent=2).replace("</", "<\\/")
+
+
 def render_deal_page(deal_id: str, d: dict) -> str:
     title = d.get("title") or "Deal"
     store = d.get("store") or ""
@@ -114,18 +183,9 @@ def render_deal_page(deal_id: str, d: dict) -> str:
         # Deal bez konkrétnej ceny - ukážeme len zľavu, nie "0,00 €".
         price_html = f'<span style="font-size:1.4rem;font-weight:800;color:#2E8B3D;">Zľava {round(d["discountPercent"])} %</span>'
 
-    offers_json = ""
-    if deal_price:
-        offers_json = f"""
-  "offers": {{
-    "@type": "Offer",
-    "price": "{deal_price:.2f}",
-    "priceCurrency": "{currency_code}",
-    "url": "{escape(target_url)}",
-    "availability": "https://schema.org/InStock"
-  }},"""
-
     meta_description = (description[:155] + "…") if len(description) > 158 else description
+    ld_json = structured_data(d, title, store, image_url, meta_description, target_url, currency_code)
+    robots = '<meta name="robots" content="noindex, follow">\n' if dlho_expirovany(d) else ""
 
     return f"""<!DOCTYPE html>
 <html lang="sk">
@@ -135,7 +195,7 @@ def render_deal_page(deal_id: str, d: dict) -> str:
 <title>{escape(title)} – HenKukaj.sk</title>
 <meta name="description" content="{escape(meta_description)}">
 <link rel="canonical" href="{canonical_url}">
-
+{robots}
 <meta property="og:type" content="product">
 <meta property="og:site_name" content="HenKukaj.sk">
 <meta property="og:title" content="{escape(title)}">
@@ -150,14 +210,7 @@ def render_deal_page(deal_id: str, d: dict) -> str:
 <meta name="twitter:image" content="{escape(image_url)}">
 
 <script type="application/ld+json">
-{{
-  "@context": "https://schema.org",
-  "@type": "Product",
-  "name": {repr(title)},
-  "image": {repr(image_url)},
-  "description": {repr(meta_description)},{offers_json}
-  "brand": {{"@type": "Brand", "name": {repr(store)}}}
-}}
+{ld_json}
 </script>
 
 <style>
@@ -180,9 +233,10 @@ def render_deal_page(deal_id: str, d: dict) -> str:
     <div class="body">
       <div class="meta">{escape(store)} · {escape(category)}</div>
       <h1>{escape(title)}</h1>
+      {'<p style="background:#FFF4E5;color:#7A4300;border-radius:8px;padding:10px 14px;font-weight:600;">Táto akcia už skončila. Aktuálne ponuky nájdeš na <a href="' + SITE_URL + '/" style="color:inherit;">HenKukaj.sk</a>.</p>' if je_expirovany(d) else ''}
       <p>{price_html}</p>
       <p>{escape(description)}</p>
-      <a class="btn" href="{escape(target_url)}" target="_blank" rel="noopener">Zobraziť ponuku v e-shope →</a>
+      <a class="btn" href="{escape(target_url)}" target="_blank" rel="nofollow sponsored noopener">Zobraziť ponuku v e-shope →</a>
       <a class="btn secondary" href="{spa_url}">Hlasovať / komentovať na HenKukaj.sk</a>
       <p style="margin-top:24px;"><a class="home" href="{SITE_URL}/">← Späť na HenKukaj.sk</a></p>
     </div>
@@ -205,17 +259,23 @@ def render_deal_page(deal_id: str, d: dict) -> str:
 """
 
 
-def build_sitemap(deal_urls: list[str]) -> str:
-    urls = [f"  <url>\n    <loc>{SITE_URL}/</loc>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>"]
+def build_sitemap(deal_urls: list) -> str:
+    """deal_urls: zoznam (url, dátum dealu alebo None, expirovaný?)."""
+    dnes = date.today().isoformat()
+    urls = [f"  <url>\n    <loc>{SITE_URL}/</loc>\n    <lastmod>{dnes}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>"]
     # Statické stránky - menia sa zriedka, ale patria do sitemap.
     for static_path in ("podmienky.html", "ochrana-udajov.html"):
         urls.append(
             f"  <url>\n    <loc>{SITE_URL}/{static_path}</loc>\n"
             f"    <changefreq>yearly</changefreq>\n    <priority>0.3</priority>\n  </url>"
         )
-    for u in deal_urls:
+    for u, kedy, expirovany in deal_urls:
+        lastmod = f"\n    <lastmod>{kedy.isoformat()}</lastmod>" if kedy else ""
+        # Expirovaný deal je pre Google menej dôležitý ako platný.
+        priorita = "0.3" if expirovany else "0.7"
+        frekvencia = "monthly" if expirovany else "weekly"
         urls.append(
-            f"  <url>\n    <loc>{u}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>"
+            f"  <url>\n    <loc>{u}</loc>{lastmod}\n    <changefreq>{frekvencia}</changefreq>\n    <priority>{priorita}</priority>\n  </url>"
         )
     body = "\n".join(urls)
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{body}\n</urlset>\n'
@@ -235,6 +295,7 @@ def main():
     docs = db.collection("deals").where("status", "==", "approved").stream()
 
     deal_urls = []
+    vygenerovane = []
     generated = 0
     for doc in docs:
         deal_id = doc.id
@@ -244,14 +305,33 @@ def main():
         page_dir = os.path.join(OUTPUT_ROOT, f"{slug}-{deal_id}")
         os.makedirs(page_dir, exist_ok=True)
 
+        vygenerovane.append(f"{slug}-{deal_id}")
         html_content = render_deal_page(deal_id, d)
         with open(os.path.join(page_dir, "index.html"), "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        deal_urls.append(f"{SITE_URL}/{OUTPUT_ROOT}/{slug}-{deal_id}/")
+        # Dlho expirované do sitemap nepatria (stránka má noindex).
+        if not dlho_expirovany(d):
+            deal_urls.append((f"{SITE_URL}/{OUTPUT_ROOT}/{slug}-{deal_id}/", _datum_dealu(d), je_expirovany(d)))
         generated += 1
 
     logger.info("Vygenerovaných %d stránok dealov", generated)
+
+    # Stránky dealov, ktoré už nie sú zverejnené (skryté, archivované,
+    # vymazané), zmažeme - inak by ostali na webe aj v Google navždy.
+    # Mažeme len priečinky, ktoré vyzerajú ako stránka dealu.
+    import shutil
+    aktualne = set(vygenerovane)
+    zmazane = 0
+    for meno in os.listdir(OUTPUT_ROOT):
+        cesta = os.path.join(OUTPUT_ROOT, meno)
+        if (os.path.isdir(cesta) and meno not in aktualne
+                and os.path.isfile(os.path.join(cesta, "index.html"))
+                and re.search(r"-[A-Za-z0-9]{20}$", meno)):
+            shutil.rmtree(cesta)
+            zmazane += 1
+    if zmazane:
+        logger.info("Zmazaných %d stránok dealov, ktoré už nie sú zverejnené", zmazane)
 
     sitemap_xml = build_sitemap(deal_urls)
     with open("sitemap.xml", "w", encoding="utf-8") as f:

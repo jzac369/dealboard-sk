@@ -55,6 +55,13 @@ service cloud.firestore {
                     && request.resource.data.dealPrice is number
                     && request.resource.data.dealPrice >= 0
                     && request.resource.data.url is string
+                    // Odkaz musí byť webová adresa (nie javascript: a pod.)
+                    // a dĺžky textov majú strop - rovnako ako formulár.
+                    && request.resource.data.url.matches('^https?://[^ ]+$')
+                    && request.resource.data.url.size() <= 1500
+                    && request.resource.data.store.size() <= 60
+                    && (!('description' in request.resource.data)
+                        || (request.resource.data.description is string && request.resource.data.description.size() <= 2000))
                     && request.resource.data.votes == 0
                     && request.resource.data.comments == 0;
 

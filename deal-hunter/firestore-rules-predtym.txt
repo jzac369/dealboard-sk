@@ -17,10 +17,24 @@ service cloud.firestore {
     //  Preto je e-mail odteraz povinný. Bez neho je admin panel
     //  otvorený celému internetu.
     // ═══════════════════════════════════════════════════════════════
+    //  Od 1. 10. 2026 aj overený e-mail: registrácia návštevníkov je
+    //  otvorená a e-mail bez overenia by inak stačilo len napísať.
     function isAdmin() {
       return request.auth != null
              && request.auth.token.firebase.sign_in_provider == 'password'
-             && request.auth.token.email == 'foresttt11@outlook.com';
+             && request.auth.token.email == 'foresttt11@outlook.com'
+             && request.auth.token.email_verified == true;
+    }
+
+    // Dokumenty od návštevníkov musia mať automatické ID (20 znakov,
+    // písmená a číslice - tak ho tvorí addDoc). Vlastné ID s apostrofom
+    // by sa v admine dostalo do onclick a spustilo kód. Pole "id" v
+    // dátach by zas prekrylo skutočné ID dokumentu.
+    function autoId(id) {
+      return id.matches('^[A-Za-z0-9]{20}$');
+    }
+    function bezCudzichId() {
+      return !('id' in request.resource.data) && !('dealId' in request.resource.data);
     }
 
     match /deals/{dealId} {
@@ -30,6 +44,7 @@ service cloud.firestore {
       // Nový deal: status "pending" alebo "approved" (podľa nastavenia
       // moderácie), platné základné polia, 0 hlasov.
       allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
+                    && bezCudzichId() && autoId(dealId)
                     && request.resource.data.author is string
                     && request.resource.data.author.size() > 0
                     && request.resource.data.author.size() < 40
@@ -73,6 +88,7 @@ service cloud.firestore {
       allow list: if resource.data.status == 'approved' || isAdmin();
 
       allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
+                    && bezCudzichId() && autoId(commentId)
                     && request.resource.data.nickname is string
                     && request.resource.data.nickname.size() > 0
                     && request.resource.data.nickname.size() < 40
@@ -89,6 +105,7 @@ service cloud.firestore {
       allow read: if resource.data.status == 'approved' || isAdmin();
 
       allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
+                    && bezCudzichId() && autoId(couponId)
                     && request.resource.data.author is string
                     && request.resource.data.author.size() > 0
                     && request.resource.data.author.size() < 40
