@@ -220,6 +220,20 @@ body.okno-otvorene { overflow: hidden; }
 .k-fb, .kal-leg .k-fb { border-color: #1877F2; background: #E7F0FE; }
 .k-prip, .kal-leg .k-prip { border-color: var(--yellow); background: var(--s-yellow); }
 .kal-leg i.k-zver { background: var(--blue); } .kal-leg i.k-schv { background: #7B4FC4; } .kal-leg i.k-fb { background: #1877F2; } .kal-leg i.k-prip { background: #D9A400; }
+.k-sys { border-color: #8A94A6; background: #F1F3F6; color: #4A5568; cursor: pointer !important; }
+.k-chip .ix { width: 11px; height: 11px; vertical-align: -1px; margin-right: 2px; }
+.kal-filter-tl { margin-left: auto; }
+.kal-filter { border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 12px; background: #FAFBFC; display: grid; gap: 10px; }
+.kal-filter[hidden] { display: none; }
+.kf-skupina { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.kf-skupina > b { width: 100%; font-size: .75rem; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+.kf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--card); font-size: .8125rem; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none; }
+.kf-chip input { display: none; }
+.kf-chip i { width: 10px; height: 10px; border-radius: 3px; background: #CBD2DC; }
+.kf-chip.on { color: var(--ink); border-color: #C9D1DC; }
+.kf-chip.on.kf-k-zver i { background: var(--blue); } .kf-chip.on.kf-k-schv i { background: #7B4FC4; }
+.kf-chip.on.kf-k-fb i { background: #1877F2; } .kf-chip.on.kf-k-prip i { background: #D9A400; } .kf-chip.on.kf-k-sys i { background: #8A94A6; }
 .kal-zoznam { margin-top: 18px; }
 .kal-zoznam h3 { font-size: 1rem; margin-bottom: 8px; }
 .kz-r { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: center; padding: 4px 0; }
@@ -350,7 +364,8 @@ body.okno-otvorene { overflow: hidden; }
   header.adm-top .top-right { margin-left: 0; gap: 4px; }
   .adm-crumb { display: none; }
   .form-mriezka, .dve-karty, .seo-mriezka { grid-template-columns: 1fr; }
-  .kal-mriezka, .kal-lista > button, .kal-nazov { display: none; }
+  .kal-mriezka, .kal-lista > button:not(.kal-filter-tl), .kal-nazov { display: none; }
+  .kal-filter-tl { margin-left: 0; }
   .adm-nav .nav-hladaj kbd { display: none; }
   .kal-leg { margin-left: 0; }
   .kz-r { grid-template-columns: 1fr; gap: 4px; }

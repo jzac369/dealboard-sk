@@ -172,7 +172,70 @@ U.stranka('pridat', {
 // ═══════════════════════════════════════════════════════════════════
 const kal = { mesiac: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(), fb: [], prip: [], el: null };
 
-function kalPolozky() {
+// Automatické úlohy. Časy sú z Plánovača úloh (settings/schedule); keď
+// v ňom úloha časy nemá, platia predvolené z planovac.py.
+const PREDVOLENE_CASY = {
+  agent: ['07:30', '12:30', '18:30'], letenky: ['07:30'], ziar: ['06:10'],
+  facebook: ['09:00', '17:00'], mapa: ['05:30'], potraviny: ['07:15', '13:00'],
+};
+// Úlohy s pevným rozvrhom priamo v GitHube (nemenia sa v admine).
+const PEVNE_ULOHY = [
+  { id: 'stranky', nazov: 'Generovanie stránok dealov a sitemap', popis: 'Každú hodinu (a hneď po naplánovanom zverejnení). Rozvrh je pevne v GitHube.' },
+  { id: 'telegram', nazov: 'Schvaľovanie z Telegramu', popis: 'Beží nepretržite – každú hodinu sa reťaz obnoví. Rozvrh je pevne v GitHube.' },
+];
+// Filtre: k = kľúč, n = názov, t = trieda farby.
+function kalFiltre() {
+  const ulohy = (HK().planUlohy || []).map(u => ({ k: 'u-' + u.id, n: u.nazov, t: 'k-sys', skupina: 'auto' }));
+  return [
+    { k: 'zver', n: 'Zverejnenie dealov', t: 'k-zver', skupina: 'obsah' },
+    { k: 'schv', n: 'Poslanie na schválenie', t: 'k-schv', skupina: 'obsah' },
+    { k: 'fb', n: 'Príspevky na Facebook', t: 'k-fb', skupina: 'obsah' },
+    { k: 'prip', n: 'Pripomienky', t: 'k-prip', skupina: 'obsah' },
+    ...ulohy,
+    ...PEVNE_ULOHY.map(u => ({ k: 'p-' + u.id, n: u.nazov, t: 'k-sys', skupina: 'auto' })),
+  ];
+}
+const KAL_PREDVOLENE_VYPNUTE = ['p-telegram', 'p-stranky'];
+function kalZapnute() {
+  let v = null;
+  try { v = JSON.parse(localStorage.getItem('adm_kal_filter') || 'null'); } catch (e) {}
+  const vsetky = kalFiltre().map(f => f.k);
+  const vyp = new Set(v ? v.vypnute : KAL_PREDVOLENE_VYPNUTE);
+  return new Set(vsetky.filter(k => !vyp.has(k)));
+}
+function kalUlozFilter(zapnute) {
+  const vyp = kalFiltre().map(f => f.k).filter(k => !zapnute.has(k));
+  try { localStorage.setItem('adm_kal_filter', JSON.stringify({ vypnute: vyp })); } catch (e) {}
+}
+
+// Opakované úlohy v rozsahu dní (od dnes - minulé behy tu nemajú zmysel).
+function kalSystemove(od, doD) {
+  const p = [], plan = HK().plan || {}, jobs = plan.jobs || {}, stav = plan.stav || {}, runNow = plan.runNow || {};
+  const dnes = new Date(); dnes.setHours(0, 0, 0, 0);
+  const zac = new Date(Math.max(od.getTime(), dnes.getTime()));
+  for (let d = new Date(zac); d <= doD; d.setDate(d.getDate() + 1)) {
+    (HK().planUlohy || []).forEach(u => {
+      const j = jobs[u.id] || {};
+      if (j.enabled === false) return;
+      const casy = Array.isArray(j.times) ? j.times : (PREDVOLENE_CASY[u.id] || []);
+      casy.forEach(t => {
+        const [h, m] = String(t).split(':').map(Number);
+        if (isNaN(h) || isNaN(m)) return;
+        const kedy = new Date(d); kedy.setHours(h, m, 0, 0);
+        p.push({ druh: 'sys', id: u.id, kluc: 'u-' + u.id, kedy, n: u.nazov, typ: u.lokalne ? 'Automatická úloha (tvoj počítač)' : 'Automatická úloha (cloud)',
+          trieda: 'k-sys', pevne: false, popis: u.popis, posledny: stav[u.id] && stav[u.id].lastRun, cakaSpustenie: !!runNow[u.id] });
+      });
+    });
+    PEVNE_ULOHY.forEach(u => {
+      const kedy = new Date(d); kedy.setHours(0, 0, 0, 0);
+      p.push({ druh: 'sys', id: u.id, kluc: 'p-' + u.id, kedy, n: u.nazov, typ: 'Systémová úloha', trieda: 'k-sys', pevne: true,
+        popis: u.popis, celyDen: true });
+    });
+  }
+  return p;
+}
+
+function kalPolozky(od, doD) {
   const p = [];
   HK().deals.forEach(d => {
     if (d.status === 'planned' && d.publishAt) p.push({ druh: 'deal', id: d.id, kedy: U.naDatum(d.publishAt), n: d.title, typ: 'Zverejnenie dealu', trieda: 'k-zver' });
@@ -180,23 +243,27 @@ function kalPolozky() {
   });
   kal.fb.forEach(x => p.push({ druh: 'fb', id: x.id, kedy: U.naDatum(x.sendAt), n: x.title || (x.text || '').slice(0, 60), typ: 'Príspevok na Facebook', trieda: 'k-fb' }));
   kal.prip.forEach(x => p.push({ druh: 'prip', id: x.id, kedy: U.naDatum(x.sendAt), n: x.text, typ: 'Pripomienka do Telegramu', trieda: 'k-prip' }));
-  return p.filter(x => x.kedy).sort((a, b) => a.kedy - b.kedy);
+  p.forEach(x => { x.kluc = { 'k-zver': 'zver', 'k-schv': 'schv', 'k-fb': 'fb', 'k-prip': 'prip' }[x.trieda]; });
+  if (od && doD && HK().rola === 'admin') p.push(...kalSystemove(od, doD));
+  const zap = kalZapnute();
+  return p.filter(x => x.kedy && zap.has(x.kluc)).sort((a, b) => a.kedy - b.kedy);
 }
 const denKluc = d => `${d.getFullYear()}-${U.pad(d.getMonth() + 1)}-${U.pad(d.getDate())}`;
 
 function kalKresli() {
   const el = kal.el;
   if (!el) return;
-  const polozky = kalPolozky();
   const m = kal.mesiac, rok = m.getFullYear(), mes = m.getMonth();
   const nazov = m.toLocaleDateString('sk-SK', { month: 'long', year: 'numeric' });
   const zac = new Date(rok, mes, 1);
   zac.setDate(zac.getDate() - ((zac.getDay() + 6) % 7));
+  const koniec = new Date(zac); koniec.setDate(zac.getDate() + 41); koniec.setHours(23, 59, 59);
+  const polozky = kalPolozky(zac, koniec);
   const dnes = denKluc(new Date());
   const poDnoch = {};
   polozky.forEach(x => (poDnoch[denKluc(x.kedy)] = poDnoch[denKluc(x.kedy)] || []).push(x));
-  const chip = x => `<div class="k-chip ${x.trieda}" draggable="true" data-druh="${x.druh}" data-id="${esc(x.id)}" title="${esc(x.typ + ': ' + x.n)}">
-      <b>${U.pad(x.kedy.getHours())}:${U.pad(x.kedy.getMinutes())}</b> ${esc(x.n)}</div>`;
+  const chip = x => `<div class="k-chip ${x.trieda}" ${x.druh === 'sys' ? '' : 'draggable="true"'} data-druh="${x.druh}" data-id="${esc(x.id)}" data-kedy="${x.kedy.getTime()}" title="${esc(x.typ + ': ' + x.n)}">
+      ${x.druh === 'sys' ? '<svg class="ix"><use href="#ix-settings"></use></svg>' : ''}<b>${x.celyDen ? 'každú h' : U.pad(x.kedy.getHours()) + ':' + U.pad(x.kedy.getMinutes())}</b> ${esc(x.n)}</div>`;
   let bunky = '';
   for (let i = 0; i < 42; i++) {
     const d = new Date(zac); d.setDate(zac.getDate() + i);
@@ -205,14 +272,27 @@ function kalKresli() {
     bunky += `<div class="k-den${d.getMonth() !== mes ? ' iny' : ''}${k === dnes ? ' dnes' : ''}${k < dnes ? ' minule' : ''}" data-den="${k}">
       <div class="k-cislo">${d.getDate()}</div>${(poDnoch[k] || []).map(chip).join('')}</div>`;
   }
-  const buduce = polozky.filter(x => x.kedy.getTime() >= Date.now() - 3600000);
+  // Zoznam: obsah na celý mesiac dopredu, automatické úlohy len na 2 dni
+  // (opakujú sa každý deň a inak by zaplnili celý zoznam).
+  const o48 = Date.now() + 48 * 3600000;
+  const buduce = kalPolozky(new Date(), new Date(Date.now() + 60 * 86400000))
+    .filter(x => x.kedy.getTime() >= Date.now() - (x.celyDen ? 86400000 : 3600000) && (x.druh !== 'sys' || x.kedy.getTime() < o48));
+  const zap = kalZapnute();
+  const filtre = kalFiltre().filter(f => HK().rola === 'admin' || f.skupina === 'obsah');
+  const fChip = f => `<label class="kf-chip kf-${f.t}${zap.has(f.k) ? ' on' : ''}"><input type="checkbox" data-kf="${esc(f.k)}"${zap.has(f.k) ? ' checked' : ''}><i></i>${esc(f.n)}</label>`;
   el.querySelector('#kal-telo').innerHTML = `
     <div class="kal-lista">
       <button class="btn btn-ic" data-kal="-1" aria-label="Predchádzajúci mesiac"><svg class="ix"><use href="#ix-chevl"></use></svg></button>
       <b class="kal-nazov">${esc(nazov)}</b>
       <button class="btn btn-ic" data-kal="1" aria-label="Ďalší mesiac"><svg class="ix"><use href="#ix-chevr"></use></svg></button>
       <button class="btn" data-kal="0">Dnes</button>
-      <span class="kal-leg"><i class="k-zver"></i>zverejnenie <i class="k-schv"></i>na schválenie <i class="k-fb"></i>Facebook <i class="k-prip"></i>pripomienka</span>
+      <button class="btn kal-filter-tl" data-kal-filter><svg class="ix"><use href="#ix-settings"></use></svg> Čo zobraziť (${zap.size}/${filtre.length})</button>
+    </div>
+    <div class="kal-filter"${kal.filterOtvoreny ? '' : ' hidden'}>
+      <div class="kf-skupina"><b>Obsah</b>${filtre.filter(f => f.skupina === 'obsah').map(fChip).join('')}</div>
+      ${HK().rola === 'admin' ? `<div class="kf-skupina"><b>Automatické a systémové úlohy</b>${filtre.filter(f => f.skupina === 'auto').map(fChip).join('')}</div>` : ''}
+      <div class="tl-rad"><button class="btn" data-kf-vsetko="1">Zobraziť všetko</button><button class="btn" data-kf-vsetko="0">Skryť všetko</button>
+        ${HK().rola === 'admin' ? '<a class="btn" href="#planovac">Upraviť časy úloh v Plánovači</a>' : ''}</div>
     </div>
     <div class="kal-mriezka"><div class="k-hl">Po</div><div class="k-hl">Ut</div><div class="k-hl">St</div><div class="k-hl">Št</div><div class="k-hl">Pi</div><div class="k-hl">So</div><div class="k-hl">Ne</div>${bunky}</div>
     <div class="kal-zoznam">
@@ -240,7 +320,29 @@ async function kalPresun(druh, id, novy) {
   } catch (e) { window.toast('Presun sa nepodaril: ' + e.message, 'chyba'); }
 }
 
-function kalDetail(druh, id) {
+function kalDetailSys(x) {
+  const telo = U.okno(x.typ, `
+    <p class="okno-nazov">${esc(x.n)}</p>
+    <p class="settings-hint">${esc(x.popis || '')}</p>
+    <p class="settings-hint" style="margin-top:8px">${x.celyDen ? 'Beží každú hodinu.' : `Naplánované: <b>${esc(U.casDlhy(x.kedy))}</b> (beh začne do 5 minút od tohto času).`}
+      ${x.posledny ? `<br>Naposledy prebehla ${esc(U.casDlhy(x.posledny))}.` : ''}${x.cakaSpustenie ? '<br><b>Čaká na ručné spustenie.</b>' : ''}</p>
+    <div class="tl-rad" style="margin-top:14px">
+      ${x.pevne ? '<a class="btn" href="#zdravie">Stav behov v Zdraví systému</a>'
+        : `<button class="btn btn-save" id="ks-spust"${x.cakaSpustenie ? ' disabled' : ''}><svg class="ix"><use href="#ix-play"></use></svg> Spustiť teraz</button>
+           <a class="btn" href="#planovac">Zmeniť časy v Plánovači</a>`}
+      <button class="btn" data-zavriet>Zavrieť</button></div>`);
+  const b = telo.querySelector('#ks-spust');
+  if (b) b.onclick = async () => { await window.runJobNow(x.id); window.toast('Úloha sa spustí do 5 minút.'); U.zavriOkno(); };
+  telo.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', () => U.zavriOkno()));
+}
+
+function kalDetail(druh, id, kedy) {
+  if (druh === 'sys') {
+    const d = new Date(Number(kedy)); const od = new Date(d); od.setHours(0, 0, 0, 0); const doD = new Date(d); doD.setHours(23, 59, 59);
+    const x = kalSystemove(od, doD).find(p => p.id === id && Math.abs(p.kedy - d) < 60000);
+    if (x) kalDetailSys(x);
+    return;
+  }
   const x = kalPolozky().find(p => p.druh === druh && p.id === id);
   if (!x) return;
   const telo = U.okno(x.typ, `
@@ -278,7 +380,7 @@ function kalDetail(druh, id) {
 }
 
 U.stranka('kalendar', {
-  obnov: ['hk:deals'],
+  obnov: ['hk:deals', 'hk:plan'],
   init(el) {
     kal.el = el;
     el.innerHTML = '<div id="kal-telo"></div>';
@@ -301,8 +403,19 @@ U.stranka('kalendar', {
         kalKresli();
         return;
       }
+      if (e.target.closest('[data-kal-filter]')) { kal.filterOtvoreny = !kal.filterOtvoreny; kalKresli(); return; }
+      const vs = e.target.closest('[data-kf-vsetko]');
+      if (vs) { kalUlozFilter(new Set(vs.dataset.kfVsetko === '1' ? kalFiltre().map(f => f.k) : [])); kalKresli(); return; }
       const c = e.target.closest('.k-chip');
-      if (c) kalDetail(c.dataset.druh, c.dataset.id);
+      if (c) kalDetail(c.dataset.druh, c.dataset.id, c.dataset.kedy);
+    });
+    el.addEventListener('change', e => {
+      const ch = e.target.closest('[data-kf]');
+      if (!ch) return;
+      const zap = kalZapnute();
+      if (ch.checked) zap.add(ch.dataset.kf); else zap.delete(ch.dataset.kf);
+      kalUlozFilter(zap);
+      kalKresli();
     });
     // Ťahanie myšou: deň sa zmení, hodina ostane.
     let tahany = null;
@@ -326,7 +439,7 @@ U.stranka('kalendar', {
       const d = e.target.closest('.k-den');
       if (!d || !tahany) return;
       e.preventDefault();
-      const x = kalPolozky().find(p => p.druh === tahany.druh && p.id === tahany.id);
+      const x = tahany.druh === 'sys' ? null : kalPolozky().find(p => p.druh === tahany.druh && p.id === tahany.id);
       tahany = null;
       if (!x) return;
       const [r, m, den] = d.dataset.den.split('-').map(Number);

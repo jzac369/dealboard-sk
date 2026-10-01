@@ -44,7 +44,7 @@
     { g: 'Obsah', p: [
       { id: 'dealy', n: 'Dealy', m: 1, k: 'schvaľovanie moderácia zamietnuť archív kvalita topovať žiar' },
       { id: 'pridat', n: 'Pridať z odkazu', d: 'Vlož adresu produktu – admin načíta názov, cenu a fotku a ty len skontroluješ.', k: 'nový deal url import vložiť' },
-      { id: 'kalendar', n: 'Kalendár', d: 'Naplánované dealy a príspevky. Presuň ich ťahaním myšou na iný deň.', m: 1, k: 'plán naplánované zverejnenie týždeň mesiac' },
+      { id: 'kalendar', n: 'Kalendár', d: 'Naplánované dealy, príspevky aj automatické úlohy. Filtrom "Čo zobraziť" vyberieš, čo vidieť; dealy a príspevky presunieš ťahaním na iný deň.', m: 1, k: 'plán naplánované zverejnenie týždeň mesiac' },
       { id: 'kody', n: 'Zľavové kódy', m: 1, k: 'kupóny coupon' },
       { id: 'komentare', n: 'Komentáre', m: 1, k: 'diskusia moderácia' },
       { id: 'platnost', n: 'Kontrola platnosti', d: 'Nefunkčné odkazy a skončené akcie na stránke – skontroluj ich jedným klikom.', k: 'exspirované mŕtve odkazy 404 skončené' },

@@ -66,7 +66,7 @@
 </script>
 
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="assets/admin/admin.css?v=20261001a">
+<link rel="stylesheet" href="assets/admin/admin.css?v=20261001b">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <!-- Ochrana proti clickjackingu: admin sa nesmie dať vložiť do rámca
      cudzej stránky, ktorá by ti cez neviditeľný rámec podstrčila klik
@@ -209,6 +209,8 @@
     get clicks() { return window.dealClicks || {}; },
     get visits() { return vsetkyNavstevy; },
     get topovane() { return topovane; },
+    get plan() { return plan; },
+    get planUlohy() { return PLAN_ULOHY; },
     logChange: (...a) => logChange(...a),
     escapeHtml: s => escapeHtml(s), escapeAttr: s => escapeAttr(s), safeUrl: u => safeUrl(u),
     kontrolaKvality: d => kontrolaKvality(d),
@@ -461,6 +463,7 @@
     onSnapshot(scheduleRef, (snap) => {
       plan = snap.exists() ? snap.data() : {};
       renderPlan();
+      hkUdalost('hk:plan');
     }, (e) => console.warn('Rozvrh sa nepodarilo načítať:', e));
   }
 
@@ -3468,12 +3471,12 @@
 </div>
 
 
-<script src="assets/admin/menu.js?v=20261001a"></script>
-<script type="module" src="assets/admin/spolocne.js?v=20261001a"></script>
-<script type="module" src="assets/admin/obsah.js?v=20261001a"></script>
-<script type="module" src="assets/admin/zarabanie.js?v=20261001a"></script>
-<script type="module" src="assets/admin/marketing.js?v=20261001a"></script>
-<script type="module" src="assets/admin/analytika.js?v=20261001a"></script>
-<script type="module" src="assets/admin/system.js?v=20261001a"></script>
+<script src="assets/admin/menu.js?v=20261001b"></script>
+<script type="module" src="assets/admin/spolocne.js?v=20261001b"></script>
+<script type="module" src="assets/admin/obsah.js?v=20261001b"></script>
+<script type="module" src="assets/admin/zarabanie.js?v=20261001b"></script>
+<script type="module" src="assets/admin/marketing.js?v=20261001b"></script>
+<script type="module" src="assets/admin/analytika.js?v=20261001b"></script>
+<script type="module" src="assets/admin/system.js?v=20261001b"></script>
 </body>
 </html>
