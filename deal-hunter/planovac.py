@@ -43,12 +43,17 @@ ZONA = ZoneInfo("Europe/Bratislava")
 
 # Úloha -> čo sa spustí. "lokalne" beží na tvojom počítači (ceny potravín),
 # cloudový plánovač ju preskočí a rozhoduje o nej refresh_food_prices.py.
+#
+# Okno 8 hodín: GitHub plánovač napriek cronu "*/15" v skutočnosti spúšťa
+# len raz za 4-5 hodín (bezplatné naplánované behy obmedzuje). S užším
+# oknom sa termín medzi dvoma behmi stratil a úloha v ten deň vôbec
+# nebežala. Takto prebehne vždy, v horšom prípade neskôr.
 ULOHY = {
-    "agent":     {"workflow": "deal-hunter.yml", "okno_h": 3},
-    "letenky":   {"workflow": "letenky.yml",     "okno_h": 3},
-    "ziar":      {"workflow": "denny-ziar.yml",  "okno_h": 3},
-    "facebook":  {"workflow": "facebook.yml",    "okno_h": 3},
-    "mapa":      {"workflow": "letenky-mapa.yml", "okno_h": 6},
+    "agent":     {"workflow": "deal-hunter.yml", "okno_h": 8},
+    "letenky":   {"workflow": "letenky.yml",     "okno_h": 8},
+    "ziar":      {"workflow": "denny-ziar.yml",  "okno_h": 8},
+    "facebook":  {"workflow": "facebook.yml",    "okno_h": 8},
+    "mapa":      {"workflow": "letenky-mapa.yml", "okno_h": 8},
     "potraviny": {"lokalne": True,               "okno_h": 12},
 }
 
