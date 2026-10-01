@@ -813,6 +813,80 @@
   window.archiveDeal = async function(id) { await setDealStatus(id, 'archived'); };
   window.restoreDeal = async function(id) { await setDealStatus(id, 'pending');  };
 
+  // ── Odložené zverejnenie ─────────────────────────────────────────
+  // Deal so stavom "planned" je schválený, ale na stránke sa objaví až
+  // v čase publishAt - prepne ho plánovač (kontroluje každých 5 minút).
+  // Pravidlá databázy púšťajú von len "approved", takže dovtedy ho
+  // návštevník nevidí. "scheduled" je iný prípad: deal sa v čase
+  // sendAt len POŠLE do Telegramu na schválenie.
+  function _casDealu(ts) {
+    const d = ts && ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
+    if (!d) return '';
+    const p = n => String(n).padStart(2, '0');
+    const dni = ['ne', 'po', 'ut', 'st', 'št', 'pi', 'so'];
+    return `${dni[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}. o ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function _doInputu(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function _rychlyCas(kedy) {
+    const d = new Date();
+    if (kedy === 'dnes18') { d.setHours(18, 0, 0, 0); }
+    else if (kedy === 'zajtra8') { d.setDate(d.getDate() + 1); d.setHours(8, 0, 0, 0); }
+    else if (kedy === 'zajtra18') { d.setDate(d.getDate() + 1); d.setHours(18, 0, 0, 0); }
+    else if (kedy === 'pi16') { const k = (5 - d.getDay() + 7) % 7 || 7; d.setDate(d.getDate() + k); d.setHours(16, 0, 0, 0); }
+    return d;
+  }
+
+  window.togglePlan = function(id) {
+    const el = document.getElementById('plan-' + id);
+    const otvor = !el.classList.contains('open');
+    el.classList.toggle('open', otvor);
+    if (otvor) {
+      const d = allDeals.find(x => x.id === id) || {};
+      const ts = d.status === 'scheduled' ? d.sendAt : d.publishAt;
+      const vychodzi = ts && ts.toDate ? ts.toDate() : _rychlyCas('zajtra8');
+      document.getElementById('plan-cas-' + id).value = _doInputu(vychodzi);
+    }
+  };
+  window.planRychlo = function(id, kedy) {
+    document.getElementById('plan-cas-' + id).value = _doInputu(_rychlyCas(kedy));
+  };
+
+  window.planDeal = async function(id) {
+    const hodnota = document.getElementById('plan-cas-' + id).value;
+    const kedy = hodnota ? new Date(hodnota) : null;
+    if (!kedy || isNaN(kedy)) { alert('Vyber dátum a čas.'); return; }
+    if (kedy.getTime() < Date.now() + 60000) {
+      alert('Čas zverejnenia musí byť v budúcnosti. Ak chceš deal zverejniť hneď, použi „Schváliť“.');
+      return;
+    }
+    const d = allDeals.find(x => x.id === id) || {};
+    try {
+      if (d.status === 'scheduled') {
+        // Deal čakajúci na odoslanie do Telegramu - meníme len čas odoslania.
+        await updateDoc(doc(db, "deals", id), { sendAt: kedy });
+        await logChange(id, 'planned', `${d.title || ''} — na schválenie ${_casDealu(kedy)}`);
+      } else {
+        await updateDoc(doc(db, "deals", id), { status: 'planned', publishAt: kedy });
+        await logChange(id, 'planned', `${d.title || ''} — zverejní sa ${_casDealu(kedy)}`);
+      }
+    } catch (e) {
+      alert('Nepodarilo sa uložiť: ' + e.message);
+    }
+  };
+
+  window.publishNow = async function(id) {
+    // Čas dealu = teraz, aby sa na stránke zaradil medzi najnovšie.
+    await updateDoc(doc(db, "deals", id), { status: 'approved', timestamp: serverTimestamp() });
+    await logChange(id, 'approved');
+  };
+  window.sendForApprovalNow = async function(id) {
+    await updateDoc(doc(db, "deals", id), { status: 'pending', timestamp: serverTimestamp() });
+    await logChange(id, 'pending');
+  };
+
   window.toggleExpiredDeal = async function(id, expired) {
     await updateDoc(doc(db, "deals", id), { expired });
     await logChange(id, expired ? 'expired' : 'unexpired');
@@ -1233,11 +1307,16 @@
 
   function render() {
     const pending  = allDeals.filter(d => d.status === 'pending');
+    // Naplánované: najbližšie hore - je to fronta, nie história.
+    const casPlanu = d => { const t = d.status === 'scheduled' ? d.sendAt : d.publishAt; return t && t.toMillis ? t.toMillis() : 0; };
+    const planned  = allDeals.filter(d => d.status === 'planned' || d.status === 'scheduled')
+      .sort((a, b) => casPlanu(a) - casPlanu(b));
     const approved = allDeals.filter(d => d.status === 'approved');
     const rejected = allDeals.filter(d => d.status === 'rejected');
     const archived = allDeals.filter(d => d.status === 'archived');
 
     document.getElementById('count-pending').textContent = pending.length;
+    document.getElementById('count-planned').textContent = planned.length;
     document.getElementById('count-approved').textContent = approved.length;
     document.getElementById('count-rejected').textContent = rejected.length;
     document.getElementById('count-archived').textContent = archived.length;
@@ -1246,7 +1325,7 @@
     renderAffiliateStats();
     updateDocTitle();
 
-    const map = { pending, approved, rejected, archived };
+    const map = { pending, planned, approved, rejected, archived };
     const list = map[activeTab] || pending;
 
     // Deal, ktorý medzitým zmenil stav, už v zozname nie je - nech sa
@@ -1284,7 +1363,9 @@
       pending:  '<span class="badge badge-pending">Na schválenie</span>',
       approved: '<span class="badge badge-approved">Schválené</span>',
       rejected: '<span class="badge badge-rejected">Zamietnuté</span>',
-      archived: '<span class="badge badge-archived">Archivované</span>'
+      archived: '<span class="badge badge-archived">Archivované</span>',
+      planned:  `<span class="badge badge-planned">🕒 Zverejní sa ${_casDealu(d.publishAt)}</span>`,
+      scheduled: `<span class="badge badge-planned">📨 Na schválenie pôjde ${_casDealu(d.sendAt)}</span>`,
     }[d.status] || '';
     const expiredBadge = d.expired ? '<span class="badge badge-expired">EXSPIROVANÉ</span>' : '';
 
@@ -1314,7 +1395,17 @@
         <div class="row-actions">
           ${d.status === 'pending' ? `
             <button class="btn btn-approve" onclick="approveDeal('${d.id}')">✓ Schváliť</button>
+            <button class="btn btn-plan" onclick="togglePlan('${d.id}')" title="Schváliť a zverejniť neskôr">🕒 Neskôr</button>
             <button class="btn btn-reject" onclick="rejectDeal('${d.id}')">✕ Zamietnuť</button>
+          ` : ''}
+          ${d.status === 'planned' ? `
+            <button class="btn btn-approve" onclick="publishNow('${d.id}')">Zverejniť hneď</button>
+            <button class="btn btn-plan" onclick="togglePlan('${d.id}')">🕒 Zmeniť čas</button>
+            <button class="btn btn-ic btn-restore" onclick="restoreDeal('${d.id}')" title="Vrátiť medzi dealy na schválenie">↩</button>
+          ` : ''}
+          ${d.status === 'scheduled' ? `
+            <button class="btn btn-approve" onclick="sendForApprovalNow('${d.id}')">Na schválenie hneď</button>
+            <button class="btn btn-plan" onclick="togglePlan('${d.id}')">🕒 Zmeniť čas</button>
           ` : ''}
           ${d.status === 'rejected' ? `
             <button class="btn btn-approve" onclick="approveDeal('${d.id}')">✓ Schváliť</button>
@@ -1335,6 +1426,20 @@
           <a class="btn btn-ic" href="${safeUrl(d.url)}" target="_blank" rel="noopener" title="Otvoriť ponuku u predajcu">↗</a>
           <button class="btn btn-ic btn-delete" onclick="deleteDeal('${d.id}')" title="Vymazať natrvalo">🗑</button>
         </div>
+      </div>
+      <div class="plan-panel" id="plan-${d.id}">
+        <div class="plan-panel-lab">${d.status === 'scheduled' ? 'Kedy poslať do Telegramu na schválenie' : 'Kedy deal zverejniť na stránke'}</div>
+        <div class="plan-panel-row">
+          <input type="datetime-local" id="plan-cas-${d.id}">
+          <span class="plan-rychlo">
+            <button type="button" onclick="planRychlo('${d.id}','dnes18')">Dnes 18:00</button>
+            <button type="button" onclick="planRychlo('${d.id}','zajtra8')">Zajtra 8:00</button>
+            <button type="button" onclick="planRychlo('${d.id}','zajtra18')">Zajtra 18:00</button>
+            <button type="button" onclick="planRychlo('${d.id}','pi16')">Piatok 16:00</button>
+          </span>
+          <button class="btn btn-approve" onclick="planDeal('${d.id}')">${d.status === 'scheduled' ? 'Uložiť čas' : (d.status === 'planned' ? 'Uložiť nový čas' : '✓ Schváliť na tento čas')}</button>
+        </div>
+        <div class="plan-panel-hint">Slovenský čas. Deal sa zverejní do 5 minút od zvoleného času, dovtedy ho návštevníci nevidia.</div>
       </div>
       <div class="preview-panel" id="preview-${d.id}">
         <div class="pv-note">Takto deal uvidí návštevník stránky.</div>
@@ -1506,7 +1611,7 @@
   const LOG_AKCIE = {
     approved: 'schválil', rejected: 'zamietol', archived: 'archivoval',
     pending: 'vrátil na schválenie', expired: 'označil exspirované',
-    unexpired: 'zrušil exspiráciu', deleted: 'vymazal', 'denny-ziar': 'denný žiar', ucty: 'účty – nastavenie', letenky: 'letenky – nastavenie',
+    unexpired: 'zrušil exspiráciu', deleted: 'vymazal', 'denny-ziar': 'denný žiar', planned: 'naplánoval', ucty: 'účty – nastavenie', letenky: 'letenky – nastavenie',
   };
   const LOG_OBDOBIE = { 1: 'den', 7: 'tyzden', 30: 'mesiac', 365: 'rok', 0: 'od-zaciatku' };
   let auditRows = [];
@@ -1746,6 +1851,20 @@
   .badge { font-size: .7rem; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
   .badge-pending  { background: #fff3cd; color: #8a6200; }
   .badge-approved { background: #e3f3e6; color: var(--green); }
+  .badge-planned  { background: #e8f0fe; color: #1a56c4; }
+  .btn-plan { background: #e8f0fe; color: #1a56c4; }
+  .plan-panel { display: none; margin: 10px 0 2px 34px; padding: 12px 14px; background: #f5f8ff;
+    border: 1px solid #d6e2fb; border-radius: 10px; }
+  .plan-panel.open { display: block; }
+  .plan-panel-lab { font-size: .8rem; font-weight: 700; margin-bottom: 8px; }
+  .plan-panel-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .plan-panel-row input { padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 6px; font: inherit; font-size: .85rem; }
+  .plan-rychlo { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+  .plan-rychlo button { font: inherit; font-size: .76rem; padding: 5px 9px; border-radius: 999px; cursor: pointer;
+    border: 1px solid #c9d8f7; background: #fff; color: #1a56c4; }
+  .plan-rychlo button:hover { background: #e8f0fe; }
+  .plan-panel-hint { font-size: .74rem; color: var(--muted); margin-top: 7px; }
+  @media (max-width: 600px) { .plan-panel { margin-left: 0; } }
   .badge-rejected { background: #fdeceb; color: var(--red); }
   .badge-archived { background: #ece7f7; color: #6b3fc9; }
   .badge-expired { background: #fdeceb; color: #C0392B; }
@@ -2019,6 +2138,7 @@
       </div>
       <div class="tabs">
         <button class="tab-btn active" onclick="setTab('pending', this)">Na schválenie (<span id="count-pending">0</span>)</button>
+        <button class="tab-btn" onclick="setTab('planned', this)">🕒 Naplánované (<span id="count-planned">0</span>)</button>
         <button class="tab-btn" onclick="setTab('approved', this)">Schválené (<span id="count-approved">0</span>)</button>
         <button class="tab-btn" onclick="setTab('rejected', this)">Zamietnuté (<span id="count-rejected">0</span>)</button>
         <button class="tab-btn" onclick="setTab('archived', this)">Archív (<span id="count-archived">0</span>)</button>

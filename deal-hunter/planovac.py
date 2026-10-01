@@ -208,6 +208,7 @@ def kontrola(db, nasucho: bool) -> None:
     logger.info("Plánovač — %s", teraz.strftime("%d.%m.%Y %H:%M"))
 
     odosli_naplanovane(db, teraz, nasucho)
+    zverejni_naplanovane(db, teraz, nasucho)
 
     spustit = co_spustit(rozvrh, teraz)
     if not spustit:
@@ -265,6 +266,45 @@ def slucka(db) -> None:
     else:
         # Nevadí - záložný cron reťaz znova naštartuje.
         logger.error("Nástupcu sa nepodarilo spustiť: %s", (r.stderr or r.stdout).strip()[:300])
+
+
+def zverejni_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
+    """
+    Dealy schválené s odloženým zverejnením (status "planned", čas
+    publishAt) v určený čas zverejní. Čas dealu sa nastaví na čas
+    zverejnenia, aby sa na stránke zaradil medzi najnovšie a aby ho
+    zdieľanie na Facebook nepovažovalo za starý.
+    """
+    from google.cloud import firestore
+    from google.cloud.firestore_v1.base_query import FieldFilter
+
+    try:
+        docs = list(db.collection("deals").where(filter=FieldFilter("status", "==", "planned")).stream())
+    except Exception as e:
+        logger.warning("Dealy na zverejnenie sa nepodarilo načítať: %s", e)
+        return
+    zverejnene = 0
+    for d in docs:
+        deal = d.to_dict() or {}
+        kedy = deal.get("publishAt")
+        if not kedy or kedy > teraz:
+            continue
+        if nasucho:
+            logger.info("Zverejnil by som %s: %s", d.id, deal.get("title"))
+            continue
+        d.reference.update({"status": "approved", "timestamp": firestore.SERVER_TIMESTAMP})
+        db.collection("audit_log").add({
+            "dealId": d.id, "action": "approved", "detail": deal.get("title"),
+            "by": "Plánovač (odložené zverejnenie)", "timestamp": firestore.SERVER_TIMESTAMP,
+        })
+        logger.info("Zverejnený naplánovaný deal: %s", deal.get("title"))
+        zverejnene += 1
+    if zverejnene:
+        # Stránka dealu hneď - bez nej by zdieľanie na Facebook čakalo
+        # na hodinové generovanie.
+        r = subprocess.run(["gh", "workflow", "run", "generate-deal-pages.yml"], capture_output=True, text=True)
+        if r.returncode != 0:
+            logger.warning("Generovanie stránok sa nepodarilo spustiť: %s", (r.stderr or r.stdout).strip()[:200])
 
 
 def main() -> int:
