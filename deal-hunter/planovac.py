@@ -210,6 +210,7 @@ def kontrola(db, nasucho: bool) -> None:
     odosli_naplanovane(db, teraz, nasucho)
     zverejni_naplanovane(db, teraz, nasucho)
     posli_pripomienky(db, teraz, nasucho)
+    spusti_facebook_naplanovane(db, teraz, nasucho)
 
     spustit = co_spustit(rozvrh, teraz)
     if not spustit:
@@ -243,7 +244,31 @@ DLZKA_SLUCKY_MIN = int(os.environ.get("PLANOVAC_SLUCKA_MIN", 340))
 
 
 def slucka(db) -> None:
+    import queue
     import time as _time
+    import admin_ulohy
+
+    # Úlohy z admina (načítanie odkazu, kontrola platnosti, spustenie
+    # workflow) prichádzajú živým odberom - vykonajú sa hneď počas
+    # čakania medzi kontrolami, nie až o päť minút.
+    fronta: queue.Queue = queue.Queue()
+    odber = admin_ulohy.sleduj(db, fronta)
+
+    def cakaj(sekundy: float) -> None:
+        do = _time.monotonic() + sekundy
+        while True:
+            zostava = do - _time.monotonic()
+            if zostava <= 0:
+                return
+            try:
+                ref = fronta.get(timeout=zostava)
+            except queue.Empty:
+                return
+            try:
+                admin_ulohy.spracuj(db, ref)
+            except Exception:
+                logger.exception("Úloha z admina zlyhala")
+
     koniec = _time.monotonic() + DLZKA_SLUCKY_MIN * 60
     while True:
         try:
@@ -259,8 +284,10 @@ def slucka(db) -> None:
         teraz = datetime.now(ZONA)
         dalsia = (teraz.replace(second=5, microsecond=0)
                   + timedelta(minutes=INTERVAL_MIN - teraz.minute % INTERVAL_MIN))
-        _time.sleep(max(30, (dalsia - teraz).total_seconds()))
+        cakaj(max(30, (dalsia - teraz).total_seconds()))
 
+    if odber:
+        odber.unsubscribe()
     r = subprocess.run(["gh", "workflow", "run", "planovac.yml"], capture_output=True, text=True)
     if r.returncode == 0:
         logger.info("Slučka končí, nástupca spustený.")
@@ -334,6 +361,45 @@ def zverejni_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
         r = subprocess.run(["gh", "workflow", "run", "generate-deal-pages.yml"], capture_output=True, text=True)
         if r.returncode != 0:
             logger.warning("Generovanie stránok sa nepodarilo spustiť: %s", (r.stderr or r.stdout).strip()[:200])
+
+
+def spusti_facebook_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
+    """
+    Príspevky naplánované v admine (kolekcia fb_posty) odosiela
+    facebook_post.py - len ten má token stránky. Plánovač ho spustí,
+    keď je niektorý príspevok na rade. Značka "spustene" bráni tomu,
+    aby sa workflow spúšťal každých 5 minút, kým beh ešte čaká v rade.
+    """
+    from google.cloud.firestore_v1.base_query import FieldFilter
+
+    try:
+        docs = list(db.collection("fb_posty").where(filter=FieldFilter("stav", "==", "naplanovany")).stream())
+    except Exception as e:
+        logger.warning("Naplánované príspevky sa nepodarilo načítať: %s", e)
+        return
+    na_rade = []
+    for d in docs:
+        p = d.to_dict() or {}
+        if not p.get("sendAt") or p["sendAt"] > teraz:
+            continue
+        spustene = p.get("spustene")
+        if spustene and teraz - spustene < timedelta(minutes=30):
+            continue
+        na_rade.append(d)
+    if not na_rade:
+        return
+    if nasucho:
+        logger.info("Spustil by som zdieľanie %d naplánovaných príspevkov.", len(na_rade))
+        return
+    r = subprocess.run(["gh", "workflow", "run", "facebook.yml", "-f", "rezim=naplanovane"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        logger.error("Zdieľanie naplánovaných príspevkov sa nepodarilo spustiť: %s",
+                     (r.stderr or r.stdout).strip()[:300])
+        return
+    for d in na_rade:
+        d.reference.update({"spustene": teraz})
+    logger.info("Spustené zdieľanie %d naplánovaných príspevkov.", len(na_rade))
 
 
 def main() -> int:

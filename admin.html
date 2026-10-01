@@ -66,6 +66,7 @@
 </script>
 
 <meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="assets/admin/admin.css?v=20261001a">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <!-- Ochrana proti clickjackingu: admin sa nesmie dať vložiť do rámca
      cudzej stránky, ktorá by ti cez neviditeľný rámec podstrčila klik
@@ -84,7 +85,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, where, orderBy, limit, setDoc, getDoc, addDoc, getDocs, serverTimestamp }
+  import { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, deleteDoc, increment, query, where, orderBy, limit, setDoc, getDoc, addDoc, getDocs, serverTimestamp, deleteField }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -127,14 +128,44 @@
   let unsubComments = null;
   let unsubCoupons = null;
 
+  // ── Role ──────────────────────────────────────────────────────────
+  // Majiteľ má prístup vždy. Ďalší ľudia sú v kolekcii admini/{email}
+  // s rolou "admin" alebo "moderator" (pridáva ich majiteľ v sekcii
+  // Administrátori). Rovnaké pravidlo platí v databáze - tu ide len o
+  // to, aby človek bez prístupu nevidel prázdny admin plný chýb.
+  const MAJITEL = 'foresttt11@outlook.com';
+  async function zistiRolu(user) {
+    const email = (user.email || '').toLowerCase();
+    if (!user.emailVerified) return null;
+    if (email === MAJITEL) return 'admin';
+    try {
+      const r = await getDoc(doc(db, 'admini', email));
+      const rola = r.exists() ? r.data().rola : null;
+      return ['admin', 'moderator'].includes(rola) ? rola : null;
+    } catch (e) { return null; }
+  }
+
   onAuthStateChanged(auth, async (user) => {
     const loginView = document.getElementById('login-view');
     const adminView = document.getElementById('admin-view');
     if (user && !user.isAnonymous) {
       // Čerstvý token: pravidlá vyžadujú overený e-mail a starý token
       // by ho mohol mať zapísaný ešte ako neoverený (platí hodinu).
-      const idTokenResult = await user.getIdTokenResult(true);
-      console.log('Auth debug: uid =', user.uid, 'isAnonymous =', user.isAnonymous, 'sign_in_provider =', idTokenResult.claims.firebase?.sign_in_provider, 'email =', user.email);
+      await user.getIdTokenResult(true);
+      const rola = await zistiRolu(user);
+      if (!rola) {
+        const err = document.getElementById('login-error');
+        err.textContent = user.emailVerified
+          ? 'Tento účet nemá prístup do administrácie.'
+          : 'Najprv over svoj e-mail (odkaz v e-maile od nás), potom sa prihlás znova.';
+        err.style.display = 'block';
+        await signOut(auth);
+        return;
+      }
+      HK.rola = rola;
+      HK.email = (user.email || '').toLowerCase();
+      HK.jeMajitel = HK.email === MAJITEL;
+      document.body.classList.toggle('rola-moderator', rola === 'moderator');
       loginView.style.display = 'none';
       adminView.style.display = 'block';
       document.getElementById('admin-email').textContent = user.email;
@@ -142,14 +173,18 @@
       startListeningComments();
       startListeningCoupons();
       startListeningSettings();
-      startListeningAffiliate();
+      startListeningTop();
       startListeningSchedule();
       startListeningLetenky();
-      startListeningUcty();
-      startListeningVisits();
-      loadMerchants();
       loadAuditLog();
-      loadClicks();
+      if (rola === 'admin') {
+        startListeningAffiliate();
+        startListeningUcty();
+        startListeningVisits();
+        loadMerchants();
+        loadClicks();
+      }
+      document.dispatchEvent(new CustomEvent('hk:prihlaseny', { detail: { rola } }));
     } else {
       console.log('Auth debug: no admin user. user =', user, 'isAnonymous =', user && user.isAnonymous);
       loginView.style.display = 'flex';
@@ -160,6 +195,38 @@
       if (unsubVisits) { unsubVisits(); unsubVisits = null; }
     }
   });
+
+  // ── Most pre ďalšie moduly (assets/admin/*.js) ───────────────────
+  // Nové sekcie sú v samostatných súboroch, aby sa admin dal udržiavať.
+  // Dostanú sa k databáze, k načítaným dealom a k spoločným funkciám
+  // cez window.HK; o zmenách dát sa dozvedia udalosťami hk:*.
+  const HK = window.HK = {
+    db, auth, rola: null, email: null, jeMajitel: false,
+    get deals() { return allDeals; },
+    get coupons() { return allCoupons; },
+    get comments() { return allComments; },
+    get clicks() { return window.dealClicks || {}; },
+    get visits() { return vsetkyNavstevy; },
+    get topovane() { return topovane; },
+    logChange: (...a) => logChange(...a),
+    escapeHtml: s => escapeHtml(s), escapeAttr: s => escapeAttr(s), safeUrl: u => safeUrl(u),
+    kontrolaKvality: d => kontrolaKvality(d),
+    rozsah: o => rozsahObdobia(o),
+    otvorDeal: id => window.otvorDeal(id),
+  };
+  const hkUdalost = (meno) => document.dispatchEvent(new CustomEvent(meno));
+  // Len na lokálnom počítači: ukážkové dáta na kontrolu vzhľadu bez prihlásenia.
+  if (location.hostname === 'localhost') HK._ukazka = (d) => {
+    HK.rola = 'admin'; HK.email = MAJITEL; HK.jeMajitel = true;
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('admin-view').style.display = 'block';
+    allDeals = d.deals || []; allCoupons = d.coupons || []; allComments = d.comments || [];
+    window.dealClicks = d.clicks || {};
+    render(); renderCoupons(); renderComments();
+    if (d.visits) renderVisitsStats(d.visits);
+    ['hk:deals', 'hk:coupons', 'hk:comments', 'hk:clicks'].forEach(hkUdalost);
+    document.dispatchEvent(new CustomEvent('hk:prihlaseny', { detail: { rola: 'admin' } }));
+  };
 
   // ── Bezpečné ID dokumentov ───────────────────────────────────────
   // ID dealov, kupónov a komentárov sa v admine vkladajú do onclick
@@ -179,6 +246,7 @@
     unsubCoupons = onSnapshot(q, (snap) => {
       allCoupons = snap.docs.filter(d => bezpecneId(d.id)).map(d => ({ ...d.data(), id: d.id }));
       renderCoupons();
+      hkUdalost('hk:coupons');
     });
   }
 
@@ -214,6 +282,157 @@
       document.getElementById('heat-detail').style.display = ziar ? 'block' : 'none';
     });
   }
+
+  // ── Topované dealy ──────────────────────────────────────────────────
+  // settings/topovane.dealy = { id dealu: čas do }. Stránka ich ukáže
+  // navrchu zoznamu s označením "Topované", kým čas neuplynie.
+  let topovane = {};
+  const topRef = doc(db, "settings", "topovane");
+  function startListeningTop() {
+    onSnapshot(topRef, (snap) => {
+      const m = (snap.exists() && snap.data().dealy) || {};
+      topovane = {};
+      Object.entries(m).forEach(([id, t]) => { if (t && t.toDate) topovane[id] = t.toDate(); });
+      render();
+    }, (e) => console.warn('Topované dealy sa nepodarilo načítať:', e));
+  }
+  const jeTop = id => topovane[id] && topovane[id].getTime() > Date.now();
+
+  window.topujDeal = async function(id, hodiny) {
+    const d = allDeals.find(x => x.id === id) || {};
+    try {
+      if (!hodiny) {
+        await updateDoc(topRef, { [`dealy.${id}`]: deleteField() });
+        await logChange(id, 'top-zrusene', d.title || null);
+        toast('Topovanie zrušené.');
+        return;
+      }
+      const doCasu = new Date(Date.now() + hodiny * 3600000);
+      await setDoc(topRef, { dealy: { [id]: doCasu } }, { merge: true });
+      // Staré, už neplatné záznamy upraceme, nech sa dokument nenafukuje.
+      const stare = Object.keys(topovane).filter(k => k !== id && !jeTop(k));
+      if (stare.length) await updateDoc(topRef, Object.fromEntries(stare.map(k => [`dealy.${k}`, deleteField()])));
+      await logChange(id, 'topovany', `${d.title || ''} — do ${_casDealu(doCasu)}`);
+      toast(`Deal je topovaný do ${_casDealu(doCasu)}.`);
+    } catch (e) {
+      alert('Nepodarilo sa uložiť topovanie: ' + e.message);
+    }
+  };
+  window.topMenu = function(id, btn) {
+    document.querySelectorAll('.top-pop').forEach(x => x.remove());
+    const pop = document.createElement('div');
+    pop.className = 'top-pop';
+    const volby = [[6, '6 hodín'], [24, '24 hodín'], [48, '2 dni'], [168, '7 dní']];
+    pop.innerHTML = `<div class="top-pop-lab">Topovať navrchu stránky na</div>` +
+      volby.map(([h, t]) => `<button type="button" data-h="${h}">${t}</button>`).join('') +
+      (jeTop(id) ? `<button type="button" data-h="0" class="zrusit">Zrušiť topovanie</button>` : '');
+    pop.addEventListener('click', e => {
+      const b = e.target.closest('[data-h]');
+      if (!b) return;
+      pop.remove();
+      window.topujDeal(id, Number(b.dataset.h));
+    });
+    btn.parentElement.appendChild(pop);
+    setTimeout(() => document.addEventListener('click', function zavri(e) {
+      if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('click', zavri); }
+    }), 0);
+  };
+
+  // ── Kontrola kvality pred schválením ─────────────────────────────
+  // Upozorní na to, čo sa pri schvaľovaní najčastejšie prehliadne.
+  // "chyba" = pred schválením sa admin ešte raz opýta, "pozor" = len info.
+  function kontrolaKvality(d) {
+    const p = [];
+    const teraz = Number(d.dealPrice) || 0, povodna = Number(d.originalPrice) || 0;
+    const zlava = povodna > teraz && teraz > 0 ? Math.round((1 - teraz / povodna) * 100) : (Number(d.discountPercent) || 0);
+    if (!/^https?:\/\//i.test(d.url || '')) p.push(['chyba', 'Chýba odkaz']);
+    else if (/[?&](q|query|search|s|hladat|text|search_query)=|\/(search|vyhladavanie|hladat|hledat|vysledky)(\/|\?|$)/i.test(d.url))
+      p.push(['pozor', 'Odkaz vedie na vyhľadávanie']);
+    const k = d.kontrola || {};
+    if (k.stav === 'mrtvy') p.push(['chyba', 'Nefunkčný odkaz']);
+    else if (k.stav === 'neiste') p.push(['pozor', 'Odkaz sa nepodarilo overiť']);
+    if (zlava > 80) p.push(['chyba', `Podozrivá zľava ${zlava} %`]);
+    if (!teraz && !d.zadarmo && !d.discountPercent) p.push(['chyba', 'Chýba cena']);
+    if (povodna && teraz && povodna <= teraz) p.push(['pozor', 'Pôvodná cena nie je vyššia']);
+    if (d.validUntilISO && d.validUntilISO < new Date().toISOString().slice(0, 10)) p.push(['chyba', 'Akcia už skončila']);
+    if (findDuplicate(d)) p.push(['chyba', 'Možná duplicita']);
+    if (!d.imageUrl) p.push(['pozor', 'Bez fotky']);
+    const t = (d.title || '').trim();
+    if (t.length < 12) p.push(['pozor', 'Krátky názov']);
+    else if (t.length > 140) p.push(['pozor', 'Dlhý názov']);
+    if (!d.category || d.category === 'Iné') p.push(['pozor', 'Bez kategórie']);
+    if (!(d.description || '').trim()) p.push(['pozor', 'Bez popisu']);
+    return p;
+  }
+  function kvalitaHtml(d) {
+    const p = kontrolaKvality(d);
+    const ukaz = ['pending', 'planned', 'scheduled'].includes(d.status) ? p : p.filter(x => x[0] === 'chyba');
+    if (!ukaz.length) return ['pending', 'planned', 'scheduled'].includes(d.status)
+      ? '<div class="kv"><span class="kv-ok"><svg class="ix"><use href="#ix-check"></use></svg> Kontrola kvality v poriadku</span></div>' : '';
+    return `<div class="kv">${ukaz.map(([typ, t]) => `<span class="kv-${typ}">${typ === 'chyba' ? '<svg class="ix"><use href="#ix-alert"></use></svg>' : ''}${escapeHtml(t)}</span>`).join('')}</div>`;
+  }
+
+  // ── Rýchla úprava názvu a ceny priamo v zozname ──────────────────
+  // Klik na názov alebo cenu ich zmení na pole; Enter uloží, Esc zruší.
+  // Kým sa píše, zoznam sa neprekresľuje (zmena z databázy by pole zmazala).
+  let rychlaUprava = false;
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('.ru');
+    if (!el || el.querySelector('input')) return;
+    const id = el.dataset.id, pole = el.dataset.ru;
+    const d = allDeals.find(x => x.id === id);
+    if (!d) return;
+    e.preventDefault();
+    const inp = document.createElement('input');
+    inp.className = 'ru-input';
+    if (pole === 'title') { inp.type = 'text'; inp.value = d.title || ''; }
+    else { inp.type = 'number'; inp.step = '0.01'; inp.min = '0'; inp.value = d.dealPrice ?? ''; inp.style.width = '96px'; }
+    el.replaceChildren(inp);
+    rychlaUprava = true;
+    inp.focus(); inp.select();
+    let hotovo = false;
+    const koniec = async (ulozit) => {
+      if (hotovo) return;
+      hotovo = true;
+      rychlaUprava = false;
+      if (ulozit) {
+        const v = inp.value.trim();
+        try {
+          if (pole === 'title' && v && v !== d.title) {
+            await updateDoc(doc(db, "deals", id), { title: v.slice(0, 199) });
+            await logChange(id, 'upraveny', `${v} — názov`);
+            toast('Názov uložený.');
+          } else if (pole === 'dealPrice' && v !== '' && Number(v) !== Number(d.dealPrice)) {
+            const c = Math.max(0, Math.round(Number(v) * 100) / 100);
+            const pov = Number(d.originalPrice) || 0;
+            await updateDoc(doc(db, "deals", id), { dealPrice: c,
+              discountPercent: pov > c && c > 0 ? Math.round((1 - c / pov) * 100) : 0 });
+            await logChange(id, 'upraveny', `${d.title || ''} — cena ${c.toFixed(2)} €`);
+            toast('Cena uložená.');
+          }
+        } catch (err) { alert('Nepodarilo sa uložiť: ' + err.message); }
+      }
+      render();
+    };
+    inp.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') { ev.preventDefault(); koniec(true); }
+      if (ev.key === 'Escape') koniec(false);
+    });
+    inp.addEventListener('blur', () => koniec(true));
+  });
+
+  // Otvorí deal v správnej záložke a posunie sa naň (vyhľadávanie, kalendár…).
+  window.otvorDeal = function(id) {
+    const d = allDeals.find(x => x.id === id);
+    if (!d) { toast('Deal sa nenašiel - možno bol vymazaný.'); return; }
+    location.hash = '#dealy';
+    const tab = d.status === 'scheduled' ? 'planned' : d.status;
+    activeTab = ['pending', 'planned', 'approved', 'rejected', 'archived'].includes(tab) ? tab : 'pending';
+    document.querySelectorAll('[data-page="dealy"] .tab-btn').forEach(b =>
+      b.classList.toggle('active', (b.getAttribute('onclick') || '').includes(`'${activeTab}'`)));
+    render();
+    setTimeout(() => window.skocNaDeal(id), 80);
+  };
 
   // ── Plánovač úloh ──────────────────────────────────────────────────
   // Rozvrh je v settings/schedule. Na GitHube ho každých 15 minút číta
@@ -832,29 +1051,81 @@
       : '<tr><td colspan="6" class="vis-empty">Zatiaľ žiadna návšteva s UTM značkou. Skús odkaz s <code>?utm_source=facebook&amp;utm_campaign=test</code>.</td></tr>';
   }
 
-  function renderVisitsStats(visits) {
+  // ── Obdobie (návštevnosť aj ďalšie analytické stránky) ───────────
+  // Dátumy sú v UTC (YYYY-MM-DD) - rovnako ich zapisuje stránka do
+  // visits.date, kliky_den a pouzitie. Predchádzajúce obdobie má rovnakú
+  // dĺžku a končí deň pred začiatkom vybraného.
+  let vsetkyNavstevy = [];
+  let visObd = { typ: '30', od: '', do: '' };
+  function _isoPosun(iso, dni) {
+    const d = new Date(iso + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + dni);
+    return d.toISOString().slice(0, 10);
+  }
+  function rozsahObdobia(o) {
     const dnes = new Date().toISOString().slice(0, 10);
-    const pred7 = (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10); })();
+    let od, doD = dnes;
+    if (o.typ === 'vlastne' && o.od && o.do) { od = o.od <= o.do ? o.od : o.do; doD = o.od <= o.do ? o.do : o.od; }
+    else if (o.typ === 'vsetko') od = (vsetkyNavstevy.map(v => v.date).filter(Boolean).sort()[0]) || _isoPosun(dnes, -29);
+    else od = _isoPosun(dnes, -(Math.max(1, Number(o.typ) || 30) - 1));
+    const dlzka = Math.round((Date.parse(doD) - Date.parse(od)) / 86400000) + 1;
+    return { od, do: doD, dlzka, predOd: _isoPosun(od, -dlzka), predDo: _isoPosun(od, -1) };
+  }
+  window.nastavObdobieNavstev = function(typ) {
+    visObd.typ = typ;
+    if (typ === 'vlastne') {
+      visObd.od = document.getElementById('vis-od').value;
+      visObd.do = document.getElementById('vis-do').value;
+      if (!visObd.od || !visObd.do) return;
+    }
+    document.querySelectorAll('#vis-obdobie [data-o]').forEach(b => b.classList.toggle('on', b.dataset.o === typ));
+    renderVisitsStats(vsetkyNavstevy);
+  };
+  function _zmena(teraz, predtym, opacne) {
+    if (!predtym && !teraz) return '<span class="kpi-d">–</span>';
+    if (!predtym) return '<span class="kpi-d nahor">nové</span>';
+    const pct = Math.round((teraz - predtym) / predtym * 100);
+    const dobre = opacne ? pct < 0 : pct > 0;
+    return `<span class="kpi-d ${pct === 0 ? '' : (dobre ? 'nahor' : 'nadol')}">${pct > 0 ? '▲' : (pct < 0 ? '▼' : '')} ${Math.abs(pct)} %</span>`;
+  }
 
-    document.getElementById('visits-today').textContent = visits.filter(v => v.date === dnes).length;
-    document.getElementById('visits-7d').textContent = visits.filter(v => v.date >= pred7).length;
-    document.getElementById('visits-total').textContent = visits.length;
+  function renderVisitsStats(vsetky) {
+    vsetkyNavstevy = vsetky;
+    hkUdalost('hk:visits');
+    const dnes = new Date().toISOString().slice(0, 10);
+    const pred7 = _isoPosun(dnes, -6);
+    // Pre Prehľad: dnes a 7 dní bez ohľadu na zvolené obdobie.
+    document.getElementById('visits-today').textContent = vsetky.filter(v => v.date === dnes).length;
+    document.getElementById('visits-7d').textContent = vsetky.filter(v => v.date >= pred7).length;
 
-    // Priemer počítame len z návštev, pri ktorých sa dĺžka stihla uložiť.
-    // Keby sme do priemeru rátali aj nuly, vyzeralo by to, že ľudia
-    // odchádzajú okamžite - pritom len zavreli kartu skôr než prvý zápis.
-    const sTrvanim = visits.filter(v => (v.duration || 0) > 0);
-    document.getElementById('visits-avg').textContent = sTrvanim.length
-      ? _trvanie(sTrvanim.reduce((a, v) => a + v.duration, 0) / sTrvanim.length)
-      : '–';
+    const r = rozsahObdobia(visObd);
+    const visits = vsetky.filter(v => v.date >= r.od && v.date <= r.do);
+    const pred = vsetky.filter(v => v.date >= r.predOd && v.date <= r.predDo);
+    const pop = document.getElementById('vis-obdobie-text');
+    if (pop) pop.textContent = `${r.od.slice(8)}.${r.od.slice(5, 7)}.${r.od.slice(0, 4)} – ${r.do.slice(8)}.${r.do.slice(5, 7)}.${r.do.slice(0, 4)} · porovnanie s ${r.predOd.slice(8)}.${r.predOd.slice(5, 7)}. – ${r.predDo.slice(8)}.${r.predDo.slice(5, 7)}.`;
 
-    // Vracajúci sa = rovnaké uid vo viac než jednej návšteve.
-    const podlaUid = {};
-    visits.forEach(v => { if (v.uid) podlaUid[v.uid] = (podlaUid[v.uid] || 0) + 1; });
-    const ludia = Object.keys(podlaUid).length;
-    const vracajuci = Object.values(podlaUid).filter(n => n > 1).length;
-    document.getElementById('visits-return').textContent = ludia
-      ? `${Math.round(vracajuci / ludia * 100)} %` : '–';
+    const kpi = (zoznam) => {
+      const s = _suhrn(zoznam.filter(v => v.uid));
+      const sCasom = zoznam.filter(v => (v.duration || 0) > 0);
+      const podlaUid = {};
+      zoznam.forEach(v => { if (v.uid) podlaUid[v.uid] = (podlaUid[v.uid] || 0) + 1; });
+      const ludia = Object.keys(podlaUid).length;
+      return {
+        navstev: zoznam.length, ludia, miera: s.miera, preklikov: s.preklikov,
+        cas: sCasom.length ? sCasom.reduce((a, v) => a + v.duration, 0) / sCasom.length : 0,
+        vracaju: ludia ? Math.round(Object.values(podlaUid).filter(n => n > 1).length / ludia * 100) : 0,
+      };
+    };
+    const a = kpi(visits), b = kpi(pred);
+    const box = (lab, hod, zm) => `<div class="visit-stat-box"><div class="visit-stat-number">${hod}</div>
+      <div class="visit-stat-label">${lab}</div>${zm}</div>`;
+    document.getElementById('vis-kpi').innerHTML =
+      box('Návštevy', a.navstev, _zmena(a.navstev, b.navstev)) +
+      box('Ľudia', a.ludia, _zmena(a.ludia, b.ludia)) +
+      box('Prekliky na dealy', a.preklikov, _zmena(a.preklikov, b.preklikov)) +
+      box('Preklikovosť', a.miera + ' %', _zmena(a.miera, b.miera)) +
+      box('Priemerný čas', a.cas ? _trvanie(a.cas) : '–', _zmena(Math.round(a.cas), Math.round(b.cas))) +
+      box('Vracajúci sa', a.vracaju + ' %', _zmena(a.vracaju, b.vracaju));
 
     renderMarketing(visits);
 
@@ -865,13 +1136,15 @@
     _pruhy('visits-by-device', _pocty(visits, 'device'));
     _pruhy('visits-by-landing', _pocty(visits, 'landing'));
 
-    // Po dňoch, posledných 30 - vrátane dní s nulou, aby bolo vidieť diery.
+    // Po dňoch vo zvolenom období (najviac posledných 90 dní) - vrátane
+    // dní s nulou, aby bolo vidieť diery.
     const dni = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      const k = d.toISOString().slice(0, 10);
+    const zacGraf = r.dlzka > 90 ? _isoPosun(r.do, -89) : r.od;
+    for (let k = zacGraf; k <= r.do; k = _isoPosun(k, 1)) {
       dni.push([k.slice(8) + '.' + k.slice(5, 7) + '.', visits.filter(v => v.date === k).length]);
     }
+    const nadpis = document.getElementById('vis-den-nadpis');
+    if (nadpis) nadpis.textContent = `Návštevy po dňoch${r.dlzka > 90 ? ' (posledných 90 dní obdobia)' : ''}`;
     const maxDen = Math.max(1, ...dni.map(d => d[1]));
     document.getElementById('visits-by-day').innerHTML =
       `<div class="vis-cols">` + dni.map(([popis, n]) => `
@@ -898,6 +1171,7 @@
     // Posledné návštevy
     const telo = document.getElementById('visits-recent');
     const posledne = visits.slice(0, 40);
+    if (!dni.length) dni.push(['', 0]);
     telo.innerHTML = posledne.length ? posledne.map(v => {
       const t = v.timestamp && v.timestamp.toDate ? v.timestamp.toDate() : null;
       const kedy = t ? `${String(t.getDate()).padStart(2,'0')}.${String(t.getMonth()+1).padStart(2,'0')}. ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}` : '–';
@@ -919,13 +1193,13 @@
     unsub = onSnapshot(q, (snap) => {
       allDeals = snap.docs.filter(d => bezpecneId(d.id)).map(d => ({ ...d.data(), id: d.id }));
       render();
+      hkUdalost('hk:deals');
     });
   }
 
   function startListeningComments() {
     const cq = query(collectionGroup(db, "comments"), orderBy("timestamp", "desc"));
     unsubComments = onSnapshot(cq, (snap) => {
-      console.log('Comments snapshot received. Doc count:', snap.docs.length);
       // ID z cesty dokumentu majú prednosť pred rovnomennými poľami v
       // dátach - tie by si mohol ktokoľvek vymyslieť.
       allComments = snap.docs.filter(d => bezpecneId(d.id) && bezpecneId(d.ref.parent.parent.id)).map(d => ({
@@ -933,8 +1207,8 @@
         id: d.id,
         dealId: d.ref.parent.parent.id,
       }));
-      console.log('allComments:', JSON.stringify(allComments));
       renderComments();
+      hkUdalost('hk:comments');
     }, (err) => {
       console.error('Comments collectionGroup error. Code:', err.code, 'Message:', err.message, 'Full error:', err);
     });
@@ -985,7 +1259,12 @@
     await logChange(id, status, title || null);
   }
 
-  window.approveDeal = async function(id) { await setDealStatus(id, 'approved'); };
+  window.approveDeal = async function(id) {
+    const d = allDeals.find(x => x.id === id);
+    const chyby = d ? kontrolaKvality(d).filter(x => x[0] === 'chyba').map(x => x[1]) : [];
+    if (chyby.length && !await potvrd(`Kontrola kvality: ${chyby.join(', ')}. Napriek tomu schváliť?`)) return;
+    await setDealStatus(id, 'approved');
+  };
   window.rejectDeal  = async function(id) { await setDealStatus(id, 'rejected'); };
   window.archiveDeal = async function(id) { await setDealStatus(id, 'archived'); };
   window.restoreDeal = async function(id) { await setDealStatus(id, 'pending');  };
@@ -1076,13 +1355,19 @@
   };
 
   // ── Komentáre ────────────────────────────────────────────────────────────
+  const _kom = (dealId, commentId) => {
+    const c = allComments.find(x => x.id === commentId && x.dealId === dealId) || {};
+    return `${c.nickname || 'Anonym'}: ${(c.text || '').slice(0, 80)}`;
+  };
   window.approveComment = async function(dealId, commentId) {
     await updateDoc(doc(db, "deals", dealId, "comments", commentId), { status: 'approved' });
     await updateDoc(doc(db, "deals", dealId), { comments: increment(1) });
+    logChange(dealId, 'kom-schvaleny', _kom(dealId, commentId));
   };
 
   window.rejectComment = async function(dealId, commentId, wasApproved) {
     await updateDoc(doc(db, "deals", dealId, "comments", commentId), { status: 'rejected' });
+    logChange(dealId, 'kom-zamietnuty', _kom(dealId, commentId));
     if (wasApproved) {
       await updateDoc(doc(db, "deals", dealId), { comments: increment(-1) });
     }
@@ -1090,6 +1375,7 @@
 
   window.deleteComment = async function(dealId, commentId, wasApproved) {
     if (!await potvrd('Naozaj natrvalo vymazať tento komentár?')) return;
+    logChange(dealId, 'kom-vymazany', _kom(dealId, commentId));
     await deleteDoc(doc(db, "deals", dealId, "comments", commentId));
     if (wasApproved) {
       await updateDoc(doc(db, "deals", dealId), { comments: increment(-1) });
@@ -1161,14 +1447,18 @@
   }
 
   // ── Zľavové kódy ─────────────────────────────────────────────────────────
+  const _kod = id => { const c = allCoupons.find(x => x.id === id) || {}; return `${c.code || ''} (${c.store || ''})`; };
   window.approveCoupon = async function(id) {
     await updateDoc(doc(db, "coupons", id), { status: 'approved' });
+    logChange(id, 'kod-schvaleny', _kod(id));
   };
   window.rejectCoupon = async function(id) {
     await updateDoc(doc(db, "coupons", id), { status: 'rejected' });
+    logChange(id, 'kod-zamietnuty', _kod(id));
   };
   window.archiveCoupon = async function(id) {
     await updateDoc(doc(db, "coupons", id), { status: 'archived' });
+    logChange(id, 'kod-archivovany', _kod(id));
   };
   window.restoreCoupon = async function(id) {
     await updateDoc(doc(db, "coupons", id), { status: 'pending' });
@@ -1178,6 +1468,7 @@
   };
   window.deleteCoupon = async function(id) {
     if (!await potvrd('Naozaj natrvalo vymazať tento kód?')) return;
+    await logChange(id, 'kod-vymazany', _kod(id));
     await deleteDoc(doc(db, "coupons", id));
   };
   window.saveCouponEdit = async function(id) {
@@ -1191,6 +1482,7 @@
       description: get('desc')
     };
     await updateDoc(doc(db, "coupons", id), updates);
+    logChange(id, 'kod-upraveny', `${updates.code} (${updates.store})`);
     alert('Uložené.');
   };
 
@@ -1344,6 +1636,7 @@
         ? Math.round((1 - dealPriceNum / originalPriceNum) * 100) : 0
     };
     await updateDoc(doc(db, "deals", id), updates);
+    logChange(id, 'upraveny', updates.title);
     alert('Uložené.');
   };
 
@@ -1483,6 +1776,7 @@
   }
 
   function render() {
+    if (rychlaUprava) return;
     const pending  = allDeals.filter(d => d.status === 'pending');
     // Naplánované: najbližšie hore - je to fronta, nie história.
     const casPlanu = d => { const t = d.status === 'scheduled' ? d.sendAt : d.publishAt; return t && t.toMillis ? t.toMillis() : 0; };
@@ -1565,8 +1859,10 @@
                title="Označiť pre hromadnú akciu">
         ${thumb}
         <div class="row-info">
-          <div class="row-title"><strong>${escapeHtml(d.title||'')}</strong> ${statusBadge} ${expiredBadge}</div>
-          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · <svg class="ix"><use href="#ix-pointer"></use></svg> ${(window.dealClicks||{})[d.id] || 0} preklikov · ${(d.dealPrice||0).toFixed(2)} € · <svg class="ix"><use href="#ix-user"></use></svg> ${escapeHtml(d.author||'neznámy')}</div>
+          <div class="row-title"><strong class="ru" data-ru="title" data-id="${d.id}" title="Klikni a uprav názov">${escapeHtml(d.title||'')}</strong> ${statusBadge} ${expiredBadge}
+            ${jeTop(d.id) ? `<span class="badge badge-top"><svg class="ix"><use href="#ix-star"></use></svg> Topované do ${_casDealu(topovane[d.id])}</span>` : ''}</div>
+          <div class="row-sub">${escapeHtml(d.store||'')} · ${escapeHtml(d.category||'')} · ${d.votes||0} hlasov · <svg class="ix"><use href="#ix-pointer"></use></svg> ${(window.dealClicks||{})[d.id] || 0} preklikov · <span class="ru" data-ru="dealPrice" data-id="${d.id}" title="Klikni a uprav cenu">${(Number(d.dealPrice)||0).toFixed(2)} €</span> · <svg class="ix"><use href="#ix-user"></use></svg> ${escapeHtml(d.author||'neznámy')}</div>
+          ${kvalitaHtml(d)}
           ${dupWarn}
         </div>
         <div class="row-actions">
@@ -1590,6 +1886,7 @@
           ` : ''}
           ${d.status === 'approved' ? `
             <button class="btn btn-reject" onclick="rejectDeal('${d.id}')">Skryť</button>
+            <span class="top-wrap"><button class="btn btn-ic${jeTop(d.id) ? ' btn-top-on' : ''}" onclick="topMenu('${d.id}', this)" title="Topovať navrchu stránky"><svg class="ix"><use href="#ix-star"></use></svg></button></span>
             <button class="btn btn-ic btn-archive" onclick="archiveDeal('${d.id}')" title="Archivovať"><svg class="ix"><use href="#ix-archive"></use></svg> </button>
             <button class="btn btn-ic ${d.expired ? 'btn-restore' : 'btn-expired'}"
                     onclick="toggleExpiredDeal('${d.id}', ${!d.expired})"
@@ -1637,6 +1934,7 @@
               <input type="file" id="e-imgfile-${d.id}" accept="image/*">
             </div>
             <input type="hidden" id="e-img-${d.id}" value="${escapeAttr(d.imageUrl)}">
+            <button type="button" class="btn" style="margin-top:8px" onclick="fotoEditor('${d.id}')"><svg class="ix"><use href="#ix-crop"></use></svg> Orezať, vymeniť fotku a náhľad na Facebooku</button>
           </div>
           <div class="full"><label>Popis</label><textarea id="e-desc-${d.id}" rows="2">${escapeHtml(d.description||'')}</textarea></div>
         </div>
@@ -1748,6 +2046,7 @@
       snap.forEach(d => { counts[d.id] = (d.data() || {}).count || 0; });
       window.dealClicks = counts;
       render();
+      hkUdalost('hk:clicks');
       loadLetenkyData();   // prekreslí zoznam dealov aj s načítanými preklikmi
     } catch (e) {
       console.warn('Prekliky sa nepodarilo načítať (chýbajú pravidlá pre deal_clicks?):', e);
@@ -1789,6 +2088,12 @@
     approved: 'schválil', rejected: 'zamietol', archived: 'archivoval',
     pending: 'vrátil na schválenie', expired: 'označil exspirované',
     unexpired: 'zrušil exspiráciu', deleted: 'vymazal', 'denny-ziar': 'denný žiar', affiliate: 'affiliate – nastavenie', planned: 'naplánoval', ucty: 'účty – nastavenie', letenky: 'letenky – nastavenie',
+    upraveny: 'upravil', topovany: 'topoval', 'top-zrusene': 'zrušil topovanie', pridany: 'pridal deal', foto: 'upravil fotku',
+    'kod-schvaleny': 'schválil kód', 'kod-zamietnuty': 'zamietol kód', 'kod-archivovany': 'archivoval kód',
+    'kod-vymazany': 'vymazal kód', 'kod-upraveny': 'upravil kód',
+    'kom-schvaleny': 'schválil komentár', 'kom-zamietnuty': 'zamietol komentár', 'kom-vymazany': 'vymazal komentár',
+    agent: 'agent – nastavenie', reklamy: 'reklamy – nastavenie', admini: 'administrátori', zaloha: 'obnova zo zálohy',
+    facebook: 'Facebook', financie: 'príjmy', provizie: 'provízie – import', utm: 'UTM odkazy',
   };
   const LOG_OBDOBIE = { 1: 'den', 7: 'tyzden', 30: 'mesiac', 365: 'rok', 0: 'od-zaciatku' };
   let auditRows = [];
@@ -1834,6 +2139,12 @@
       sel.innerHTML = '<option value="">Všetky akcie</option>' + akcie.map(a =>
         `<option value="${escapeAttr(a)}">${escapeHtml(LOG_AKCIE[a] || a)}</option>`).join('');
       if (akcie.includes(aktualna)) sel.value = aktualna;
+      const kto = document.getElementById('log-kto');
+      const ktoA = kto.value;
+      const ludia = [...new Set(auditRows.map(a => a.by).filter(Boolean))].sort();
+      kto.innerHTML = '<option value="">Všetci</option>' + ludia.map(a =>
+        `<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('');
+      if (ludia.includes(ktoA)) kto.value = ktoA;
 
       window.renderAuditLog();
     } catch (e) {
@@ -1844,9 +2155,11 @@
 
   function _logFiltrovane() {
     const akcia = document.getElementById('log-akcia').value;
+    const kto = document.getElementById('log-kto').value;
     const q = document.getElementById('log-hladaj').value.trim().toLowerCase();
     return auditRows.filter(a => {
       if (akcia && a.action !== akcia) return false;
+      if (kto && a.by !== kto) return false;
       if (!q) return true;
       return `${_logDeal(a)} ${a.by || ''} ${_logPoznamka(a)}`.toLowerCase().includes(q);
     });
@@ -2538,7 +2851,7 @@
 </head>
 <body>
 
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="ix-check" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10"/></symbol><symbol id="ix-x" viewBox="0 0 24 24"><path d="M18 6l-12 12 M6 6l12 12"/></symbol><symbol id="ix-pencil" viewBox="0 0 24 24"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4 M13.5 6.5l4 4"/></symbol><symbol id="ix-trash" viewBox="0 0 24 24"><path d="M4 7l16 0 M10 11l0 6 M14 11l0 6 M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12 M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></symbol><symbol id="ix-archive" viewBox="0 0 24 24"><path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10 M10 12l4 0"/></symbol><symbol id="ix-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0 M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"/></symbol><symbol id="ix-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0 M12 7v5l3 3"/></symbol><symbol id="ix-send" viewBox="0 0 24 24"><path d="M10 14l11 -11 M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"/></symbol><symbol id="ix-save" viewBox="0 0 24 24"><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2 M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M14 4l0 4l-6 0l0 -4"/></symbol><symbol id="ix-cloud" viewBox="0 0 24 24"><path d="M6.657 18c-2.572 0 -4.657 -2.007 -4.657 -4.483c0 -2.475 2.085 -4.482 4.657 -4.482c.393 -1.762 1.794 -3.2 3.675 -3.773c1.88 -.572 3.956 -.193 5.444 1c1.488 1.19 2.162 3.007 1.77 4.769h.99c1.913 0 3.464 1.56 3.464 3.486c0 1.927 -1.551 3.487 -3.465 3.487h-11.878"/></symbol><symbol id="ix-laptop" viewBox="0 0 24 24"><path d="M3 19l18 0 M5 6m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z"/></symbol><symbol id="ix-alert" viewBox="0 0 24 24"><path d="M12 9v4 M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z M12 16h.01"/></symbol><symbol id="ix-pointer" viewBox="0 0 24 24"><path d="M7.904 17.563a1.2 1.2 0 0 0 2.228 .308l2.09 -3.093l4.907 4.907a1.067 1.067 0 0 0 1.509 0l1.047 -1.047a1.067 1.067 0 0 0 0 -1.509l-4.907 -4.907l3.113 -2.09a1.2 1.2 0 0 0 -.309 -2.228l-13.582 -3.904l3.904 13.563z"/></symbol><symbol id="ix-user" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0 M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/></symbol><symbol id="ix-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2 M15 11l0 2 M15 17l0 2 M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2"/></symbol><symbol id="ix-settings" viewBox="0 0 24 24"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></symbol><symbol id="ix-chev" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6"/></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="ix-check" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10"/></symbol><symbol id="ix-x" viewBox="0 0 24 24"><path d="M18 6l-12 12 M6 6l12 12"/></symbol><symbol id="ix-pencil" viewBox="0 0 24 24"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4 M13.5 6.5l4 4"/></symbol><symbol id="ix-trash" viewBox="0 0 24 24"><path d="M4 7l16 0 M10 11l0 6 M14 11l0 6 M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12 M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></symbol><symbol id="ix-archive" viewBox="0 0 24 24"><path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10 M10 12l4 0"/></symbol><symbol id="ix-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0 M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"/></symbol><symbol id="ix-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0 M12 7v5l3 3"/></symbol><symbol id="ix-send" viewBox="0 0 24 24"><path d="M10 14l11 -11 M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"/></symbol><symbol id="ix-save" viewBox="0 0 24 24"><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2 M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M14 4l0 4l-6 0l0 -4"/></symbol><symbol id="ix-cloud" viewBox="0 0 24 24"><path d="M6.657 18c-2.572 0 -4.657 -2.007 -4.657 -4.483c0 -2.475 2.085 -4.482 4.657 -4.482c.393 -1.762 1.794 -3.2 3.675 -3.773c1.88 -.572 3.956 -.193 5.444 1c1.488 1.19 2.162 3.007 1.77 4.769h.99c1.913 0 3.464 1.56 3.464 3.486c0 1.927 -1.551 3.487 -3.465 3.487h-11.878"/></symbol><symbol id="ix-laptop" viewBox="0 0 24 24"><path d="M3 19l18 0 M5 6m0 1a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1z"/></symbol><symbol id="ix-alert" viewBox="0 0 24 24"><path d="M12 9v4 M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z M12 16h.01"/></symbol><symbol id="ix-pointer" viewBox="0 0 24 24"><path d="M7.904 17.563a1.2 1.2 0 0 0 2.228 .308l2.09 -3.093l4.907 4.907a1.067 1.067 0 0 0 1.509 0l1.047 -1.047a1.067 1.067 0 0 0 0 -1.509l-4.907 -4.907l3.113 -2.09a1.2 1.2 0 0 0 -.309 -2.228l-13.582 -3.904l3.904 13.563z"/></symbol><symbol id="ix-user" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0 M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/></symbol><symbol id="ix-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2 M15 11l0 2 M15 17l0 2 M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2"/></symbol><symbol id="ix-settings" viewBox="0 0 24 24"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></symbol><symbol id="ix-chev" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6"/></symbol><symbol id="ix-star" viewBox="0 0 24 24"><path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/></symbol><symbol id="ix-crop" viewBox="0 0 24 24"><path d="M8 5v10a1 1 0 0 0 1 1h10 M5 8h10a1 1 0 0 1 1 1v10"/></symbol><symbol id="ix-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6 M9 17v1a3 3 0 0 0 6 0v-1"/></symbol><symbol id="ix-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0 M21 21l-6 -6"/></symbol><symbol id="ix-plus" viewBox="0 0 24 24"><path d="M12 5l0 14 M5 12l14 0"/></symbol><symbol id="ix-refresh" viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4 M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></symbol><symbol id="ix-download" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2 M7 11l5 5l5 -5 M12 4l0 12"/></symbol><symbol id="ix-upload" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2 M7 9l5 -5l5 5 M12 4l0 12"/></symbol><symbol id="ix-play" viewBox="0 0 24 24"><path d="M7 4v16l13 -8z"/></symbol><symbol id="ix-external" viewBox="0 0 24 24"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6 M11 13l9 -9 M15 4h5v5"/></symbol><symbol id="ix-copy" viewBox="0 0 24 24"><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/></symbol><symbol id="ix-chevl" viewBox="0 0 24 24"><path d="M15 6l-6 6l6 6"/></symbol><symbol id="ix-chevr" viewBox="0 0 24 24"><path d="M9 6l6 6l-6 6"/></symbol><symbol id="ix-link" viewBox="0 0 24 24"><path d="M9 15l6 -6 M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464 M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463"/></symbol><symbol id="ix-calendar" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z M16 3v4 M8 3v4 M4 11h16"/></symbol><symbol id="ix-facebook" viewBox="0 0 24 24"><path d="M7 10v4h3v7h4v-7h3l1 -4h-4v-2a1 1 0 0 1 1 -1h3v-4h-3a5 5 0 0 0 -5 5v2h-3"/></symbol></svg>
 <div id="login-view">
   <div class="login-box">
     <h1>HenKukaj <span>Admin</span></h1>
@@ -2557,7 +2870,13 @@
     <button class="adm-burger" type="button" onclick="admMenu()" aria-label="Zobraziť alebo skryť menu"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l16 0 M4 12l16 0 M4 18l16 0"/></svg></button>
     <h1>HenKukaj <span>Admin</span></h1>
     <span class="adm-crumb" id="adm-crumb"></span>
+    <button class="adm-hladaj" id="adm-hladaj" type="button" title="Rýchle hľadanie (Ctrl+K)">
+      <svg class="ix"><use href="#ix-search"></use></svg><span>Hľadať…</span><kbd>Ctrl K</kbd></button>
     <div class="top-right">
+      <div class="adm-bell-wrap">
+        <button class="adm-bell" id="adm-bell" type="button" aria-label="Upozornenia"><svg class="ix"><use href="#ix-bell"></use></svg><span class="bell-n" id="adm-bell-n"></span></button>
+        <div class="bell-panel" id="adm-bell-panel" hidden></div>
+      </div>
       <a class="adm-web" href="./" target="_blank" rel="noopener" title="Otvoriť stránku"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6 M11 13l9 -9 M15 4h5v5"/></svg><span>Web</span></a>
       <span id="admin-email"></span>
       <button onclick="doLogout()">Odhlásiť sa</button>
@@ -2565,25 +2884,7 @@
   </header>
 
   <div class="adm-shell">
-    <nav class="adm-nav" id="adm-nav" aria-label="Sekcie adminu">
-      <a href="#prehlad" data-page="prehlad" title="Prehľad"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1 M5 16h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1 M15 12h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1 M15 4h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1"/></svg><span class="txt">Prehľad</span><span class="badge" id="nb-prehlad"></span></a>
-      <div class="grp">Obsah</div>
-      <a href="#dealy" data-page="dealy" title="Dealy"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235"/></svg><span class="txt">Dealy</span><span class="badge" id="nb-dealy"></span></a>
-      <a href="#kody" data-page="kody" title="Zľavové kódy"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l0 2 M15 11l0 2 M15 17l0 2 M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2"/></svg><span class="txt">Zľavové kódy</span><span class="badge" id="nb-kody"></span></a>
-      <a href="#komentare" data-page="komentare" title="Komentáre"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1"/></svg><span class="txt">Komentáre</span><span class="badge" id="nb-komentare"></span></a>
-      <div class="grp">Funkcie stránky</div>
-      <a href="#letenky" data-page="letenky" title="Letenky"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7"/></svg><span class="txt">Letenky</span><span class="badge" id="nb-letenky"></span></a>
-      <a href="#ucty" data-page="ucty" title="Účty a newsletter"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2 M16 3.13a4 4 0 0 1 0 7.75 M21 21v-2a4 4 0 0 0 -3 -3.85"/></svg><span class="txt">Účty a newsletter</span><span class="badge" id="nb-ucty"></span></a>
-      <div class="grp">Zarábanie</div>
-      <a href="#affiliate" data-page="affiliate" title="Affiliate"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1 M12 7v10"/></svg><span class="txt">Affiliate</span><span class="badge" id="nb-affiliate"></span></a>
-      <a href="#predajcovia" data-page="predajcovia" title="Predajcovia"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l18 0 M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4 M5 21l0 -10.15 M19 21l0 -10.15 M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4"/></svg><span class="txt">Predajcovia</span><span class="badge" id="nb-predajcovia"></span></a>
-      <div class="grp">Automatizácia</div>
-      <a href="#planovac" data-page="planovac" title="Plánovač úloh"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0 M12 7v5l3 3"/></svg><span class="txt">Plánovač úloh</span><span class="badge" id="nb-planovac"></span></a>
-      <div class="grp">Analytika</div>
-      <a href="#navstevnost" data-page="navstevnost" title="Návštevnosť"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z M15 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z M9 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z M4 20h14"/></svg><span class="txt">Návštevnosť</span><span class="badge" id="nb-navstevnost"></span></a>
-      <div class="grp">Systém</div>
-      <a href="#zaznam" data-page="zaznam" title="Záznam zmien"><svg class="ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8l0 4l2 2 M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></svg><span class="txt">Záznam zmien</span><span class="badge" id="nb-zaznam"></span></a>
-    </nav>
+    <nav class="adm-nav" id="adm-nav" aria-label="Sekcie adminu"></nav>
     <div class="adm-overlay" onclick="admMenu(false)"></div>
     <main class="adm-main">
   <div class="container">
@@ -2598,8 +2899,9 @@
 
     <!-- ── Sekcia: Dealy ──────────────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="dealy">
-      <h2 class="section-title">Dealy</h2>
-      <p class="page-desc">Schvaľovanie, plánovanie a správa dealov na stránke.</p>
+      <div class="pg-hlava"><h2 class="section-title">Dealy</h2>
+        <a class="btn btn-save len-admin" href="#pridat"><svg class="ix"><use href="#ix-plus"></use></svg> Pridať deal z odkazu</a></div>
+      <p class="page-desc">Schvaľovanie, plánovanie a správa dealov na stránke. Názov a cenu upravíš kliknutím priamo v zozname.</p>
       <details class="page-settings">
         <summary><svg class="ix"><use href="#ix-settings"></use></svg> Nastavenia sekcie <svg class="ix"><use href="#ix-chev"></use></svg></summary>
         <div class="page-settings-in">
@@ -2970,6 +3272,9 @@
         <select id="log-akcia" onchange="renderAuditLog()" aria-label="Akcia">
           <option value="">Všetky akcie</option>
         </select>
+        <select id="log-kto" onchange="renderAuditLog()" aria-label="Kto">
+          <option value="">Všetci</option>
+        </select>
         <input id="log-hladaj" type="search" placeholder="Hľadať v názve dealu alebo kto…"
                oninput="renderAuditLog()" aria-label="Hľadať">
         <button class="btn btn-edit" onclick="downloadAuditLog()">⬇ Stiahnuť CSV</button>
@@ -2986,31 +3291,21 @@
     <section class="admin-section admin-page" data-page="navstevnost">
       <h2 class="section-title">Návštevnosť</h2>
       <p class="page-desc">Odkiaľ ľudia chodia, čo ich zaujíma a ako dlho zostanú.</p>
-      <div class="visits-stats-row">
-        <div class="visit-stat-box">
-          <div class="visit-stat-number" id="visits-today">–</div>
-          <div class="visit-stat-label">Dnes</div>
-        </div>
-        <div class="visit-stat-box">
-          <div class="visit-stat-number" id="visits-7d">–</div>
-          <div class="visit-stat-label">Posledných 7 dní</div>
-        </div>
-        <div class="visit-stat-box">
-          <div class="visit-stat-number" id="visits-total">–</div>
-          <div class="visit-stat-label">Celkovo</div>
-        </div>
-        <div class="visit-stat-box">
-          <div class="visit-stat-number" id="visits-avg">–</div>
-          <div class="visit-stat-label">Priemerný čas na stránke</div>
-        </div>
-        <div class="visit-stat-box">
-          <div class="visit-stat-number" id="visits-return">–</div>
-          <div class="visit-stat-label">Vracajúci sa</div>
-        </div>
+      <div class="obdobie-bar" id="vis-obdobie">
+        <button type="button" data-o="1" onclick="nastavObdobieNavstev('1')">Dnes</button>
+        <button type="button" data-o="7" onclick="nastavObdobieNavstev('7')">7 dní</button>
+        <button type="button" data-o="30" class="on" onclick="nastavObdobieNavstev('30')">30 dní</button>
+        <button type="button" data-o="90" onclick="nastavObdobieNavstev('90')">90 dní</button>
+        <button type="button" data-o="vsetko" onclick="nastavObdobieNavstev('vsetko')">Všetko</button>
+        <span class="obdobie-vlastne"><input type="date" id="vis-od" aria-label="Od"> – <input type="date" id="vis-do" aria-label="Do">
+          <button type="button" data-o="vlastne" onclick="nastavObdobieNavstev('vlastne')">Použiť</button></span>
       </div>
+      <p class="obdobie-text" id="vis-obdobie-text"></p>
+      <span id="visits-today" hidden></span><span id="visits-7d" hidden></span>
+      <div class="visits-stats-row kpi-row" id="vis-kpi"></div>
       <div class="vis-grid">
         <div class="converter-box">
-          <h3>Návštevy po dňoch (30 dní)</h3>
+          <h3 id="vis-den-nadpis">Návštevy po dňoch</h3>
           <div id="visits-by-day"></div>
         </div>
         <div class="converter-box">
@@ -3114,70 +3409,12 @@
 </div>
 
 
-<script>
-  // ── Navigácia adminu ────────────────────────────────────────────────
-  (function () {
-    const STRANKY = [...document.querySelectorAll('.admin-page')].map(s => s.dataset.page);
-    const mobil = () => window.matchMedia('(max-width: 760px)').matches;
-    const tablet = () => window.matchMedia('(max-width: 1100px)').matches;
-    let ulozeneMini = null;
-    try { ulozeneMini = localStorage.getItem('adm_nav_mini'); } catch (e) {}
-    // Tablet: predvolene zbalené na ikony, kým si to človek nezmení.
-    if (ulozeneMini === '1' || (ulozeneMini === null && tablet() && !mobil())) document.body.classList.add('nav-mini');
-
-    window.admMenu = function (otvor) {
-      if (mobil()) {
-        document.body.classList.toggle('nav-open', otvor === undefined ? !document.body.classList.contains('nav-open') : otvor);
-        return;
-      }
-      const mini = !document.body.classList.contains('nav-mini');
-      document.body.classList.toggle('nav-mini', mini);
-      try { localStorage.setItem('adm_nav_mini', mini ? '1' : '0'); } catch (e) {}
-    };
-
-    function ukaz(k) {
-      if (!STRANKY.includes(k)) k = 'prehlad';
-      document.querySelectorAll('.admin-page').forEach(s => s.classList.toggle('on', s.dataset.page === k));
-      document.querySelectorAll('#adm-nav a').forEach(a => a.classList.toggle('on', a.dataset.page === k));
-      const a = document.querySelector(`#adm-nav a[data-page="${k}"]`);
-      document.getElementById('adm-crumb').textContent = a ? a.textContent.trim() : '';
-      document.body.classList.remove('nav-open');
-      try { localStorage.setItem('adm_strana', k); } catch (e) {}
-      window.scrollTo(0, 0);
-      if (k === 'prehlad') prehlad();
-    }
-
-    // ── Prehľad + odznaky v menu ──
-    const txt = id => { const el = document.getElementById(id); return el ? el.textContent.trim() : ''; };
-    const cislo = id => parseInt(txt(id), 10) || 0;
-    const ik = k => (document.querySelector(`#adm-nav a[data-page="${k}"] svg`) || {}).outerHTML || '';
-    function prehlad() {
-      const dealy = cislo('count-pending'), kody = cislo('coupcount-pending'), kom = cislo('ccount-pending');
-      [['dealy', dealy], ['kody', kody], ['komentare', kom]].forEach(([k, n]) => {
-        const b = document.getElementById('nb-' + k); if (b) b.textContent = n ? n : '';
-      });
-      const el = document.getElementById('ph-grid');
-      if (!el || !document.querySelector('.admin-page[data-page="prehlad"].on')) return;
-      const aff = window.HK_AFF || {}, plan = window.HK_PLAN || [];
-      const karta = (k, lab, num, sub, alert) => `<a class="ph-card" href="#${k}">
-          <div class="ph-lab">${ik(k)}${lab}</div><div class="ph-num${alert ? ' alert' : ''}">${num}</div><div class="ph-sub">${sub}</div></a>`;
-      el.innerHTML =
-        karta('dealy', 'Dealy na schválenie', dealy, `naplánované: <b>${cislo('count-planned')}</b> · zverejnené: <b>${cislo('count-approved')}</b>`, dealy > 0) +
-        karta('kody', 'Kódy na schválenie', kody, 'zľavové kódy od návštevníkov', kody > 0) +
-        karta('komentare', 'Komentáre na schválenie', kom, 'komentáre pri dealoch', kom > 0) +
-        karta('navstevnost', 'Návštevy dnes', txt('visits-today') || '–', `za 7 dní: <b>${txt('visits-7d') || '–'}</b>`) +
-        karta('affiliate', 'Affiliate', aff.zap ? 'Zapnuté' : 'Vypnuté',
-              `zarába <b>${aff.zarabaju ?? '–'} / ${aff.spolu ?? '–'}</b> dealov · kampaní: <b>${aff.domen ?? '–'}</b>`) +
-        `<a class="ph-card" href="#planovac"><div class="ph-lab">${ik('planovac')}Automatizácia</div>
-          <div class="ph-list">${plan.length ? plan.map(u => `${u.zap ? '' : '⏸ '}<b>${u.nazov}</b> <span>· ${u.kedy}</span>`).join('<br>') : 'načítavam…'}</div></a>`;
-    }
-    window.addEventListener('hashchange', () => ukaz(location.hash.slice(1)));
-    let start = location.hash.slice(1);
-    if (!start) { try { start = localStorage.getItem('adm_strana') || 'prehlad'; } catch (e) { start = 'prehlad'; } }
-    ukaz(start);
-    setInterval(prehlad, 2500);
-    window.addEventListener('load', () => setTimeout(prehlad, 1500));
-  })();
-</script>
+<script src="assets/admin/menu.js?v=20261001a"></script>
+<script type="module" src="assets/admin/spolocne.js?v=20261001a"></script>
+<script type="module" src="assets/admin/obsah.js?v=20261001a"></script>
+<script type="module" src="assets/admin/zarabanie.js?v=20261001a"></script>
+<script type="module" src="assets/admin/marketing.js?v=20261001a"></script>
+<script type="module" src="assets/admin/analytika.js?v=20261001a"></script>
+<script type="module" src="assets/admin/system.js?v=20261001a"></script>
 </body>
 </html>

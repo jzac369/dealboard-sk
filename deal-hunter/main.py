@@ -419,6 +419,19 @@ def run_feed_diagnostics() -> int:
 
 def main() -> int:
     logger.info("=== Deal Hunter — začiatok behu ===")
+
+    # Nastavenia z admin zóny (settings/agent) musia platiť ešte pred
+    # výberom zdrojov. Bez databázy (DRY_RUN bez kľúča) ostanú predvolené.
+    try:
+        import firestore_client as _fc0
+        from google.cloud import firestore as _fs
+        _db0 = _fc0.get_client()
+        config.pouzi_nastavenia(_db0.document("settings/agent").get().to_dict() or {})
+        # Pre admin: ktoré zdroje a feedy existujú (feed len doménou).
+        _db0.document("admin_info/agent").set({**config.info_pre_admin(),
+                                                "aktualizovane": _fs.SERVER_TIMESTAMP})
+    except Exception as e:
+        logger.warning("Nastavenia z admina sa nepodarilo načítať, platia predvolené: %s", e)
     logger.info("Zapnuté zdroje: %s", ", ".join(config.ENABLED_SCRAPERS))
 
     if config.FEED_DIAGNOSTICS:

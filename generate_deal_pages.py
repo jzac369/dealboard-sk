@@ -306,6 +306,21 @@ def main():
         os.makedirs(page_dir, exist_ok=True)
 
         vygenerovane.append(f"{slug}-{deal_id}")
+        # Fotka nahraná alebo orezaná v admine je v databáze ako data: URL.
+        # Facebook ani Google si ju z nej nevezmú - uložíme ju ako súbor
+        # vedľa stránky dealu a do og:image dáme jeho adresu.
+        obr = d.get("imageUrl") or ""
+        if obr.startswith("data:image/"):
+            import base64
+            try:
+                hlavicka, data = obr.split(",", 1)
+                pripona = "webp" if "webp" in hlavicka else ("png" if "png" in hlavicka else "jpg")
+                with open(os.path.join(page_dir, f"foto.{pripona}"), "wb") as f:
+                    f.write(base64.b64decode(data))
+                d = {**d, "imageUrl": f"{SITE_URL}/{OUTPUT_ROOT}/{slug}-{deal_id}/foto.{pripona}"}
+            except Exception as e:
+                logger.warning("Fotku dealu %s sa nepodarilo uložiť: %s", deal_id, e)
+                d = {**d, "imageUrl": None}
         html_content = render_deal_page(deal_id, d)
         with open(os.path.join(page_dir, "index.html"), "w", encoding="utf-8") as f:
             f.write(html_content)

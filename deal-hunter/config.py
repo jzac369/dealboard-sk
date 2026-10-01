@@ -177,3 +177,78 @@ FIX_URLS = os.environ.get("FIX_URLS", "false").lower() == "true"
 
 # Nezapisovať do Firestore, len vypísať, čo by sa zapísalo.
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
+
+
+# ── Nastavenia z admin zóny (settings/agent) ──────────────────────────
+# Hodnoty vyššie sú predvolené. Admin ich vie prepísať bez zásahu do
+# kódu; agent si ich načíta na začiatku každého behu. Každá hodnota sa
+# overí - nezmysel z admina (záporná cena, prázdny zoznam zdrojov) sa
+# ignoruje a ostane predvolená, aby agent nezastal.
+_CISLA = {
+    # kľúč v admine: (premenná, min, max)
+    "minZlava": ("MIN_DISCOUNT_PERCENT", 0, 95),
+    "maxZlava": ("MAX_DISCOUNT_PERCENT", 5, 100),
+    "minCena": ("MIN_DEAL_PRICE", 0, 100000),
+    "maxNaBeh": ("MAX_DEALS_PER_RUN", 1, 50),
+    "maxNaObchod": ("MAX_PER_STORE", 1, 50),
+    "maxNaKategoriu": ("MAX_PER_CATEGORY", 1, 50),
+    "podielObmedzenych": ("CAPPED_CATEGORY_SHARE", 0, 1),
+    "feedMinPokles": ("FEED_MIN_DROP_PERCENT", 0, 95),
+}
+_ZOZNAMY = {
+    "obmedzeneKategorie": "CAPPED_CATEGORIES",
+    "blokovaneKategorie": "BLOCKED_CATEGORIES",
+    "vylucenaSlova": "EXCLUDED_TITLE_WORDS",
+}
+PREDVOLENE = {k: globals()[v[0]] for k, v in _CISLA.items()}
+PREDVOLENE.update({k: list(globals()[v]) for k, v in _ZOZNAMY.items()})
+PREDVOLENE["zdroje"] = list(ENABLED_SCRAPERS)
+
+
+def pouzi_nastavenia(data: dict) -> list[str]:
+    """Prepíše hodnoty podľa admina. Vráti zoznam zmenených (do logu)."""
+    import logging
+    from urllib.parse import urlparse
+
+    g = globals()
+    zmenene = []
+    for kluc, (premenna, dole, hore) in _CISLA.items():
+        v = data.get(kluc)
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and dole <= v <= hore:
+            g[premenna] = int(v) if isinstance(g[premenna], int) else float(v)
+            zmenene.append(f"{premenna}={g[premenna]}")
+    for kluc, premenna in _ZOZNAMY.items():
+        v = data.get(kluc)
+        if isinstance(v, list) and all(isinstance(x, str) for x in v):
+            g[premenna] = [x.strip() for x in v if x.strip()][:50]
+            zmenene.append(f"{premenna}={g[premenna]}")
+    zdroje = data.get("zdroje")
+    if isinstance(zdroje, list) and zdroje:
+        g["ENABLED_SCRAPERS"] = [str(x) for x in zdroje]
+        zmenene.append(f"ENABLED_SCRAPERS={g['ENABLED_SCRAPERS']}")
+    vypnute = data.get("vypnuteFeedy")
+    if isinstance(vypnute, list) and vypnute:
+        pred = len(FEED_URLS)
+        g["FEED_URLS"] = [u for u in FEED_URLS
+                          if (urlparse(u).hostname or "").replace("www.", "") not in vypnute]
+        zmenene.append(f"vypnutých feedov: {pred - len(g['FEED_URLS'])}")
+    if zmenene:
+        logging.getLogger("config").info("Nastavenia z admina: %s", "; ".join(zmenene))
+    return zmenene
+
+
+def info_pre_admin() -> dict:
+    """Čo admin potrebuje na zobrazenie volieb: dostupné zdroje, feedy
+    (len doména - celá adresa obsahuje partnerské ID a patrí do secrets)
+    a predvolené hodnoty."""
+    from urllib.parse import urlparse
+
+    from models import VALID_CATEGORIES
+    from scrapers import AVAILABLE_SCRAPERS
+
+    return {
+        "zdroje": sorted(AVAILABLE_SCRAPERS.keys()),
+        "feedy": sorted({(urlparse(u).hostname or "").replace("www.", "") for u in FEED_URLS} - {""}),
+        "kategorie": list(VALID_CATEGORIES),
+        "predvolene": PREDVOLENE,
+    }

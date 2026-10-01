@@ -15,6 +15,11 @@ on:
         description: "Len diagnostika - zisti, preco Facebook odmieta prispevky"
         type: boolean
         default: false
+      rezim:
+        description: "auto = rozvrh (naplanovane aj automaticke), naplanovane = len prispevky naplanovane v admine"
+        type: choice
+        options: [auto, naplanovane]
+        default: auto
 
 concurrency:
   group: facebook
@@ -57,6 +62,7 @@ jobs:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           FB_DIAGNOSTICS: ${{ inputs.diag }}
+          FB_REZIM: ${{ inputs.rezim || 'auto' }}
 
       - name: Zmazanie kľúča
         if: always()

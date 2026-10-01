@@ -252,6 +252,8 @@ def posli(db) -> int:
 
         prispevok = (r.json() or {}).get("id", "")
         logger.info("Zdieľané: %s", d.get("title", "")[:60])
+        _do_historie(db, {"dealId": deal_id, "title": d.get("title", ""), "text": sprava(d),
+                          "link": odkaz, "postId": prispevok, "auto": True})
 
         try:
             db.collection(config.DEALS_COLLECTION).document(deal_id).update({
@@ -267,6 +269,90 @@ def posli(db) -> int:
         poslane += 1
 
     logger.info("Zdieľaných príspevkov: %d", poslane)
+    return poslane
+
+
+def _do_historie(db, zaznam: dict) -> None:
+    """História príspevkov pre admin (kolekcia fb_posty)."""
+    try:
+        db.collection("fb_posty").add({**zaznam, "stav": "odoslany",
+                                       "odoslane": firestore.SERVER_TIMESTAMP,
+                                       "vytvorene": firestore.SERVER_TIMESTAMP})
+    except Exception as e:
+        logger.warning("Príspevok sa nepodarilo zapísať do histórie: %s", e)
+
+
+def _uverejni(token: str, text: str, odkaz: str) -> tuple[str | None, str | None]:
+    """(id príspevku, chyba)."""
+    try:
+        r = requests.post(f"{API}/{STRANKA}/feed",
+                          data={"message": text, "link": odkaz, "access_token": token}, timeout=40)
+    except Exception as e:
+        return None, f"odoslanie zlyhalo: {e.__class__.__name__}"
+    if r.status_code != 200:
+        chyba = r.text
+        for tajne in (TOKEN, token):
+            if tajne:
+                chyba = chyba.replace(tajne, "***")
+        return None, f"HTTP {r.status_code}: {chyba[:300]}"
+    return (r.json() or {}).get("id", ""), None
+
+
+def posli_naplanovane(db) -> int:
+    """
+    Príspevky naplánované v admine (fb_posty so stavom "naplanovany").
+    Text je presne ten, ktorý si v admine schválil. Keď stránka dealu
+    ešte nie je vydaná, príspevok počká; po 24 hodinách sa označí ako
+    chyba, aby nevisel donekonečna.
+    """
+    if not (STRANKA and TOKEN):
+        logger.info("FB_PAGE_ID alebo FB_PAGE_TOKEN nie sú nastavené — naplánované príspevky čakajú.")
+        return 0
+    teraz = datetime.now(timezone.utc)
+    try:
+        docs = list(db.collection("fb_posty").where(filter=FieldFilter("stav", "==", "naplanovany")).stream())
+    except Exception as e:
+        logger.error("Naplánované príspevky sa nepodarilo načítať: %s", e)
+        return 0
+    na_rade = [d for d in docs if (d.to_dict() or {}).get("sendAt") and d.to_dict()["sendAt"] <= teraz]
+    if not na_rade:
+        logger.info("Žiadny naplánovaný príspevok nie je na rade.")
+        return 0
+    token = token_stranky()
+    if not token:
+        return 0
+    poslane = 0
+    for d in na_rade:
+        p = d.to_dict() or {}
+        odkaz = p.get("link") or ""
+        if p.get("dealId") and not odkaz:
+            deal = db.collection(config.DEALS_COLLECTION).document(p["dealId"]).get().to_dict() or {}
+            odkaz = adresa_dealu(p["dealId"], deal.get("title", ""))
+        cista = odkaz.split("?")[0]
+        if cista.startswith(SITE) and not _je_dostupna(cista):
+            if teraz - p["sendAt"] > timedelta(hours=24):
+                d.reference.update({"stav": "chyba", "chyba": "Stránka dealu sa do 24 hodín neobjavila."})
+            else:
+                d.reference.update({"spustene": None})
+                logger.info("Stránka %s ešte nie je vydaná — príspevok počká.", cista)
+            continue
+        if odkaz.startswith(SITE) and "utm_" not in odkaz:
+            odkaz += ("&" if "?" in odkaz else "?") + "utm_source=facebook&utm_medium=social&utm_campaign=planovane"
+        post_id, chyba = _uverejni(token, p.get("text") or "", odkaz)
+        if chyba:
+            logger.error("Facebook odmietol naplánovaný príspevok: %s", chyba)
+            d.reference.update({"stav": "chyba", "chyba": chyba})
+            continue
+        d.reference.update({"stav": "odoslany", "postId": post_id, "odoslane": firestore.SERVER_TIMESTAMP,
+                            "link": odkaz})
+        if p.get("dealId"):
+            try:
+                db.collection(config.DEALS_COLLECTION).document(p["dealId"]).update({
+                    "fbPosted": True, "fbPostId": post_id, "fbPostedAt": firestore.SERVER_TIMESTAMP})
+            except Exception as e:
+                logger.warning("Deal sa nepodarilo označiť ako zdieľaný: %s", e)
+        poslane += 1
+        logger.info("Naplánovaný príspevok zdieľaný: %s", (p.get("title") or "")[:60])
     return poslane
 
 
@@ -356,7 +442,12 @@ def main() -> int:
         return diagnostika()
     logger.info("=== Zdieľanie na Facebook ===")
     db = firestore_client.get_client()
-    posli(db)
+    # Naplánované z admina majú prednosť; automatické zdieľanie beží
+    # len pri behu z rozvrhu, nie keď plánovač spustí zdieľanie kvôli
+    # naplánovanému príspevku.
+    posli_naplanovane(db)
+    if os.environ.get("FB_REZIM", "auto") != "naplanovane":
+        posli(db)
     logger.info("=== Koniec ===")
     return 0
 

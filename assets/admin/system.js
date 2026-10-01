@@ -1,0 +1,427 @@
+// ── Systém: zdravie úloh, nastavenia agenta, záloha, administrátori ───
+const U = window.HKU, HK = () => window.HK, { fs, esc } = U;
+const REPO = 'jzac369/dealboard-sk';
+
+// ═══════════════════════════════════════════════════════════════════
+// Zdravie systému (GitHub Actions)
+// ═══════════════════════════════════════════════════════════════════
+// Repozitár je verejný, takže zoznam behov sa dá čítať bez tokenu (limit
+// 60 dotazov za hodinu z jednej IP - preto výsledok na 2 minúty držíme).
+// Spustenie a opakovanie behu robí plánovač (admin_ulohy), lebo na to
+// token treba a do stránky nepatrí.
+async function behy(znova) {
+  try {
+    const c = JSON.parse(sessionStorage.getItem('hk_behy') || 'null');
+    if (!znova && c && Date.now() - c.t < 120000) return c.d;
+  } catch (e) {}
+  const r = await fetch(`https://api.github.com/repos/${REPO}/actions/runs?per_page=100`, { headers: { Accept: 'application/vnd.github+json' } });
+  if (r.status === 403) throw new Error('GitHub dočasne obmedzil počet dotazov – skús o pár minút.');
+  if (!r.ok) throw new Error('GitHub odpovedal chybou ' + r.status);
+  const d = (await r.json()).workflow_runs || [];
+  try { sessionStorage.setItem('hk_behy', JSON.stringify({ t: Date.now(), d })); } catch (e) {}
+  return d;
+}
+const subor = run => (run.path || '').split('/').pop();
+const trvanie = run => {
+  const s = (new Date(run.updated_at) - new Date(run.run_started_at || run.created_at)) / 1000;
+  return s < 60 ? `${Math.round(s)} s` : `${Math.round(s / 60)} min`;
+};
+function stavBehu(run) {
+  if (run.status !== 'completed') return ['bezi', run.status === 'queued' ? 'v rade' : 'beží'];
+  if (run.conclusion === 'success') return ['ok', 'v poriadku'];
+  if (run.conclusion === 'cancelled' || run.conclusion === 'skipped') return ['nic', run.conclusion === 'cancelled' ? 'zrušený' : 'preskočený'];
+  return ['chyba', 'zlyhal'];
+}
+function upozorneniaZBehov(runs) {
+  const z = [];
+  const posledne = {};
+  runs.forEach(r => { const k = subor(r); if (!posledne[k]) posledne[k] = r; });
+  Object.values(posledne).forEach(r => {
+    if (stavBehu(r)[0] === 'chyba' && Date.now() - new Date(r.updated_at) < 3 * 86400000)
+      z.push({ text: `Úloha „${r.name}“ naposledy zlyhala (${U.pred(r.updated_at)})`, href: '#zdravie', typ: 'chyba' });
+  });
+  const pl = posledne['planovac.yml'];
+  if (pl && pl.status === 'completed' && Date.now() - new Date(pl.updated_at) > 40 * 60000)
+    z.push({ text: 'Plánovač nebeží – automatické úlohy sa nespúšťajú', href: '#zdravie', typ: 'chyba' });
+  return z;
+}
+async function skontrolujBehy() {
+  if (!HK() || HK().rola !== 'admin') return;
+  try { U.upozornenia('github', upozorneniaZBehov(await behy())); } catch (e) { /* bez siete ticho */ }
+}
+
+const zd = { ulohy: [] };
+U.stranka('zdravie', {
+  async init(el) {
+    el.innerHTML = `<div class="riadok-pole" style="margin-bottom:12px"><div style="flex:1" id="zd-suhrn"></div>
+        <button class="btn" id="zd-obnov"><svg class="ix"><use href="#ix-refresh"></use></svg> Obnoviť</button></div>
+      <div class="zd-mriezka" id="zd-ulohy"></div>
+      <div class="karta"><h3 class="karta-nadpis">Chyby za posledných 7 dní</h3><div id="zd-chyby"></div></div>
+      <div class="karta"><h3 class="karta-nadpis">Úlohy zadané z adminu</h3><div id="zd-admin"></div></div>
+      <p class="settings-hint">Spustenie a opakovanie behu vykoná plánovač do pár sekúnd. Podrobný záznam behu otvoríš ikonou vedľa neho.</p>`;
+    el.querySelector('#zd-obnov').addEventListener('click', e => U.akcia(e.currentTarget, () => this.show(el, true)));
+    el.addEventListener('click', async e => {
+      const b = e.target.closest('[data-zd]');
+      if (!b) return;
+      await U.akcia(b, async () => {
+        if (b.dataset.zd === 'spust') {
+          await U.uloha('spusti_workflow', { workflow: b.dataset.wf }, () => {});
+          window.toast('Úloha spustená. Objaví sa tu o chvíľu.');
+        } else {
+          await U.uloha('zopakuj_beh', { runId: b.dataset.run }, () => {});
+          window.toast('Neúspešné časti behu sa spúšťajú znova.');
+        }
+        setTimeout(() => this.show(el, true), 8000);
+      });
+    });
+    fs.onSnapshot(fs.query(U.kol('admin_ulohy'), fs.orderBy('vytvorene', 'desc'), fs.limit(15)), s => {
+      zd.ulohy = s.docs.map(d => ({ ...d.data(), id: d.id }));
+      const TYP = { nacitaj_url: 'Načítanie odkazu', kontrola_platnosti: 'Kontrola platnosti', spusti_workflow: 'Spustenie úlohy', zopakuj_beh: 'Opakovanie behu' };
+      const ST = { caka: ['badge-pending', 'čaká'], bezi: ['badge-planned', 'beží'], hotovo: ['badge-approved', 'hotovo'], chyba: ['badge-rejected', 'chyba'] };
+      const t = el.querySelector('#zd-admin');
+      if (t) t.innerHTML = zd.ulohy.length ? `<div class="tab-wrap"><table class="tab"><tbody>${zd.ulohy.map(u => {
+        const [tr, tx] = ST[u.stav] || ['badge-archived', u.stav];
+        return `<tr><td class="nowrap">${esc(U.cas(u.vytvorene))}</td><td>${esc(TYP[u.typ] || u.typ)}<small>${esc((u.vstup && (u.vstup.url || u.vstup.workflow || u.vstup.runId)) || '')}</small>
+          ${u.chyba ? `<small class="chyba-t">${esc(u.chyba)}</small>` : ''}</td><td><span class="badge ${tr}">${tx}</span></td></tr>`;
+      }).join('')}</tbody></table></div>` : '<p class="vis-empty">Zatiaľ žiadne.</p>';
+    }, () => {});
+  },
+  async show(el, znova) {
+    let runs;
+    try { runs = await behy(znova); }
+    catch (e) { el.querySelector('#zd-suhrn').innerHTML = `<div class="hlaska chyba">${esc(e.message)}</div>`; return; }
+    U.upozornenia('github', upozorneniaZBehov(runs));
+    const podla = {};
+    runs.forEach(r => { (podla[subor(r)] = podla[subor(r)] || []).push(r); });
+    const chybne = Object.values(podla).filter(z => stavBehu(z[0])[0] === 'chyba').length;
+    el.querySelector('#zd-suhrn').innerHTML = chybne
+      ? `<div class="hlaska chyba"><svg class="ix"><use href="#ix-alert"></use></svg> ${U.sklon(chybne, 'úloha má', 'úlohy majú', 'úloh má')} posledný beh neúspešný.</div>`
+      : '<div class="hlaska ok"><svg class="ix"><use href="#ix-check"></use></svg> Všetky úlohy naposledy prebehli v poriadku.</div>';
+    el.querySelector('#zd-ulohy').innerHTML = Object.entries(podla).sort((a, b) => a[1][0].name.localeCompare(b[1][0].name, 'sk')).map(([wf, z]) => {
+      const p = z[0], [st, stTxt] = stavBehu(p);
+      const dokoncene = z.filter(r => r.status === 'completed' && r.conclusion !== 'cancelled' && r.conclusion !== 'skipped').slice(0, 10);
+      const ok = dokoncene.filter(r => r.conclusion === 'success').length;
+      return `<div class="zd-karta zd-${st}">
+        <div class="zd-hlava"><b>${esc(p.name)}</b><span class="zd-stav">${stTxt}</span></div>
+        <div class="zd-info">Naposledy ${esc(U.pred(p.run_started_at || p.created_at))}${p.status === 'completed' ? ` · trvanie ${trvanie(p)}` : ''}
+          · ${p.event === 'schedule' ? 'podľa cronu' : (p.event === 'workflow_dispatch' ? 'spustené plánovačom / ručne' : esc(p.event))}</div>
+        <div class="zd-bodky" title="Posledných ${dokoncene.length} behov: ${ok} v poriadku">${dokoncene.slice().reverse().map(r => `<i class="${r.conclusion === 'success' ? 'ok' : 'chyba'}"></i>`).join('')}
+          <small>${dokoncene.length ? Math.round(ok / dokoncene.length * 100) + ' % úspešných' : ''}</small></div>
+        <div class="tl-rad">
+          ${['planovac.yml', 'pages-build-deployment'].includes(wf) || !wf.endsWith('.yml') ? '' : `<button class="btn" data-zd="spust" data-wf="${esc(wf)}"><svg class="ix"><use href="#ix-play"></use></svg> Spustiť</button>`}
+          ${st === 'chyba' ? `<button class="btn" data-zd="opakuj" data-run="${p.id}"><svg class="ix"><use href="#ix-refresh"></use></svg> Zopakovať</button>` : ''}
+          <a class="btn btn-ic" href="${esc(p.html_url)}" target="_blank" rel="noopener" title="Záznam behu na GitHube"><svg class="ix"><use href="#ix-external"></use></svg></a></div>
+      </div>`;
+    }).join('');
+    const tyzden = runs.filter(r => stavBehu(r)[0] === 'chyba' && Date.now() - new Date(r.updated_at) < 7 * 86400000);
+    el.querySelector('#zd-chyby').innerHTML = tyzden.length ? `<div class="tab-wrap"><table class="tab"><tbody>${tyzden.map(r => `<tr>
+        <td class="nowrap">${esc(U.cas(r.updated_at))}</td><td><b>${esc(r.name)}</b><small>${esc(r.display_title || '')}</small></td>
+        <td class="r nowrap"><button class="btn" data-zd="opakuj" data-run="${r.id}">Zopakovať</button>
+          <a class="btn btn-ic" href="${esc(r.html_url)}" target="_blank" rel="noopener" title="Záznam behu"><svg class="ix"><use href="#ix-external"></use></svg></a></td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="vis-empty">Žiadne chyby.</p>';
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Nastavenia agenta (settings/agent)
+// ═══════════════════════════════════════════════════════════════════
+const PREDVOLENE_AGENT = {
+  zdroje: ['zlacnene', 'feeds', 'shop_feeds'], minZlava: 25, maxZlava: 95, minCena: 15, maxNaBeh: 10, maxNaObchod: 4,
+  maxNaKategoriu: 3, podielObmedzenych: 0.2, feedMinPokles: 20, obmedzeneKategorie: ['Jedlo & Nápoje'], blokovaneKategorie: [],
+  vylucenaSlova: ['vzorka', 'vzorky', 'sample'],
+};
+const NAZVY_ZDROJOV = { zlacnene: 'zlacnene.sk – letáky a akcie', feeds: 'Produktové feedy (Dognet)', shop_feeds: 'Feedy e-shopov' };
+const CISLA = [
+  ['minZlava', 'Minimálna zľava', '%', 0, 95, 'Pod touto zľavou agent položku ani nezváži.'],
+  ['maxZlava', 'Maximálna zľava', '%', 5, 100, 'Nad ňou to býva chyba v dátach, nie deal.'],
+  ['minCena', 'Minimálna cena', '€', 0, 100000, 'Odfiltruje drobnosti typu jogurt za 1 €.'],
+  ['maxNaBeh', 'Návrhov na jeden beh', '', 1, 50, 'Pri 3 behoch denne je to denný strop × 3.'],
+  ['maxNaObchod', 'Najviac z jedného obchodu', 'na beh', 1, 50, 'Aby výber nevyzeral ako leták jedného reťazca.'],
+  ['maxNaKategoriu', 'Najviac z jednej kategórie', 'na beh', 1, 50, ''],
+  ['feedMinPokles', 'Pokles ceny vo feede', '%', 0, 95, 'O koľko musí cena klesnúť pod doteraz najnižšiu videnú.'],
+];
+U.stranka('agent', {
+  async init(el) {
+    const [n, i] = await Promise.all([fs.getDoc(U.ref('settings', 'agent')), fs.getDoc(U.ref('admin_info', 'agent')).catch(() => null)]);
+    const info = i && i.exists() ? i.data() : null;
+    const P = { ...PREDVOLENE_AGENT, ...((info && info.predvolene) || {}) };
+    const v = { ...P, vypnuteFeedy: [], ...(n.exists() ? n.data() : {}) };
+    const zdroje = (info && info.zdroje) || P.zdroje;
+    const feedy = (info && info.feedy) || [];
+    const kategorie = (info && info.kategorie) || ['Elektronika', 'Dom & Záhrada', 'Móda', 'Hračky', 'Šport', 'Jedlo & Nápoje', 'Cestovanie', 'Iné'];
+    el.innerHTML = `
+      ${info ? `<p class="settings-hint">Agent naposledy načítal nastavenia ${esc(U.pred(info.aktualizovane))}. Zmeny platia od jeho najbližšieho behu.</p>`
+        : '<div class="hlaska info">Zoznam zdrojov a feedov sa doplní po najbližšom behu agenta. Nastavenia nižšie môžeš upraviť už teraz.</div>'}
+      <form id="ag-form">
+        <div class="karta"><h3 class="karta-nadpis">Zdroje</h3>
+          <div class="ag-volby">${zdroje.map(z => `<label class="zaskrt"><input type="checkbox" name="zdroj" value="${esc(z)}"${v.zdroje.includes(z) ? ' checked' : ''}> ${esc(NAZVY_ZDROJOV[z] || z)}</label>`).join('')}</div>
+          ${feedy.length ? `<h4 class="ag-pod">Produktové feedy</h4><div class="ag-volby">${feedy.map(f => `<label class="zaskrt"><input type="checkbox" name="feed" value="${esc(f)}"${v.vypnuteFeedy.includes(f) ? '' : ' checked'}> ${esc(f)}</label>`).join('')}</div>
+            <p class="settings-hint">Celé adresy feedov sú v tajných nastaveniach GitHubu (obsahujú partnerské ID) – tu je len doména.</p>` : ''}
+        </div>
+        <div class="karta"><h3 class="karta-nadpis">Výber dealov</h3>
+          <div class="ag-cisla">${CISLA.map(([k, t, j, mn, mx, h]) => `<label><span>${t}</span>
+            <span class="ag-in"><input type="number" name="${k}" min="${mn}" max="${mx}" step="${k === 'minCena' ? '0.5' : '1'}" value="${v[k]}" placeholder="${P[k]}">${j ? `<em>${j}</em>` : ''}</span>
+            <small>${h}${Number(v[k]) !== Number(P[k]) ? ` Predvolené: ${P[k]}.` : ''}</small></label>`).join('')}
+            <label><span>Podiel obmedzených kategórií</span><span class="ag-in"><input type="number" name="podielObmedzenych" min="0" max="100" step="5" value="${Math.round(v.podielObmedzenych * 100)}"><em>%</em></span>
+              <small>Koľko z jedného behu smú tvoriť kategórie nižšie označené ako obmedzené.</small></label>
+          </div></div>
+        <div class="karta"><h3 class="karta-nadpis">Kategórie</h3>
+          <div class="tab-wrap"><table class="tab"><thead><tr><th>Kategória</th><th>Obmedzená (strop podielu)</th><th>Zakázaná</th></tr></thead><tbody>
+          ${kategorie.map(k => `<tr><td>${esc(k)}</td><td><input type="checkbox" name="obmedzena" value="${esc(k)}"${v.obmedzeneKategorie.includes(k) ? ' checked' : ''}></td>
+            <td><input type="checkbox" name="blokovana" value="${esc(k)}"${v.blokovaneKategorie.includes(k) ? ' checked' : ''}></td></tr>`).join('')}</tbody></table></div>
+          <label class="pole-lab" style="margin-top:12px">Vylúčené slová v názve (oddeľ čiarkou)</label>
+          <input type="text" name="slova" value="${esc(v.vylucenaSlova.join(', '))}" style="width:100%">
+        </div>
+        <div class="tl-rad"><button class="btn btn-save" type="submit"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť nastavenia</button>
+          <button class="btn" type="button" id="ag-reset">Vrátiť predvolené</button></div>
+      </form>`;
+    const form = el.querySelector('#ag-form');
+    const zaskrtnute = n => [...form.querySelectorAll(`[name="${n}"]:checked`)].map(x => x.value);
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const d = {
+        zdroje: zaskrtnute('zdroj'), vypnuteFeedy: feedy.filter(f => !zaskrtnute('feed').includes(f)),
+        obmedzeneKategorie: zaskrtnute('obmedzena'), blokovaneKategorie: zaskrtnute('blokovana'),
+        vylucenaSlova: form.elements.slova.value.split(',').map(x => x.trim()).filter(Boolean),
+        podielObmedzenych: Math.min(1, Math.max(0, (Number(form.elements.podielObmedzenych.value) || 0) / 100)),
+      };
+      CISLA.forEach(([k, , , mn, mx]) => { const x = Number(form.elements[k].value); d[k] = isNaN(x) || form.elements[k].value === '' ? P[k] : Math.min(mx, Math.max(mn, x)); });
+      if (!d.zdroje.length) { window.toast('Zapni aspoň jeden zdroj.', 'chyba'); return; }
+      if (d.minZlava >= d.maxZlava) { window.toast('Minimálna zľava musí byť menšia než maximálna.', 'chyba'); return; }
+      await U.akcia(form.querySelector('[type=submit]'), async () => {
+        await fs.setDoc(U.ref('settings', 'agent'), { ...d, upravene: fs.serverTimestamp(), upravil: HK().email });
+        HK().logChange('settings-agent', 'agent', 'Agent: ' + JSON.stringify(d).slice(0, 300));
+        window.toast('Uložené. Platí od najbližšieho behu agenta.');
+      });
+    });
+    el.querySelector('#ag-reset').addEventListener('click', async () => {
+      if (!await window.potvrd('Vrátiť všetky nastavenia agenta na predvolené hodnoty?')) return;
+      await fs.setDoc(U.ref('settings', 'agent'), { upravene: fs.serverTimestamp(), upravil: HK().email });
+      HK().logChange('settings-agent', 'agent', 'Agent: predvolené nastavenia');
+      window.toast('Vrátené na predvolené.');
+      U._stranky.agent.pripravene = null;
+      U._skus('agent');
+    });
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Záloha a obnova
+// ═══════════════════════════════════════════════════════════════════
+const KOLEKCIE = [
+  ['deals', 'Dealy', true], ['komentare', 'Komentáre k dealom', true], ['coupons', 'Zľavové kódy', true],
+  ['settings', 'Nastavenia stránky', true], ['merchants', 'Predajcovia', true], ['fb_posty', 'Príspevky na Facebook', true],
+  ['utm_odkazy', 'UTM odkazy', true], ['provizie', 'Provízie', true], ['financie', 'Príjmy', true],
+  ['admini', 'Administrátori', true], ['pripomienky', 'Pripomienky', true], ['audit_log', 'Záznam zmien (môže byť veľký)', false],
+  ['users', 'Registrovaní používatelia (osobné údaje!)', false],
+];
+// Časové pečiatky Firestore -> {__ts: ms} a späť, aby sa dali uložiť do JSON.
+const doJson = v => {
+  if (v && typeof v.toMillis === 'function') return { __ts: v.toMillis() };
+  if (v instanceof Date) return { __ts: v.getTime() };
+  if (Array.isArray(v)) return v.map(doJson);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, doJson(x)]));
+  return v;
+};
+const zJson = v => {
+  if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 1 && typeof v.__ts === 'number') return fs.Timestamp.fromMillis(v.__ts);
+  if (Array.isArray(v)) return v.map(zJson);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, zJson(x)]));
+  return v;
+};
+U.stranka('zaloha', {
+  init(el) {
+    let posledna = null;
+    try { posledna = localStorage.getItem('adm_zaloha'); } catch (e) {}
+    el.innerHTML = `
+      <div class="karta"><h3 class="karta-nadpis">Stiahnuť zálohu</h3>
+        <p class="settings-hint">${posledna ? `Posledná záloha z tohto prehliadača: <b>${esc(U.casDlhy(Number(posledna)))}</b>.` : 'Z tohto prehliadača ešte záloha nebola stiahnutá.'}
+          Súbor ulož mimo počítača (napr. na Disk Google alebo OneDrive).</p>
+        <div class="ag-volby">${KOLEKCIE.map(([k, n, z]) => `<label class="zaskrt"><input type="checkbox" name="zk" value="${k}"${z ? ' checked' : ''}> ${esc(n)}</label>`).join('')}</div>
+        <div class="tl-rad" style="margin-top:12px"><button class="btn btn-save" id="zl-stiahni"><svg class="ix"><use href="#ix-download"></use></svg> Stiahnuť zálohu (JSON)</button></div>
+        <div id="zl-stav"></div></div>
+      <div class="karta"><h3 class="karta-nadpis">Obnoviť zo zálohy</h3>
+        <p class="settings-hint">Vyber súbor zálohy. Najprv uvidíš, čo obsahuje, a vyberieš, čo obnoviť. „Doplniť chýbajúce“ nič neprepíše –
+          vráti len to, čo medzičasom zmizlo. „Prepísať“ vráti dokumenty presne do stavu zo zálohy.</p>
+        <label class="pv-drop"><svg class="ix"><use href="#ix-upload"></use></svg> Vybrať súbor zálohy<input type="file" id="zl-subor" accept=".json,application/json" hidden></label>
+        <div id="zl-obnova"></div></div>`;
+    el.querySelector('#zl-stiahni').addEventListener('click', e => U.akcia(e.currentTarget, async () => {
+      const vybrane = [...el.querySelectorAll('[name=zk]:checked')].map(x => x.value);
+      const st = el.querySelector('#zl-stav');
+      const z = { verzia: 1, stranka: 'henkukaj.sk', vytvorene: new Date().toISOString(), kolekcie: {}, komentare: [] };
+      for (const k of vybrane) {
+        st.innerHTML = `<div class="hlaska info"><span class="tocka"></span> Načítavam ${esc(k)}…</div>`;
+        if (k === 'komentare') {
+          const s = await fs.getDocs(fs.collectionGroup(U.db, 'comments'));
+          z.komentare = s.docs.map(d => ({ dealId: d.ref.parent.parent.id, id: d.id, data: doJson(d.data()) }));
+          continue;
+        }
+        try {
+          const s = await fs.getDocs(U.kol(k));
+          z.kolekcie[k] = Object.fromEntries(s.docs.map(d => [d.id, doJson(d.data())]));
+        } catch (err) { z.kolekcie[k] = {}; console.warn('Záloha', k, err); }
+      }
+      const pocty = Object.entries(z.kolekcie).map(([k, v]) => `${k}: ${Object.keys(v).length}`).join(', ') + (vybrane.includes('komentare') ? `, komentáre: ${z.komentare.length}` : '');
+      U.stiahni(`henkukaj-zaloha-${U.dnesIso()}.json`, JSON.stringify(z), 'application/json');
+      try { localStorage.setItem('adm_zaloha', String(Date.now())); } catch (err) {}
+      st.innerHTML = `<div class="hlaska ok">Záloha stiahnutá (${esc(pocty)}).</div>`;
+      U.upozornenia('zaloha', []);
+    }));
+    el.querySelector('#zl-subor').addEventListener('change', async e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      let z;
+      try { z = JSON.parse(await U.citajSubor(f)); } catch (err) { window.toast('Súbor nie je platná záloha.', 'chyba'); return; }
+      if (!z || !z.kolekcie) { window.toast('Súbor nie je záloha z HenKukaj adminu.', 'chyba'); return; }
+      const ob = el.querySelector('#zl-obnova');
+      const moze = k => k !== 'users' && (k !== 'admini' || HK().jeMajitel);
+      const riadky = Object.entries(z.kolekcie).map(([k, v]) => [k, Object.keys(v).length]);
+      if (z.komentare && z.komentare.length) riadky.push(['komentare', z.komentare.length]);
+      ob.innerHTML = `<p class="settings-hint">Záloha z <b>${esc(U.casDlhy(z.vytvorene))}</b>:</p>
+        <div class="ag-volby">${riadky.map(([k, n]) => `<label class="zaskrt"><input type="checkbox" name="zo" value="${k}"${moze(k) ? '' : ' disabled'}>
+          ${esc((KOLEKCIE.find(x => x[0] === k) || [k, k])[1])} – ${n}${moze(k) ? '' : ' (nedá sa obnoviť z adminu)'}</label>`).join('')}</div>
+        <div class="tl-rad" style="margin-top:10px"><label class="zaskrt"><input type="radio" name="rezim" value="doplnit" checked> Doplniť chýbajúce</label>
+          <label class="zaskrt"><input type="radio" name="rezim" value="prepisat"> Prepísať</label></div>
+        <div class="tl-rad" style="margin-top:10px"><button class="btn btn-save" id="zl-obnov">Obnoviť vybrané</button></div><div id="zl-ob-stav"></div>`;
+      ob.querySelector('#zl-obnov').addEventListener('click', ev => U.akcia(ev.currentTarget, async () => {
+        const vyb = [...ob.querySelectorAll('[name=zo]:checked')].map(x => x.value);
+        const rezim = ob.querySelector('[name=rezim]:checked').value;
+        if (!vyb.length) { window.toast('Vyber, čo obnoviť.', 'chyba'); return; }
+        if (!await window.potvrd(rezim === 'prepisat' ? 'Prepísať dokumenty stavom zo zálohy? Novšie zmeny v nich sa stratia.' : 'Doplniť chýbajúce dokumenty zo zálohy?')) return;
+        const st = ob.querySelector('#zl-ob-stav');
+        let zapisane = 0;
+        for (const k of vyb) {
+          st.innerHTML = `<div class="hlaska info"><span class="tocka"></span> Obnovujem ${esc(k)}…</div>`;
+          const polozky = k === 'komentare'
+            ? z.komentare.map(c => [['deals', c.dealId, 'comments', c.id], c.data])
+            : Object.entries(z.kolekcie[k]).map(([id, d]) => [[k, id], d]);
+          let existuju = new Set();
+          if (rezim === 'doplnit') {
+            if (k === 'komentare') {
+              const s = await fs.getDocs(fs.collectionGroup(U.db, 'comments'));
+              existuju = new Set(s.docs.map(d => d.ref.path));
+            } else {
+              const s = await fs.getDocs(U.kol(k));
+              existuju = new Set(s.docs.map(d => d.ref.path));
+            }
+          }
+          const naZapis = polozky.filter(([c]) => !existuju.has(c.join('/')));
+          for (let i = 0; i < naZapis.length; i += 400) {
+            const b = fs.writeBatch(U.db);
+            naZapis.slice(i, i + 400).forEach(([c, d]) => b.set(fs.doc(U.db, ...c), zJson(d)));
+            await b.commit();
+          }
+          zapisane += naZapis.length;
+        }
+        HK().logChange('zaloha', 'zaloha', `Obnova (${rezim}): ${vyb.join(', ')} – ${zapisane} dokumentov`);
+        st.innerHTML = `<div class="hlaska ok">Hotovo – obnovených ${zapisane} dokumentov.</div>`;
+      }));
+    });
+  },
+});
+// Pripomenutie zálohy v zvončeku, keď posledná je staršia než 30 dní.
+function pripomenZalohu() {
+  if (!HK() || HK().rola !== 'admin') return;
+  let p = null;
+  try { p = Number(localStorage.getItem('adm_zaloha')) || null; } catch (e) {}
+  U.upozornenia('zaloha', !p || Date.now() - p > 30 * 86400000
+    ? [{ text: p ? `Posledná záloha je ${U.pred(p).replace('pred ', '')} stará` : 'Ešte si nestiahol zálohu', href: '#zaloha', typ: 'cas' }] : []);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Administrátori
+// ═══════════════════════════════════════════════════════════════════
+const ROLY = { admin: 'Administrátor', moderator: 'Moderátor' };
+U.stranka('admini', {
+  async init(el) {
+    el.innerHTML = `
+      <div class="karta"><h3 class="karta-nadpis">Ľudia s prístupom</h3>
+        <div class="tab-wrap"><table class="tab"><thead><tr><th>E-mail</th><th>Rola</th><th>Pridaný</th><th class="n">Akcií za 30 dní</th><th></th></tr></thead><tbody id="ad-telo"></tbody></table></div>
+        <div id="ad-pridat"></div></div>
+      <div class="karta"><h3 class="karta-nadpis">Čo kto smie</h3>
+        <div class="tab-wrap"><table class="tab"><thead><tr><th></th><th>Moderátor</th><th>Administrátor</th></tr></thead><tbody>
+          <tr><td>Schvaľovať, upravovať a plánovať dealy, kódy a komentáre</td><td>áno</td><td>áno</td></tr>
+          <tr><td>Kalendár a Záznam zmien</td><td>áno</td><td>áno</td></tr>
+          <tr><td>Mazať dealy a kódy natrvalo</td><td>nie</td><td>áno</td></tr>
+          <tr><td>Nastavenia, affiliate, reklamy, agent, plánovač</td><td>nie</td><td>áno</td></tr>
+          <tr><td>Návštevnosť, provízie, príjmy, registrovaní používatelia</td><td>nie</td><td>áno</td></tr>
+          <tr><td>Pridávať a odoberať ľudí</td><td>nie</td><td>len majiteľ</td></tr></tbody></table></div>
+        <p class="settings-hint">Nový človek si najprv vytvorí účet na henkukaj.sk (Prihlásiť sa → Registrácia) a potvrdí e-mail.
+          Potom ho sem pridaj – do adminu sa prihlási tým istým e-mailom a heslom. Každá jeho zmena sa zapíše do Záznamu zmien.</p></div>`;
+    el.addEventListener('click', async e => {
+      const b = e.target.closest('[data-ad]');
+      if (!b) return;
+      const email = b.dataset.email;
+      if (b.dataset.ad === 'zaznam') {
+        location.hash = '#zaznam';
+        setTimeout(() => { const s = document.getElementById('log-kto'); if (s) { s.value = email; window.renderAuditLog(); } }, 300);
+      }
+      if (b.dataset.ad === 'odober' && await window.potvrd(`Odobrať prístup ${email}?`)) {
+        await fs.deleteDoc(U.ref('admini', email));
+        HK().logChange('admini', 'admini', `Odobratý prístup: ${email}`);
+        this.show(el);
+      }
+    });
+    el.addEventListener('change', async e => {
+      const s = e.target.closest('[data-rola]');
+      if (!s) return;
+      await fs.updateDoc(U.ref('admini', s.dataset.rola), { rola: s.value });
+      HK().logChange('admini', 'admini', `${s.dataset.rola}: rola ${s.value}`);
+      window.toast('Rola zmenená.');
+    });
+  },
+  async show(el) {
+    const [s, log] = await Promise.all([
+      fs.getDocs(U.kol('admini')),
+      fs.getDocs(fs.query(U.kol('audit_log'), fs.where('timestamp', '>=', new Date(Date.now() - 30 * 86400000)), fs.limit(5000))).catch(() => null),
+    ]);
+    const akcie = {};
+    if (log) log.forEach(d => { const b = (d.data().by || '').toLowerCase(); akcie[b] = (akcie[b] || 0) + 1; });
+    const maj = HK().jeMajitel;
+    const riadok = (email, rola, kedy, pevny) => `<tr><td><b>${esc(email)}</b></td>
+      <td>${pevny ? '<span class="badge badge-planned">Majiteľ</span>' : (maj ? `<select data-rola="${esc(email)}">${Object.entries(ROLY).map(([k, t]) => `<option value="${k}"${rola === k ? ' selected' : ''}>${t}</option>`).join('')}</select>` : esc(ROLY[rola] || rola))}</td>
+      <td>${esc(kedy ? U.den(kedy) : '–')}</td><td class="n">${akcie[email] || 0}</td>
+      <td class="r nowrap"><button class="btn" data-ad="zaznam" data-email="${esc(email)}">Záznam zmien</button>
+        ${!pevny && maj ? `<button class="btn btn-ic btn-delete" data-ad="odober" data-email="${esc(email)}" title="Odobrať prístup"><svg class="ix"><use href="#ix-trash"></use></svg></button>` : ''}</td></tr>`;
+    el.querySelector('#ad-telo').innerHTML = riadok('foresttt11@outlook.com', 'admin', null, true) +
+      s.docs.map(d => riadok(d.id, d.data().rola, d.data().pridane, false)).join('');
+    const p = el.querySelector('#ad-pridat');
+    if (!maj) { p.innerHTML = '<p class="settings-hint">Ľudí pridáva a odoberá len majiteľ.</p>'; return; }
+    if (p.dataset.hotovo) return;
+    p.dataset.hotovo = '1';
+    p.innerHTML = `<form class="riadok-pole" id="ad-form" style="margin-top:14px">
+        <input type="email" name="email" placeholder="e-mail človeka" required style="flex:2">
+        <select name="rola">${Object.entries(ROLY).map(([k, t]) => `<option value="${k}"${k === 'moderator' ? ' selected' : ''}>${t}</option>`).join('')}</select>
+        <button class="btn btn-save" type="submit"><svg class="ix"><use href="#ix-plus"></use></svg> Pridať</button></form>`;
+    p.querySelector('#ad-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = e.target.elements.email.value.trim().toLowerCase(), rola = e.target.elements.rola.value;
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { window.toast('Zadaj platný e-mail.', 'chyba'); return; }
+      await fs.setDoc(U.ref('admini', email), { rola, pridane: fs.serverTimestamp(), pridal: HK().email });
+      HK().logChange('admini', 'admini', `Pridaný ${email} (${ROLY[rola]})`);
+      e.target.reset();
+      window.toast(`${email} má prístup ako ${ROLY[rola].toLowerCase()}.`);
+      this.show(el);
+    });
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Zvonček: pripomienky na najbližší deň, chyby úloh, záloha
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('hk:prihlaseny', () => {
+  if (HK().rola !== 'admin') return;
+  skontrolujBehy();
+  pripomenZalohu();
+  setInterval(skontrolujBehy, 10 * 60000);
+  fs.onSnapshot(fs.query(U.kol('pripomienky'), fs.where('odoslane', '==', false)), s => {
+    const do24 = Date.now() + 86400000;
+    U.upozornenia('pripomienky', s.docs.map(d => d.data()).filter(p => U.naDatum(p.sendAt) && U.naDatum(p.sendAt).getTime() < do24)
+      .map(p => ({ text: `Pripomienka ${U.casDlhy(p.sendAt)}: ${(p.text || '').slice(0, 70)}`, href: '#kalendar', typ: 'cas' })));
+  }, () => {});
+  // Letenková mapa: staré ceny = úloha neprebehla.
+  fetch('assets/letenky/ceny.json?t=' + Date.now()).then(r => r.json()).then(d => {
+    const h = (Date.now() - new Date(d.vytvorene)) / 3600000;
+    U.upozornenia('letenky', h > 30 ? [{ text: `Ceny leteniek sú ${Math.round(h)} h staré`, href: '#zdravie', typ: 'chyba' }] : []);
+  }).catch(() => {});
+});

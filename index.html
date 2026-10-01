@@ -689,6 +689,7 @@
         window.normalizeText(d.store).includes(q) ||
         window.normalizeText(d.description).includes(q)
       );
+      window.hkHladanie('dealy', document.getElementById('search-input').value, window.allDeals.length);
       window.dealsHasMore = false;
     } catch (e) {
       console.error('Chyba pri vyhľadávaní dealov:', e);
@@ -887,8 +888,81 @@
     return snap.exists() ? snap.data() : null;
   };
 
+  // ── Meranie pre admin: hľadania, používanie funkcií, prekliky po dňoch ──
+  // Všetko je doplnok - zlyhaný zápis nesmie nič pokaziť, preto všade
+  // ticho .catch(). Zapisuje sa až po anonymnom prihlásení (pravidlá
+  // chcú request.auth), dovtedy sa udalosti len hromadia.
+  const _hkDnes = () => new Date().toISOString().slice(0, 10);
+  const _hkPrihlaseny = () => !!(auth.currentUser);
+
+  // Používanie: počty za deň v jednom dokumente pouzitie/{deň}. Zbierame
+  // ich v pamäti a posielame raz za 20 s a pri odchode - jeden zápis
+  // namiesto desiatok.
+  const _hkUdalosti = {};
+  window.hkUdalost = function(k) {
+    k = String(k || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9_]+/g, '_').slice(0, 40);
+    if (k) _hkUdalosti[k] = (_hkUdalosti[k] || 0) + 1;
+  };
+  function _hkOdosliUdalosti() {
+    const kluce = Object.keys(_hkUdalosti);
+    if (!kluce.length || !_hkPrihlaseny()) return;
+    const data = {};
+    kluce.forEach(k => { data[k] = increment(_hkUdalosti[k]); delete _hkUdalosti[k]; });
+    setDoc(doc(db, 'pouzitie', _hkDnes()), data, { merge: true }).catch(() => {});
+  }
+  setInterval(_hkOdosliUdalosti, 20000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _hkOdosliUdalosti(); });
+
+  // Hľadania: čo ľudia hľadajú a koľko toho našli. Zapíše sa až keď
+  // človek prestane písať, a to isté hľadanie len raz za návštevu.
+  const _hkHladane = new Set(), _hkHladanieT = {};
+  window.hkHladanie = function(sekcia, q, pocet) {
+    q = String(q || '').trim().toLowerCase().slice(0, 80);
+    clearTimeout(_hkHladanieT[sekcia]);
+    if (q.length < 2) return;
+    _hkHladanieT[sekcia] = setTimeout(() => {
+      const kluc = sekcia + '|' + q;
+      if (_hkHladane.has(kluc) || !_hkPrihlaseny()) return;
+      _hkHladane.add(kluc);
+      window.hkUdalost('hladanie_' + sekcia);
+      addDoc(collection(db, 'hladania'), { q, sekcia, pocet: Math.max(0, Math.round(pocet || 0)),
+        date: _hkDnes(), ts: serverTimestamp() }).catch(() => {});
+    }, 1800);
+  };
+
+  // Reklamné miesta zo správy v admine (settings/reklamy). Keď dokument
+  // neexistuje, ostáva banner napísaný priamo v stránke.
+  window.hkKlikReklama = function(id) {
+    window.hkUdalost('reklama_klik');
+    if (!_hkPrihlaseny()) return;
+    setDoc(doc(db, 'deal_clicks', 'reklama-' + id), { count: increment(1), lastClick: serverTimestamp() }, { merge: true }).catch(() => {});
+    setDoc(doc(db, 'kliky_den', _hkDnes()), { ['reklama-' + id]: increment(1) }, { merge: true }).catch(() => {});
+  };
+  getDoc(doc(db, 'settings', 'reklamy'))
+    .then(sn => { if (sn.exists() && window.hkReklamy) window.hkReklamy(sn.data()); })
+    .catch(() => {});
+
+  // Topované dealy (settings/topovane: { dealy: { id: čas do } }).
+  getDoc(doc(db, 'settings', 'topovane')).then(async sn => {
+    const m = (sn.exists() && sn.data().dealy) || {};
+    const teraz = Date.now();
+    const ids = Object.entries(m).filter(([, t]) => t && t.toMillis && t.toMillis() > teraz).map(([id]) => id).slice(0, 5);
+    const dealy = [];
+    for (const id of ids) {
+      try { const d = await getDoc(doc(db, 'deals', id)); if (d.exists()) dealy.push({ ...d.data(), id: d.id, _top: true }); }
+      catch (e) { /* deal už nie je schválený */ }
+    }
+    window.topDeals = dealy.filter(d => d.status === 'approved' && !d.expired);
+    if (window.topDeals.length && window.renderDealsList) window.renderDealsList();
+  }).catch(() => {});
+
   window.trackClick = function(dealId) {
     if (!dealId || dealId.startsWith('demo-')) return;
+    window.hkUdalost(dealId.startsWith('letenky-') ? 'letenky_rezervacia' : 'preklik_deal');
+    if (_hkPrihlaseny()) {
+      setDoc(doc(db, 'kliky_den', _hkDnes()), { [dealId]: increment(1) }, { merge: true }).catch(() => {});
+    }
     try {
       setDoc(doc(db, "deal_clicks", dealId),
              { count: increment(1), lastClick: serverTimestamp() },
@@ -1960,6 +2034,14 @@
      stĺpca. Štítok "Reklama" je ten istý ako pri AdSense, nech obe
      reklamy vyzerajú jednotne a ani jedna sa nepomýli s dealom. */
   .sponzor-box { margin: 0 0 16px; }
+  .reklama-hore { max-width: 1120px; margin: -4px auto 12px; padding: 0 16px; text-align: center; }
+  .reklama-hore img { display: inline-block; max-width: 100%; height: auto; border-radius: 10px; }
+  .reklama-hore .ad-label { display: block; text-align: left; }
+  /* topovaný deal (nastavuje admin) */
+  .deal-card.je-top { box-shadow: 0 0 0 2px var(--orange), var(--shadow, 0 2px 8px rgba(0,0,0,.06)); position: relative; }
+  .deal-card.je-top::before { content: "Topované"; position: absolute; top: -9px; left: 14px; z-index: 2;
+    background: var(--orange); color: #fff; font-size: .68rem; font-weight: 800; letter-spacing: .4px;
+    text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
   .sponzor-box img { display: block; width: 100%; height: auto; border-radius: 8px; }
 
   /* Rovnaké medzery v pravom stĺpci: každý prvok má 16 px pod sebou a
@@ -2965,6 +3047,7 @@ body.food-page { background: #FAF8F5; }
     </div>
   </section>
 </div>
+<div class="reklama-hore" id="reklama-hore" style="display:none"></div>
 <div class="container">
   <!-- Main: Deals -->
   <main id="deals-main">
@@ -3474,6 +3557,15 @@ body.food-page { background: #FAF8F5; }
     let list = window.allDeals;
     if (window.validOnly) list = list.filter(d => !d.expired);
     if (window.savedOnly) list = list.filter(d => window.savedDeals.has(d.id));
+    // Topované dealy (nastavuje admin na pár hodín) idú navrch - len v
+    // bežnom zozname, nie vo výsledkoch hľadania ani v uložených.
+    const top = (window.topDeals || []).filter(d =>
+      !window.dealsSearchMode && !window.savedOnly &&
+      (!window.activeCat || window.activeCat === 'Všetky' || d.category === window.activeCat));
+    if (top.length) {
+      const ids = new Set(top.map(d => d.id));
+      list = top.concat(list.filter(d => !ids.has(d.id)));
+    }
     return list;
   }
 
@@ -3498,7 +3590,9 @@ body.food-page { background: #FAF8F5; }
       // Reklamu vkladáme raz, po šiestej karte - nie do každého
       // "okna" pri donačítavaní, inak by ich v dlhom zozname pribúdalo
       // na každých šesť dealov a zoznam by sa zmenil na reklamný pás.
-      const karty = shown.map(dealCard);
+      const karty = shown.map(d => d._top
+        ? dealCard(d).replace('<div class="deal-card', '<div class="deal-card je-top')
+        : dealCard(d));
       const AD_PO = 6;
       if (karty.length > AD_PO) {
         karty.splice(AD_PO, 0,
@@ -3735,8 +3829,42 @@ body.food-page { background: #FAF8F5; }
   }
 
   // ── Controls ─────────────────────────────────────────────────────────────
+  // ── Reklamné miesta (spravujú sa v admine) ───────────────────────
+  // settings/reklamy.bannery: [{ id, nazov, miesto, obrazok, url, alt, zap,
+  // od, do, vaha }]. Na jedno miesto sa vyberie jeden banner, náhodne
+  // podľa váhy - tak sa striedajú. Bez dokumentu ostáva banner zo stránky.
+  window.hkReklamy = function(nast) {
+    const bannery = Array.isArray(nast.bannery) ? nast.bannery : null;
+    if (!bannery) return;
+    const dnes = new Date().toISOString().slice(0, 10);
+    const bezpecne = u => /^https:\/\//i.test(String(u || '')) ? escapeAttr(u) : '';
+    const vyber = miesto => {
+      const k = bannery.filter(b => b.zap && b.miesto === miesto && bezpecne(b.obrazok) && bezpecne(b.url)
+        && (!b.od || b.od <= dnes) && (!b.do || b.do >= dnes));
+      const spolu = k.reduce((a, b) => a + Math.max(1, Number(b.vaha) || 1), 0);
+      let r = Math.random() * spolu;
+      return k.find(b => (r -= Math.max(1, Number(b.vaha) || 1)) < 0) || null;
+    };
+    const html = b => `<span class="ad-label">Reklama</span>
+      <a href="${bezpecne(b.url)}" rel="nofollow sponsored noopener" target="_blank" onclick="hkKlikReklama(${jsArg(String(b.id))})">
+        <img src="${bezpecne(b.obrazok)}" alt="${escapeAttr(b.alt || b.nazov || 'Reklama')}" loading="lazy"></a>`;
+    const bok = document.querySelector('.sponzor-box');
+    if (bok) {
+      const b = vyber('sidebar');
+      bok.innerHTML = b ? html(b) : '';
+      bok.style.display = b ? '' : 'none';
+    }
+    const hore = document.getElementById('reklama-hore');
+    if (hore) {
+      const b = vyber('hore');
+      hore.innerHTML = b ? html(b) : '';
+      hore.style.display = b ? '' : 'none';
+    }
+  };
+
   window.setCategory = function(cat) {
     window.activeCat = cat;
+    if (window.hkUdalost) window.hkUdalost('kategoria');
     document.querySelectorAll('#cat-list button').forEach(b => {
       // Podla data-cat, nie podla textu. Text uz emoji nema, takze
       // odstrihnutie prveho slova by z "Dom & Záhrada" spravilo "& Záhrada".
@@ -3748,6 +3876,7 @@ body.food-page { background: #FAF8F5; }
 
   window.setSort = function(sort, btn) {
     window.activeSort = sort;
+    if (window.hkUdalost) window.hkUdalost('triedenie_' + sort);
     document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const searchVal = document.getElementById('search-input').value.trim();
@@ -3770,6 +3899,7 @@ body.food-page { background: #FAF8F5; }
 
   window.setMainSection = function(section, btn) {
     nastavHlavicku(section);
+    if (window.hkUdalost) window.hkUdalost('zalozka_' + section);
     document.querySelectorAll('.main-section-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     // Na telefóne sa lišta posúva do strany. Bez tohto by človek klikol
@@ -3931,6 +4061,7 @@ body.food-page { background: #FAF8F5; }
     }, 50);
   }
   window.otvorUcet = function(pohlad) {
+    if (window.hkUdalost) window.hkUdalost('ucet_otvorenie');
     ucSprava = '';
     ucPohlad = pohlad || (window.HK_UCET.user ? 'ucet' : 'prihlasenie');
     otvorUcetOkno();
@@ -4459,6 +4590,7 @@ body.food-page { background: #FAF8F5; }
     const b = e.target.closest('.lt-chip');
     if (!b) return;
     const k = b.dataset.k;
+    if (window.hkUdalost) window.hkUdalost('letenky_filter_' + k);
     let v = b.dataset.v;
     if (k === 'cena') v = Number(v);
     if (k === 'z') {
@@ -4983,6 +5115,7 @@ body.food-page { background: #FAF8F5; }
       return sb - sa;
     });
 
+    if (f.q && window.hkHladanie) window.hkHladanie('potraviny', f.q, visible.length);
     document.getElementById('food-body').innerHTML =
       basketCard(items) + listCard(sorted, f, visible.length !== items.length);
     // Reklama až pod poslednou kartou panela, nikdy medzi cenami.
@@ -5605,6 +5738,7 @@ body.food-page { background: #FAF8F5; }
 
   // Kopírovanie z rámčeka s kódom (iné tlačidlo než pôvodné copyCoupon).
   window.kdKopiruj = function (id, kod, el) {
+    if (window.hkUdalost) window.hkUdalost('kod_kopirovanie');
     navigator.clipboard.writeText(kod).then(() => {
       el.classList.add('is-copied');
       const c = el.querySelector('code'); const povodny = c.textContent; c.textContent = 'Skopírované ✓';
@@ -5675,6 +5809,7 @@ body.food-page { background: #FAF8F5; }
     if (filter === 'top') platnePrve.sort((a, b) => (b.votes || 0) - (a.votes || 0));
     else if (filter === 'koncia') platnePrve.sort((a, b) => a.expiryISO.localeCompare(b.expiryISO));
     else platnePrve.sort((a, b) => (cas(b) || 0) - (cas(a) || 0));
+    if (q) window.hkHladanie && window.hkHladanie('kody', q, platnePrve.length);
     el.className = 'coupons-list kd-list';
     el.innerHTML = (platnePrve.map(couponCard).join('') ||
         '<div class="empty" style="padding:30px;">Pre tento filter teraz nemáme platný kód.</div>') +
@@ -5894,6 +6029,7 @@ body.food-page { background: #FAF8F5; }
 
   // ── Modal ─────────────────────────────────────────────────────────────────
   window.openModal  = () => {
+    if (window.hkUdalost) window.hkUdalost('pridaj_deal_otvorenie');
     // Akcia, ktorá skončila včera, nemá zmysel. Dátum do minulosti
     // preto prehliadač ani neponúkne.
     const until = document.getElementById('f-until');
