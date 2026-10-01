@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HenKukaj – Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<!-- Ochrana proti clickjackingu: admin sa nesmie dať vložiť do rámca
+     cudzej stránky, ktorá by ti cez neviditeľný rámec podstrčila klik
+     (schválenie, vymazanie). GitHub Pages hlavičku frame-ancestors
+     poslať nevie, preto stránku najprv skryjeme a ukážeme ju, len keď
+     nie je v rámci. Bez JavaScriptu sa admin aj tak nedá používať. -->
+<style id="anti-ramec">body { display: none !important; }</style>
+<script>
+  if (window.self === window.top) {
+    document.getElementById('anti-ramec').remove();
+  } else {
+    try { window.top.location = window.self.location; } catch (e) { /* cudzí rám nás nepustí - ostaneme skrytí */ }
+  }
+</script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -38,7 +53,9 @@
     const loginView = document.getElementById('login-view');
     const adminView = document.getElementById('admin-view');
     if (user && !user.isAnonymous) {
-      const idTokenResult = await user.getIdTokenResult();
+      // Čerstvý token: pravidlá vyžadujú overený e-mail a starý token
+      // by ho mohol mať zapísaný ešte ako neoverený (platí hodinu).
+      const idTokenResult = await user.getIdTokenResult(true);
       console.log('Auth debug: uid =', user.uid, 'isAnonymous =', user.isAnonymous, 'sign_in_provider =', idTokenResult.claims.firebase?.sign_in_provider, 'email =', user.email);
       loginView.style.display = 'none';
       adminView.style.display = 'block';
@@ -66,10 +83,23 @@
     }
   });
 
+  // ── Bezpečné ID dokumentov ───────────────────────────────────────
+  // ID dealov, kupónov a komentárov sa v admine vkladajú do onclick
+  // ("approveDeal('…')"). Stránka ich vytvára s automatickým ID, ale
+  // útočník by mohol zapísať dokument s vlastným ID obsahujúcim
+  // apostrof a kód - ten by sa spustil v admine s admin právami.
+  // Pravidlá také ID odmietnu; tu je druhá poistka: dokument s iným
+  // než jednoduchým ID sa v admine vôbec nezobrazí.
+  function bezpecneId(id) {
+    const ok = /^[A-Za-z0-9_-]{1,64}$/.test(id);
+    if (!ok) console.warn('Dokument s podozrivým ID preskočený:', JSON.stringify(id));
+    return ok;
+  }
+
   function startListeningCoupons() {
     const q = query(collection(db, "coupons"), orderBy("timestamp", "desc"));
     unsubCoupons = onSnapshot(q, (snap) => {
-      allCoupons = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      allCoupons = snap.docs.filter(d => bezpecneId(d.id)).map(d => ({ ...d.data(), id: d.id }));
       renderCoupons();
     });
   }
@@ -330,7 +360,7 @@
     const el = document.getElementById('uc-data');
     try {
       const snap = await getDocs(collection(db, "users"));
-      uzivatelia = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      uzivatelia = snap.docs.map(d => ({ ...d.data(), id: d.id }))
         .sort((a, b) => ((b.vytvorene && b.vytvorene.seconds) || 0) - ((a.vytvorene && a.vytvorene.seconds) || 0));
     } catch (e) {
       el.innerHTML = '<div class="as-box"><div class="as-lab">Používateľov sa nepodarilo načítať: ' + escapeHtml(e.message) + '</div></div>';
@@ -742,7 +772,7 @@
   function startListening() {
     const q = query(collection(db, "deals"), orderBy("timestamp", "desc"));
     unsub = onSnapshot(q, (snap) => {
-      allDeals = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      allDeals = snap.docs.filter(d => bezpecneId(d.id)).map(d => ({ ...d.data(), id: d.id }));
       render();
     });
   }
@@ -751,10 +781,12 @@
     const cq = query(collectionGroup(db, "comments"), orderBy("timestamp", "desc"));
     unsubComments = onSnapshot(cq, (snap) => {
       console.log('Comments snapshot received. Doc count:', snap.docs.length);
-      allComments = snap.docs.map(d => ({
+      // ID z cesty dokumentu majú prednosť pred rovnomennými poľami v
+      // dátach - tie by si mohol ktokoľvek vymyslieť.
+      allComments = snap.docs.filter(d => bezpecneId(d.id) && bezpecneId(d.ref.parent.parent.id)).map(d => ({
+        ...d.data(),
         id: d.id,
         dealId: d.ref.parent.parent.id,
-        ...d.data()
       }));
       console.log('allComments:', JSON.stringify(allComments));
       renderComments();
@@ -1648,7 +1680,7 @@
       const podmienky = [orderBy("timestamp", "desc"), limit(5000)];
       if (dni > 0) podmienky.unshift(where("timestamp", ">=", new Date(Date.now() - dni * 86400000)));
       const snap = await getDocs(query(collection(db, "audit_log"), ...podmienky));
-      auditRows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      auditRows = snap.docs.map(d => ({ ...d.data(), id: d.id }));
 
       // Ponuka akcií len z tých, čo v období naozaj sú.
       const sel = document.getElementById('log-akcia');

@@ -613,7 +613,7 @@
       let qy = buildDealsBaseQuery();
       qy = window.dealsLastDoc ? query(qy, startAfter(window.dealsLastDoc), limit(DEALS_PAGE_SIZE)) : query(qy, limit(DEALS_PAGE_SIZE));
       const snap = await getDocs(qy);
-      const newItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const newItems = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       if (reset && newItems.length === 0 && window.activeCat === 'Všetky' && window.activeSort === 'new') {
         await insertDemoIfEmpty([]);
       }
@@ -653,7 +653,7 @@
     try {
       const qy = query(buildDealsBaseQuery(), limit(DEALS_SEARCH_CAP));
       const snap = await getDocs(qy);
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const items = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       window.allDeals = items.filter(d =>
         window.normalizeText(d.title).includes(q) ||
         window.normalizeText(d.store).includes(q) ||
@@ -691,7 +691,7 @@
     try {
       const qy = query(collection(db, 'deals'), where('status', '==', 'approved'), orderBy('votes', 'desc'), limit(3));
       const snap = await getDocs(qy);
-      const top = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const top = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       if (!top.length) {
         el.innerHTML = '<p style="font-size:.82rem; color:var(--muted);">Zatiaľ žiadne dealy.</p>';
         return;
@@ -1051,7 +1051,7 @@
     if (unsubComments) unsubComments();
     const cq = query(collection(db, "deals", dealId, "comments"), where("status", "==", "approved"), orderBy("timestamp", "desc"));
     unsubComments = onSnapshot(cq, (snap) => {
-      const comments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const comments = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       renderComments(comments);
     }, (err) => {
       console.error('Comments query error for deal', dealId, ':', err.code, err.message, err);
@@ -1166,7 +1166,7 @@
       let qy = buildCouponsBaseQuery();
       qy = window.couponsLastDoc ? query(qy, startAfter(window.couponsLastDoc), limit(COUPONS_PAGE_SIZE)) : query(qy, limit(COUPONS_PAGE_SIZE));
       const snap = await getDocs(qy);
-      const newItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const newItems = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       window.allCoupons = window.allCoupons.concat(newItems);
       if (snap.docs.length) window.couponsLastDoc = snap.docs[snap.docs.length - 1];
       window.couponsHasMore = newItems.length === COUPONS_PAGE_SIZE;
@@ -1192,7 +1192,7 @@
     try {
       const qy = query(buildCouponsBaseQuery(), limit(COUPONS_SEARCH_CAP));
       const snap = await getDocs(qy);
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const items = snap.docs.map(d => ({ ...d.data(), id: d.id }));
       window.allCoupons = items.filter(c =>
         (c.code || '').toLowerCase().includes(q) ||
         (c.store || '').toLowerCase().includes(q) ||
@@ -3559,7 +3559,7 @@ body.food-page { background: #FAF8F5; }
       <div class="deal-footer" onclick="event.stopPropagation()">
         <span class="deal-desc-truncated">${escapeHtml(d.description||'')}</span>
         <a href="#" onclick="openComments('${d.id}'); return false;">${icon('message-circle')} ${d.comments||0}</a>
-        <a href="#" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${d.currency||'€'}'); return false;">${icon('share')} <span class="footer-label">Zdieľať</span></a>
+        <a href="#" onclick="shareDeal(${jsArg(d.id)}, ${jsArg(d.title||'')}, ${Number(d.dealPrice)||0}, ${jsArg(d.currency||'€')}); return false;">${icon('share')} <span class="footer-label">Zdieľať</span></a>
         <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')}</a>
         <span class="deal-age">${ageSentence(d)}</span>
         ${authorBadge(d.author)}
@@ -4819,7 +4819,7 @@ body.food-page { background: #FAF8F5; }
         </svg>
         <button type="button" class="fp-add${inCart ? ' on' : ''}"
                 aria-label="${inCart ? 'Odobrať z nákupu' : 'Pridať do nákupu'}"
-                onclick="window.foodToggleCart('${escapeAttr(it.label)}')">
+                onclick="window.foodToggleCart(${jsArg(it.label)})">
           ${icon(inCart ? 'circle-check' : 'plus')}
         </button>
       </div>`;
@@ -5070,11 +5070,11 @@ body.food-page { background: #FAF8F5; }
       const hit = now.price <= w.target;
       return hit
         ? `<div class="fd-watch-hit">${escapeHtml(it.label)} je za ${price(now.price)} v ${escapeHtml(now.vendor)} — pod tvojou hranicou ${price(w.target)}.
-             <button type="button" class="store-edit" onclick="window.foodDropWatch('${escapeAttr(w.label)}')">zrušiť</button></div>`
+             <button type="button" class="store-edit" onclick="window.foodDropWatch(${jsArg(w.label)})">zrušiť</button></div>`
         : `<div class="fd-watch-row">
              <span class="nm">${escapeHtml(it.label)} pod ${price(w.target)}</span>
              <span style="color:var(--fd-faint)">teraz ${price(now.price)}</span>
-             <button type="button" class="store-edit" onclick="window.foodDropWatch('${escapeAttr(w.label)}')">×</button>
+             <button type="button" class="store-edit" onclick="window.foodDropWatch(${jsArg(w.label)})">×</button>
            </div>`;
     }).join('');
 
@@ -5255,7 +5255,7 @@ body.food-page { background: #FAF8F5; }
     if (!all.length) { box.innerHTML = '<p class="lf-muted">Zatiaľ žiadne dealy.</p>'; return; }
     box.innerHTML = all.slice().sort((a, b) => (b.votes || 0) - (a.votes || 0)).slice(0, 3)
       .map(d => `
-        <a class="lf-hot-row" href="#deal-${d.id}" onclick="openDealDetail('${escapeAttr(d.id)}');return false;">
+        <a class="lf-hot-row" href="#deal-${d.id}" onclick="openDealDetail(${jsArg(d.id)});return false;">
           <span class="lf-hot-heat"><b>${d.votes || 0}°</b><span>stupňov</span></span>
           ${d.imageUrl ? `<img class="lf-hot-img" src="${escapeAttr(d.imageUrl)}" alt="" loading="lazy">`
                        : `<span class="lf-hot-img"></span>`}
@@ -5381,7 +5381,7 @@ body.food-page { background: #FAF8F5; }
       <div class="ct-code">
         <code>${escapeHtml(kod)}</code>
         <button class="coupon-copy-btn" id="copy-btn-${c.id}"
-                onclick="copyCoupon('${c.id}', '${escapeAttr(kod)}')"
+                onclick="copyCoupon(${jsArg(c.id)}, ${jsArg(kod)})"
                 ${expired ? 'disabled title="Kód už neplatí"' : ''}>
           ${icon('copy')} <span>Kopírovať</span>
         </button>
@@ -5410,6 +5410,15 @@ body.food-page { background: #FAF8F5; }
 
   function escapeAttr(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  }
+
+  // Hodnota ako argument funkcie v onclick="…". escapeAttr tu NESTAČÍ:
+  // prehliadač &#39; v atribúte dekóduje späť na apostrof skôr, než sa
+  // spustí JavaScript - názov "Levi's" rozbil tlačidlo a upravený názov
+  // by mohol spustiť kód. JSON urobí z hodnoty platný JS reťazec
+  // (s úvodzovkami), escapeAttr ho potom bezpečne vloží do atribútu.
+  function jsArg(v) {
+    return escapeAttr(JSON.stringify(v == null ? '' : String(v)));
   }
 
   // Odkaz do href. Okrem escapovania zahodí aj schémy ako javascript:
@@ -5687,7 +5696,7 @@ body.food-page { background: #FAF8F5; }
           <button class="vs-up" onclick="vote('${d.id}', 1)" title="Dobrý deal" aria-label="Dobrý deal">${icon('plus')}</button>
         </div>
         <a class="btn-go${d.expired ? ' btn-off' : ''}" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="noopener" onclick="trackClick('${d.id}')">${d.expired ? 'Pozrieť u predajcu' : 'Zobraziť deal →'}</a>
-        <a href="#" class="detail-link" onclick="shareDeal('${d.id}', '${escapeAttr(d.title||'')}', ${d.dealPrice||0}, '${cur}'); return false;">${icon('share')} Zdieľať</a>
+        <a href="#" class="detail-link" onclick="shareDeal(${jsArg(d.id)}, ${jsArg(d.title||'')}, ${Number(d.dealPrice)||0}, ${jsArg(cur)}); return false;">${icon('share')} Zdieľať</a>
         <a href="#" class="detail-link save-btn" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')} Uložiť</a>
       </div>
 
@@ -6024,7 +6033,7 @@ body.food-page { background: #FAF8F5; }
     <a href="/ochrana-udajov.html" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Ochrana osobných údajov</a>
     <br><br>
     📧 Kontakt: <a href="mailto:info@henkukaj.sk" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">info@henkukaj.sk</a>
-    <a href="admin.html" style="color:var(--muted); text-decoration:none; opacity:.6;" aria-hidden="true">&nbsp;•</a>
+
   </div>
 </footer>
 

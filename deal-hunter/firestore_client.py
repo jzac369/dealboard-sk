@@ -13,6 +13,7 @@ navrhol. To je 1 prečítanie za beh namiesto tisícov.
 """
 
 import logging
+import re
 import random
 from datetime import date, datetime, timedelta, timezone
 
@@ -97,6 +98,28 @@ def get_existing_keys(db: firestore.Client) -> tuple[set[str], set[str]]:
     return keys, urls
 
 
+def bez_html(text: str | None) -> str | None:
+    """
+    Text z feedu bez HTML značiek. Niektoré feedy (napr. Dyson) dávajú do
+    popisu celé HTML - stránka ho síce bezpečne escapuje, ale návštevník
+    potom vidí "<p><strong>…" ako text. Odseky a zalomenia ponecháme
+    ako nové riadky, entity (&nbsp;, &amp;) zmeníme na znaky.
+    """
+    if not text or "<" not in text and "&" not in text:
+        return text
+    import html as _html
+    t = re.sub(r"(?i)<\s*br\s*/?>", "\n", text)
+    t = re.sub(r"(?i)</\s*(p|div|li|h[1-6]|tr)\s*>", "\n", t)
+    t = re.sub(r"(?i)<\s*li[^>]*>", "• ", t)
+    t = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", "", t)
+    t = re.sub(r"<[^>]+>", "", t)
+    t = _html.unescape(t).replace("\xa0", " ")
+    t = re.sub(r"[ \t]+", " ", t)
+    t = re.sub(r" *\n *", "\n", t)
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()
+
+
 def write_pending_deals(
     db: firestore.Client, deals: list[dict]
 ) -> list[tuple[str, dict]]:
@@ -118,6 +141,9 @@ def write_pending_deals(
     new_keys: list[str] = []
     for deal in deals:
         document = dict(deal)
+        for pole in ("title", "description"):
+            if isinstance(document.get(pole), str):
+                document[pole] = bez_html(document[pole])
         # Čas určuje server, nie stroj, na ktorom beží scraper.
         document["timestamp"] = firestore.SERVER_TIMESTAMP
         document["author"] = config.AGENT_AUTHOR_NAME
