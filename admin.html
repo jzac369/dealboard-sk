@@ -496,8 +496,8 @@
     const bez = Object.entries(obchody).filter(([h]) => !_vKampani(h, domeny))
       .sort((a, b) => b[1].dealy - a[1].dealy || b[1].kliky - a[1].kliky).slice(0, 20);
     document.getElementById('aff-prilezitosti').innerHTML = bez.length ? bez.map(([h, o]) => `<tr>
-        <td><b>${escapeHtml(h)}</b></td><td>${o.dealy}</td><td>${o.kliky}</td>
-        <td style="text-align:right;"><button class="btn btn-ic btn-approve" onclick="affPridaj(${JSON.stringify(h).replace(/"/g, '&quot;')})" title="Pridať do obchodov s kampaňou">+ Pridať</button></td></tr>`).join('')
+        <td class="obchod">${escapeHtml(h)}</td><td class="n">${o.dealy}</td><td class="n">${o.kliky}</td>
+        <td class="r"><button class="af-btn" type="button" onclick="affPridaj(${JSON.stringify(h).replace(/"/g, '&quot;')})" title="Pridať do obchodov s kampaňou">+ Pridať</button></td></tr>`).join('')
       : '<tr><td colspan="4" class="vis-empty">Všetky obchody so zverejnenými dealmi majú kampaň.</td></tr>';
     affOtestuj();
   }
@@ -553,8 +553,8 @@
     out.innerHTML = r.url ? `
       <div class="af-vysl ${r.ok ? 'ok' : 'info'}">${r.ok ? '✓ Zarába – odkaz ide cez Dognet' : escapeHtml(r.dovod)}</div>
       <div class="af-link"><input type="text" readonly value="${escapeAttr(r.url)}" onclick="this.select()">
-        <button class="btn" type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.value); this.textContent='Skopírované ✓'">Kopírovať</button>
-        <a class="btn" href="${escapeAttr(r.url)}" target="_blank" rel="noopener">Otvoriť ↗</a></div>`
+        <button class="af-btn" type="button" onclick="navigator.clipboard.writeText(this.previousElementSibling.value); this.textContent='Skopírované ✓'">Kopírovať</button>
+        <a class="af-btn" href="${escapeAttr(r.url)}" target="_blank" rel="noopener">Otvoriť ↗</a></div>`
       : `<div class="af-vysl zle">${escapeHtml(r.dovod)}</div>`;
   };
 
@@ -1991,6 +1991,40 @@
   .af-chip button:hover { background: #FDECEA; color: var(--red); }
   .af-tab td { white-space: nowrap; }
 
+
+  /* ── Affiliate: jedno písmo, jednotné polia a tlačidlá ── */
+  .admin-page[data-page="affiliate"] { font-size: .88rem; }
+  .admin-page[data-page="affiliate"] input, .admin-page[data-page="affiliate"] select,
+  .admin-page[data-page="affiliate"] button { font-family: inherit; }
+  .af-card h3 { font-size: .95rem; font-weight: 800; }
+  .af-card .switch-label { font-size: .88rem; font-weight: 600; }
+  .af-card .aff-row label { font-size: .78rem; font-weight: 700; color: #444; }
+  .af-card .aff-row input, .af-test input, .af-test select, .af-add input, .af-link input {
+    font: inherit; font-size: .88rem; height: 40px; padding: 0 12px; border: 1.5px solid var(--line);
+    border-radius: 8px; background: var(--card); color: var(--ink); }
+  .af-card .aff-row input { letter-spacing: .3px; }
+  .af-link input { background: var(--bg); font-size: .8rem; color: #444; }
+  .af-card input:focus, .af-card select:focus { outline: none; border-color: var(--orange); }
+  .af-card .settings-hint { font-size: .78rem; line-height: 1.5; }
+  .af-card .settings-hint code { font-family: inherit; font-weight: 700; background: var(--bg); padding: 0 4px; border-radius: 4px; }
+  .af-btn { display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 14px;
+    border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
+  .af-btn:hover { border-color: var(--orange); color: var(--orange-dk); }
+  .af-btn.hlavne { height: 40px; background: var(--orange); border-color: var(--orange); color: #fff; }
+  .af-btn.hlavne:hover { background: var(--orange-dk); color: #fff; }
+  .af-chip { font-size: .8rem; font-weight: 700; }
+  .af-chip small { font-size: .72rem; font-weight: 600; }
+  .af-tab-wrap { max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .af-tab { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  .af-tab th { position: sticky; top: 0; background: var(--bg); text-align: left; font-size: .7rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 9px 14px; }
+  .af-tab td { padding: 8px 14px; border-top: 1px solid var(--line); vertical-align: middle; }
+  .af-tab .n { text-align: right; width: 90px; font-variant-numeric: tabular-nums; }
+  .af-tab .r { text-align: right; width: 110px; }
+  .af-tab .obchod { font-weight: 700; }
+  .af-tab tbody tr:hover { background: #FAFBFC; }
+
   /* Tablet */
   @media (max-width: 1100px) {
     .af-stav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2014,6 +2048,7 @@
     header.adm-top h1, #admin-email, .adm-web span { display: none; }
     .af-stav { grid-template-columns: 1fr 1fr; }
     .af-test, .af-link { flex-wrap: wrap; }
+    .af-link input, .af-test input { flex: 1 1 100%; }
     .af-add input#aff-dom-filter { margin-left: 0; flex: 1 1 100%; }
     .ph-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
     .ph-num { font-size: 1.5rem; }
@@ -2645,7 +2680,7 @@
         <h3>Obchody so schválenou kampaňou <span class="af-pocet" id="aff-dom-pocet"></span></h3>
         <div class="af-add">
           <input type="text" id="aff-dom-nova" placeholder="doména, napr. gymbeam.sk" onkeydown="if(event.key==='Enter') affPridaj()">
-          <button class="btn btn-approve" type="button" onclick="affPridaj()">+ Pridať</button>
+          <button class="af-btn hlavne" type="button" onclick="affPridaj()">+ Pridať</button>
           <input type="search" id="aff-dom-filter" placeholder="Hľadať v zozname…" oninput="renderAffiliateStats()">
         </div>
         <div class="af-chips" id="aff-domeny"></div>
@@ -2657,8 +2692,8 @@
         <h3>Príležitosti – obchody bez kampane</h3>
         <p class="settings-hint" style="margin-top:0;">Obchody, z ktorých máš najviac dealov, ale nezarábaš na nich. Oplatí sa ich
           v Dognete vyhľadať a požiadať o kampaň; po schválení ich jedným klikom pridáš.</p>
-        <div class="log-wrap" style="max-height:340px;">
-          <table class="log-table af-tab"><thead><tr><th>Obchod</th><th>Dealov</th><th>Preklikov</th><th></th></tr></thead>
+        <div class="af-tab-wrap">
+          <table class="af-tab"><thead><tr><th>Obchod</th><th class="n">Dealov</th><th class="n">Preklikov</th><th></th></tr></thead>
             <tbody id="aff-prilezitosti"></tbody></table>
         </div>
       </div>

@@ -6,6 +6,6 @@ jobs:
     timeout-minutes: 3
     steps:
       - run: |
-          for u in https://api.cenyslovensko.sk https://cenyslovensko.sk; do
+          for u in https://api.cenyslovensko.sk/api/vendor https://cenyslovensko.sk; do
             curl -s -o /dev/null -m 25 -A "Mozilla/5.0" -w "$u -> HTTP %{http_code} za %{time_total}s\n" "$u" || echo "$u -> zlyhalo (timeout)"
           done
