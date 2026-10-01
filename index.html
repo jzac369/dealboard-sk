@@ -6316,42 +6316,48 @@ body.food-page { background: #FAF8F5; }
 
   startAds();
 
-  // ── Zarovnanie pravého stĺpca s prvým dealom ──────────────────────
-  // Nad zoznamom dealov je riadok s filtrami, ktorý pravý stĺpec nemá.
-  // Doteraz to vyrovnávala medzera s pevnou výškou 33 px - a keď v
-  // riadku pribudlo vyhľadávanie, stĺpec bol o 11 px vyššie. Výšku preto
-  // dopočítame podľa skutočnej polohy prvého dealu, a znova vždy, keď
-  // sa niečo nad zoznamom zmení (banner, zalomenie filtrov, šírka okna).
+  // ── Zarovnanie pravého stĺpca s prvou kartou zoznamu ──────────────
+  // Nad zoznamom dealov (aj kódov) sú riadky s filtrami, ktoré pravý
+  // stĺpec nemá. Výšku medzery v pravom stĺpci preto dopočítame podľa
+  // skutočnej polohy prvej karty na AKTÍVNEJ záložke - predtým sa
+  // počítala len pre Dealy a na Kódoch stĺpec nesedel. Prepočíta sa pri
+  // každej zmene nad zoznamom, šírke okna aj pri prepnutí záložky.
   (function zarovnajStlpce() {
-    var main = document.getElementById('deals-main');
-    var list = document.getElementById('deals-list');
     var aside = document.querySelector('aside.sidebar');
     var spacer = aside && aside.querySelector('.sidebar-spacer');
-    if (!main || !list || !spacer) return;
+    var PARY = [['deals-main', 'deals-list'], ['coupons-main', 'coupons-list']]
+      .map(function (p) { return { main: document.getElementById(p[0]), list: document.getElementById(p[1]) }; })
+      .filter(function (p) { return p.main && p.list; });
+    if (!spacer || !PARY.length) return;
 
     function uprav() {
+      var akt = PARY.filter(function (p) { return p.main.offsetParent; })[0];
       // Na užšej obrazovke je stĺpec pod zoznamom - tam necháme CSS.
-      var vedla = aside.getBoundingClientRect().left > main.getBoundingClientRect().left + 50;
-      if (!vedla || !main.offsetParent) { spacer.style.height = ''; return; }
-      var prvy = list.firstElementChild || list;
+      if (!akt || !aside.offsetParent ||
+          aside.getBoundingClientRect().left <= akt.main.getBoundingClientRect().left + 50) {
+        spacer.style.height = ''; return;
+      }
+      var prvy = akt.list.firstElementChild || akt.list;
       var dole = parseFloat(getComputedStyle(spacer).marginBottom) || 0;
       spacer.style.height = '0px';
       var vyska = prvy.getBoundingClientRect().top - spacer.getBoundingClientRect().top - dole;
       spacer.style.height = Math.max(0, Math.round(vyska)) + 'px';
     }
 
-    // Sledujeme celý ľavý stĺpec: skrytie bannera nad zoznamom sa na
+    // Sledujeme celé ľavé stĺpce: skrytie bannera nad zoznamom sa na
     // samotnom banneri spoľahlivo neohlási (display:none), na výške
-    // stĺpca áno.
-    if (window.ResizeObserver) {
-      var ro = new ResizeObserver(uprav);
-      ro.observe(main);
-      Array.prototype.forEach.call(main.children, function (c) { if (c !== list) ro.observe(c); });
-    }
+    // stĺpca áno. Zmena štýlu "display" = prepnutie záložky.
+    var ro = window.ResizeObserver ? new ResizeObserver(uprav) : null;
+    PARY.forEach(function (p) {
+      if (ro) {
+        ro.observe(p.main);
+        Array.prototype.forEach.call(p.main.children, function (c) { if (c !== p.list) ro.observe(c); });
+      }
+      // Zoznam sa načíta až z databázy - zarovnáme aj po vykreslení.
+      new MutationObserver(uprav).observe(p.list, { childList: true });
+      new MutationObserver(uprav).observe(p.main, { attributes: true, attributeFilter: ['style'] });
+    });
     window.addEventListener('resize', uprav);
-    // Zoznam sa načíta až z databázy - prvý deal môže mať iný okraj než
-    // prázdny zoznam, tak zarovnáme aj po jeho vykreslení.
-    new MutationObserver(uprav).observe(list, { childList: true });
     uprav();
   })();
 
