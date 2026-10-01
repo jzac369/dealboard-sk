@@ -151,6 +151,16 @@ def send_deal_for_approval(deal_id: str, deal: dict) -> bool:
     return _call("sendMessage", payload) is not None
 
 
+def send_text(text: str) -> bool:
+    """Obyčajná správa (HTML) - napr. pripomienka z plánovača."""
+    if not is_configured():
+        return False
+    return _call("sendMessage", {
+        "chat_id": config.TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML",
+        "link_preview_options": {"is_disabled": True},
+    }) is not None
+
+
 def send_summary(count: int) -> None:
     if not is_configured():
         return

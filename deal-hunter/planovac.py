@@ -209,6 +209,7 @@ def kontrola(db, nasucho: bool) -> None:
 
     odosli_naplanovane(db, teraz, nasucho)
     zverejni_naplanovane(db, teraz, nasucho)
+    posli_pripomienky(db, teraz, nasucho)
 
     spustit = co_spustit(rozvrh, teraz)
     if not spustit:
@@ -266,6 +267,34 @@ def slucka(db) -> None:
     else:
         # Nevadí - záložný cron reťaz znova naštartuje.
         logger.error("Nástupcu sa nepodarilo spustiť: %s", (r.stderr or r.stdout).strip()[:300])
+
+
+def posli_pripomienky(db, teraz: datetime, nasucho: bool) -> None:
+    """
+    Pripomienky do Telegramu (kolekcia "pripomienky": text, sendAt,
+    odoslane). Zapisuje ich admin alebo Claude, keď si niečo treba
+    pripomenúť o pár dní - napr. zapnúť vynucovanie App Check.
+    """
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    import telegram_bot
+
+    try:
+        docs = list(db.collection("pripomienky").where(filter=FieldFilter("odoslane", "==", False)).stream())
+    except Exception as e:
+        logger.warning("Pripomienky sa nepodarilo načítať: %s", e)
+        return
+    for d in docs:
+        p = d.to_dict() or {}
+        if not p.get("sendAt") or p["sendAt"] > teraz:
+            continue
+        if nasucho:
+            logger.info("Poslal by som pripomienku: %s", (p.get("text") or "")[:60])
+            continue
+        if telegram_bot.send_text("🔔 <b>Pripomienka</b>\n\n" + (p.get("text") or "")):
+            d.reference.update({"odoslane": True, "odoslaneKedy": teraz})
+            logger.info("Pripomienka odoslaná: %s", (p.get("text") or "")[:60])
+        else:
+            logger.warning("Pripomienku %s sa nepodarilo poslať, skúsim znova.", d.id)
 
 
 def zverejni_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
