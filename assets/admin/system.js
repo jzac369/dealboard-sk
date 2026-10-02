@@ -165,6 +165,23 @@ U.stranka('agent', {
             <label><span>Podiel obmedzených kategórií</span><span class="ag-in"><input type="number" name="podielObmedzenych" min="0" max="100" step="5" value="${Math.round(v.podielObmedzenych * 100)}"><em>%</em></span>
               <small>Koľko z jedného behu smú tvoriť kategórie nižšie označené ako obmedzené.</small></label>
           </div></div>
+        <div class="karta" id="fd-karta">
+          <h3 class="karta-nadpis">Feedy obchodov</h3>
+          <p class="settings-hint">Odkiaľ agent berie produkty. Feed je zoznam tovaru, ktorý e-shop sám zverejňuje pre porovnávače –
+            je to jediná spoľahlivá cesta k elektronike, lekárňam či drogérii: Alza, Dr. Max, Notino aj Allegro priame sťahovanie
+            blokujú (HTTP 403), takže bez feedu sa k ich tovaru nedostaneme.</p>
+          <p class="settings-hint"><b>Kde feed vziať:</b> v <a href="https://www.dognet.sk/" target="_blank" rel="noopener">Dognete</a>
+            otvor kampaň obchodu → <b>Produktové feedy</b> (alebo <b>XML feed</b>) a skopíruj adresu. Je v nej tvoje partnerské ID,
+            takže z takých dealov rovno zarábaš. Tieto adresy vidí len admin, na stránku sa nedostanú.</p>
+          <div id="fd-zoznam"></div>
+          <div class="riadok-pole" style="margin-top:10px">
+            <input type="url" id="fd-url" placeholder="https://… adresa XML feedu">
+            <input type="text" id="fd-nazov" placeholder="názov obchodu (napr. Alza.sk)" style="max-width:220px">
+            <button class="btn" type="button" id="fd-test"><svg class="ix"><use href="#ix-check"></use></svg> Otestovať</button>
+            <button class="btn btn-save" type="button" id="fd-pridaj"><svg class="ix"><use href="#ix-plus"></use></svg> Pridať</button>
+          </div>
+          <div id="fd-stav"></div>
+        </div>
         <div class="karta"><h3 class="karta-nadpis">Kategórie</h3>
           <div class="tab-wrap"><table class="tab"><thead><tr><th>Kategória</th><th>Obmedzená (strop podielu)</th><th>Zakázaná</th></tr></thead><tbody>
           ${kategorie.map(k => `<tr><td>${esc(k)}</td><td><input type="checkbox" name="obmedzena" value="${esc(k)}"${v.obmedzeneKategorie.includes(k) ? ' checked' : ''}></td>
@@ -175,6 +192,78 @@ U.stranka('agent', {
         <div class="tl-rad"><button class="btn btn-save" type="submit"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť nastavenia</button>
           <button class="btn" type="button" id="ag-reset">Vrátiť predvolené</button></div>
       </form>`;
+    // ── Feedy obchodov ──
+    const fdRef = U.ref('nastavenia_admin', 'feedy');
+    let vlastneFeedy = [];
+    const fdKresli = () => {
+      el.querySelector('#fd-zoznam').innerHTML = vlastneFeedy.length ? vlastneFeedy.map(f => `<div class="fd-r${f.zap === false ? ' vyp' : ''}">
+          <label class="switch" title="${f.zap === false ? 'Zapnúť' : 'Vypnúť'}"><input type="checkbox" data-fd="zap" data-id="${esc(f.id)}"${f.zap === false ? '' : ' checked'}><span class="slider"></span></label>
+          <div class="fd-i"><b>${esc(f.nazov || f.domena || 'feed')}</b><small>${esc(f.url)}</small>
+            ${f.poloziek ? `<small>${U.cislo(f.poloziek)} položiek · ${esc(f.format || '')}${f.overene ? ' · overené ' + esc(U.den(f.overene)) : ''}</small>` : ''}</div>
+          <div class="tl-rad"><button class="btn" data-fd="test" data-id="${esc(f.id)}">Otestovať</button>
+            <button class="btn btn-ic btn-delete" data-fd="zmaz" data-id="${esc(f.id)}" title="Odstrániť"><svg class="ix"><use href="#ix-trash"></use></svg></button></div>
+        </div>`).join('') : '<p class="vis-empty">Zatiaľ žiadny vlastný feed. Agent berie len zdroje vyššie.</p>';
+    };
+    const fdUloz = async (popis) => {
+      await fs.setDoc(fdRef, { feedy: vlastneFeedy, upravene: fs.serverTimestamp() }, { merge: true });
+      HK().logChange('agent', 'agent', 'Feedy: ' + popis);
+    };
+    const fdStav = (html) => { el.querySelector('#fd-stav').innerHTML = html; };
+    const fdOtestuj = async (url, btn) => U.akcia(btn, async () => {
+      fdStav(`<div class="hlaska info"><span class="tocka"></span> ${esc(U.textCakania('caka', 0))}</div>`);
+      try {
+        const v = await U.uloha('test_feed', { url }, (x, ms) => fdStav(
+          `<div class="hlaska info"><span class="tocka"></span> ${esc(x === 'bezi' ? 'Sťahujem feed, pri veľkom to trvá aj minútu…' : U.textCakania(x, ms))}</div>`));
+        fdStav(`<div class="hlaska ok"><div><b>Feed funguje.</b> ${U.cislo(v.poloziek)} produktov vo formáte ${esc(v.format)},
+          obchod: ${v.domeny.map(d => esc(d.domena)).join(', ')}.
+          ${v.sPovodnouCenou ? 'Feed uvádza aj pôvodnú cenu.' : 'Feed neuvádza pôvodnú cenu – zľavu určí sledovanie cien, prvé dealy prídu o pár dní.'}
+          <br><small>${v.ukazka.map(u => esc(`${u.nazov} – ${u.cena} €`)).join('<br>')}</small></div></div>`);
+        return v;
+      } catch (e) {
+        fdStav(`<div class="hlaska chyba">${esc(e.message)}</div>`);
+        return null;
+      }
+    });
+    el.querySelector('#fd-test').addEventListener('click', e =>
+      fdOtestuj(el.querySelector('#fd-url').value.trim(), e.currentTarget));
+    el.querySelector('#fd-pridaj').addEventListener('click', async e => {
+      const url = el.querySelector('#fd-url').value.trim();
+      const nazov = el.querySelector('#fd-nazov').value.trim();
+      if (!/^https?:\/\//i.test(url)) { window.toast('Vlož adresu feedu.', 'chyba'); return; }
+      if (vlastneFeedy.some(f => f.url === url)) { window.toast('Tento feed už v zozname je.', 'chyba'); return; }
+      const v = await fdOtestuj(url, e.currentTarget);
+      if (!v) return;
+      vlastneFeedy = [...vlastneFeedy, { id: Math.random().toString(36).slice(2, 10), url, nazov, zap: true,
+        domena: (v.domeny[0] || {}).domena || '', poloziek: v.poloziek, format: v.format, overene: new Date() }];
+      await fdUloz(`pridaný ${nazov || url}`);
+      el.querySelector('#fd-url').value = ''; el.querySelector('#fd-nazov').value = '';
+      fdKresli();
+      window.toast('Feed pridaný. Agent ho použije pri najbližšom behu.');
+    });
+    el.addEventListener('click', async e => {
+      const b = e.target.closest('[data-fd]');
+      if (!b || b.dataset.fd === 'zap') return;
+      const f = vlastneFeedy.find(x => x.id === b.dataset.id);
+      if (!f) return;
+      if (b.dataset.fd === 'test') { await fdOtestuj(f.url, b); return; }
+      if (!await window.potvrd(`Odstrániť feed ${f.nazov || f.url}? Agent z neho prestane brať dealy.`)) return;
+      vlastneFeedy = vlastneFeedy.filter(x => x.id !== f.id);
+      await fdUloz(`odstránený ${f.nazov || f.url}`);
+      fdKresli();
+    });
+    el.addEventListener('change', async e => {
+      const b = e.target.closest('[data-fd="zap"]');
+      if (!b) return;
+      vlastneFeedy = vlastneFeedy.map(x => x.id === b.dataset.id ? { ...x, zap: b.checked } : x);
+      await fdUloz(`${b.checked ? 'zapnutý' : 'vypnutý'} feed`);
+      fdKresli();
+    });
+    try {
+      const d = await fs.getDoc(fdRef);
+      vlastneFeedy = (d.exists() && Array.isArray(d.data().feedy)) ? d.data().feedy : [];
+    } catch (err) { /* prvé otvorenie */ }
+    fdKresli();
+
     const form = el.querySelector('#ag-form');
     const zaskrtnute = n => [...form.querySelectorAll(`[name="${n}"]:checked`)].map(x => x.value);
     form.addEventListener('submit', async e => {

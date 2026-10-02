@@ -382,20 +382,31 @@ service cloud.firestore {
                             && request.resource.data.size() <= 3000;
     }
 
-    // Žiadosť o overovací e-mail. Píše ju stránka po registrácii a pri
-    // "Poslať znova"; e-mail potom pošle plánovač v našom vzhľade -
-    // telo Firebase šablóny sa upraviť nedá.
+    // Žiadosť o e-mail o účte (overenie adresy, nové heslo). Píše ju
+    // stránka, e-mail potom pošle plánovač v našom vzhľade - Firebase má
+    // úpravu svojich šablón pre tento projekt zakázanú.
     //
-    // Smie si ju vypýtať len prihlásený a len na svoju vlastnú adresu,
-    // inak by sa dala použiť na zasypanie cudzej schránky poštou.
+    // Overenie si smie vypýtať len prihlásený a len na svoju vlastnú
+    // adresu. Obnovu hesla musí vedieť vyvolať aj neprihlásený (práve
+    // sa dnu nedostane), preto tu stačí ľubovoľná adresa - plánovač
+    // posiela najviac päť takých e-mailov na adresu za hodinu a na
+    // neexistujúci účet nepošle nič.
     match /ucty_akcie/{id} {
-      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow read: if isAdmin();
       allow create: if request.auth != null && autoId(id)
-                    && request.resource.data.keys().hasOnly(['typ', 'uid', 'email', 'meno', 'stav', 'vytvorene'])
-                    && request.resource.data.typ == 'overenie'
                     && request.resource.data.stav == 'caka'
-                    && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.email == request.auth.token.email;
+                    && (
+                      (request.resource.data.typ == 'overenie'
+                       && request.resource.data.keys().hasOnly(['typ', 'uid', 'email', 'meno', 'stav', 'vytvorene'])
+                       && request.resource.data.uid == request.auth.uid
+                       && request.resource.data.email == request.auth.token.email)
+                      ||
+                      (request.resource.data.typ == 'heslo'
+                       && request.resource.data.keys().hasOnly(['typ', 'email', 'stav', 'vytvorene'])
+                       && request.resource.data.email is string
+                       && request.resource.data.email.size() > 4
+                       && request.resource.data.email.size() <= 120)
+                    );
       allow update, delete: if false;
     }
 

@@ -229,6 +229,62 @@ def zopakuj_beh(db, vstup: dict) -> dict:
     return {"zopakovane": beh}
 
 
+def test_feed(db, vstup: dict) -> dict:
+    """Stiahne začiatok feedu a povie, čo v ňom je - aby sa dal v admine
+    overiť skôr, než ho agent začne používať."""
+    import xml.etree.ElementTree as ET
+    from collections import Counter
+
+    url = str(vstup.get("url") or "").strip()
+    if not re.match(r"^https?://", url, re.I):
+        raise ValueError("Adresa feedu musí začínať http:// alebo https://")
+    try:
+        r = requests.get(url, headers={"User-Agent": UA, "Accept": "application/xml,text/xml"},
+                         timeout=90, stream=True)
+    except requests.RequestException as e:
+        raise ValueError(f"Feed sa nepodarilo stiahnuť ({e.__class__.__name__}).")
+    if r.status_code != 200:
+        raise ValueError(f"Feed odpovedal chybou {r.status_code}.")
+    # Čítame len začiatok - feedy majú bežne desiatky megabajtov.
+    data = b""
+    for kus in r.iter_content(200000):
+        data += kus
+        if len(data) > 3_000_000:
+            break
+    r.close()
+    text = data.decode("utf-8", "ignore")
+    # Posledná neúplná položka by rozbila parsovanie, tak ju odrežeme.
+    for koniec in ("</SHOPITEM>", "</item>", "</entry>"):
+        i = text.rfind(koniec)
+        if i > 0:
+            text = text[: i + len(koniec)]
+            koren = {"</SHOPITEM>": "SHOP", "</item>": "rss", "</entry>": "feed"}[koniec]
+            text = text[text.index("<"):] + f"</channel></{koren}>" if koren == "rss" else text + f"</{koren}>"
+            break
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as e:
+        raise ValueError(f"Feed nie je platné XML: {str(e)[:120]}")
+
+    import scrapers.feeds as feeds
+    polozky = feeds.FeedsScraper().parse_feed(ET.tostring(root, encoding="unicode"), url)
+    if not polozky:
+        raise ValueError("Vo feede sme nenašli žiadne produkty. Je to naozaj produktový feed (Heureka alebo Google Merchant)?")
+    domeny = Counter()
+    for k in polozky:
+        from urllib.parse import urlparse as _u
+        domeny[(_u(k.url).hostname or "").replace("www.", "").lower()] += 1
+    ukazka = [{"nazov": k.title[:70], "cena": k.deal_price, "povodna": k.original_price,
+               "url": k.url[:90]} for k in polozky[:5]]
+    return {
+        "poloziek": len(polozky),
+        "format": "Heureka" if "<SHOPITEM" in text[:200000].upper() else "Google Merchant",
+        "domeny": [{"domena": d, "pocet": n} for d, n in domeny.most_common(3)],
+        "sPovodnouCenou": sum(1 for k in polozky if k.original_price),
+        "ukazka": ukazka,
+    }
+
+
 def test_email(db, vstup: dict) -> dict:
     import emaily
     return emaily.test(db, vstup)
@@ -236,6 +292,7 @@ def test_email(db, vstup: dict) -> dict:
 
 SPRACOVATELIA = {
     "test_email": test_email,
+    "test_feed": test_feed,
     "nacitaj_url": nacitaj_url,
     "kontrola_platnosti": kontrola_platnosti,
     "spusti_workflow": spusti_workflow,

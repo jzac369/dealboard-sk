@@ -54,10 +54,14 @@ _OBCHODY = {
 
 
 def obchod_z_url(url: str) -> str:
-    """Názov predajcu podľa domény odkazu; neznámu doménu aspoň učeše."""
+    """Názov predajcu podľa domény odkazu; neznámu doménu aspoň učeše.
+    Názvy zadané v admine (pri feede) majú prednosť pred tabuľkou tu."""
     from urllib.parse import urlparse
 
     host = (urlparse(url or "").hostname or "").lower()
+    cisty = host.replace("www.", "")
+    if cisty in config.NAZVY_OBCHODOV:
+        return config.NAZVY_OBCHODOV[cisty]
     for domena, nazov in _OBCHODY.items():
         if host == domena or host.endswith("." + domena):
             return nazov

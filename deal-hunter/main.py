@@ -427,6 +427,9 @@ def main() -> int:
         from google.cloud import firestore as _fs
         _db0 = _fc0.get_client()
         config.pouzi_nastavenia(_db0.document("settings/agent").get().to_dict() or {})
+        # Feedy obchodov pridané v admine (obsahujú partnerské ID, preto
+        # sú v dokumente, ktorý verejná stránka nečíta).
+        config.pouzi_feedy(_db0.document("nastavenia_admin/feedy").get().to_dict() or {})
         # Pre admin: ktoré zdroje a feedy existujú (feed len doménou).
         _db0.document("admin_info/agent").set({**config.info_pre_admin(),
                                                 "aktualizovane": _fs.SERVER_TIMESTAMP})

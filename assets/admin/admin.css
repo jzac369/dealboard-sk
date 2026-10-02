@@ -385,3 +385,12 @@ body.okno-otvorene { overflow: hidden; }
 .em-sablona small { display: block; color: var(--muted); font-size: .75rem; margin-top: 2px; }
 .em-pre { font-size: .8125rem; margin-top: 6px; }
 .em-sablona.nase { background: #FAFBFC; }
+
+/* feedy obchodov */
+.fd-r { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; margin-bottom: 8px; }
+.fd-r.vyp { opacity: .6; }
+.fd-i { min-width: 0; }
+.fd-i b { color: var(--ink); }
+.fd-i small { display: block; color: var(--muted); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 760px) { .fd-r { grid-template-columns: auto minmax(0, 1fr); } .fd-r .tl-rad { grid-column: 1 / -1; } }

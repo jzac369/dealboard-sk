@@ -237,6 +237,39 @@ def pouzi_nastavenia(data: dict) -> list[str]:
     return zmenene
 
 
+# Feedy pridané v admine (nastavenia_admin/feedy). Sú oddelené od
+# FEED_URLS zámerne: adresa feedu z Dognetu obsahuje partnerské ID, a to
+# nepatrí do settings/{...}, ktoré číta aj verejná stránka. Tento dokument
+# vidí len admin a agent cez service account.
+NAZVY_OBCHODOV: dict[str, str] = {}
+
+
+def pouzi_feedy(data: dict) -> int:
+    """Pridá feedy z admina k tým z premennej FEED_URLS. Vráti ich počet."""
+    import logging
+    from urllib.parse import urlparse
+
+    zoznam = data.get("feedy")
+    if not isinstance(zoznam, list):
+        return 0
+    pridane = []
+    for f in zoznam:
+        if not isinstance(f, dict) or not f.get("zap", True):
+            continue
+        url = str(f.get("url") or "").strip()
+        if not url.startswith(("http://", "https://")):
+            continue
+        pridane.append(url)
+        nazov = str(f.get("nazov") or "").strip()
+        domena = str(f.get("domena") or "").strip().lower().replace("www.", "")
+        if nazov and domena:
+            NAZVY_OBCHODOV[domena] = nazov[:40]
+    if pridane:
+        globals()["FEED_URLS"] = list(FEED_URLS) + pridane
+        logging.getLogger("config").info("Feedy z admina: %d", len(pridane))
+    return len(pridane)
+
+
 def info_pre_admin() -> dict:
     """Čo admin potrebuje na zobrazenie volieb: dostupné zdroje, feedy
     (len doména - celá adresa obsahuje partnerské ID a patrí do secrets)
