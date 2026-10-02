@@ -9,15 +9,15 @@
   {
     "kluc": "heslo",
     "nazov": "Zabudnuté heslo",
-    "kde": "Firebase → Authentication → Templates → Password reset",
+    "kde": "Posielame ho my z noreply@henkukaj.sk – Firebase má úpravu šablón zakázanú.",
     "predmet": "Nové heslo na HenKukaj.sk",
-    "firebase": true
+    "firebase": false
   },
   {
     "kluc": "zmena",
     "nazov": "Zmena e-mailu v účte",
-    "kde": "Firebase → Authentication → Templates → Email address change",
+    "kde": "Posiela Firebase vlastným textom (ak si niekto zmení adresu). Stáva sa to zriedka.",
     "predmet": "V tvojom účte sa zmenila e-mailová adresa",
-    "firebase": true
+    "firebase": false
   }
 ]

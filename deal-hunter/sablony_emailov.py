@@ -35,8 +35,8 @@ SABLONY = {
     },
     "heslo": {
         "nazov": "Zabudnuté heslo",
-        "kde": "Firebase → Authentication → Templates → Password reset",
-        "firebase": True,
+        "kde": "Posielame ho my z noreply@henkukaj.sk – Firebase má úpravu šablón zakázanú.",
+        "firebase": False,
         "predmet": "Nové heslo na HenKukaj.sk",
         "text": ("Ahoj,\n\nposlali sme ti odkaz na nastavenie nového hesla. Platí hodinu a použiť sa dá raz.\n\n"
                  "Ak si o zmenu nežiadal, nemusíš robiť nič – tvoje pôvodné heslo ostáva v platnosti.\n\n"
@@ -45,8 +45,8 @@ SABLONY = {
     },
     "zmena": {
         "nazov": "Zmena e-mailu v účte",
-        "kde": "Firebase → Authentication → Templates → Email address change",
-        "firebase": True,
+        "kde": "Posiela Firebase vlastným textom (ak si niekto zmení adresu). Stáva sa to zriedka.",
+        "firebase": False,
         "predmet": "V tvojom účte sa zmenila e-mailová adresa",
         "text": ("Ahoj,\n\ne-mail v tvojom účte na HenKukaj.sk bol zmenený na %NEW_EMAIL%.\n\n"
                  "Ak si to nebol ty, klikni nižšie – adresu vrátime späť na túto. Potom si hneď zmeň heslo.\n\n"

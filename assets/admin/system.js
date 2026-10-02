@@ -486,22 +486,14 @@ U.stranka('emaily', {
         </ol>
       </div>
       <div class="karta">
-        <h3 class="karta-nadpis">Krok 3 – vzhľad e-mailov z Firebase</h3>
-        <p class="settings-hint"><b>Overovací e-mail po registrácii posielame sami</b> – Firebase má jeho text zamknutý, takže by chodil
-          po anglicky a s odkazom na dealboard-e60bf.firebaseapp.com. Nemusíš s ním robiť nič.
-          Zabudnuté heslo a zmenu adresy posiela Firebase; tam vlož šablóny nižšie.</p>
-        <ol class="em-kroky">
-          <li>Vo Firebase otvor <a href="https://console.firebase.google.com/project/dealboard-e60bf/settings/general" target="_blank" rel="noopener">Project settings → General</a>
-            a nastav <b>Public-facing name</b> na <code>HenKukaj.sk</code> ${kopia('HenKukaj.sk')} – tým zmizne „dealboard-e60bf“ z predmetu aj podpisu.</li>
-          <li>V <a href="https://console.firebase.google.com/project/dealboard-e60bf/authentication/emails" target="_blank" rel="noopener">Authentication → Templates</a>
-            klikni pri šablónach <b>Password reset</b> a <b>Email address change</b> na ceruzku. Nastav <b>Sender name</b> na
-            <code>HenKukaj.sk</code>, <b>Reply to</b> na <code>info@henkukaj.sk</code> a vlož predmet aj HTML zdola.
-            Vľavo dole prepni <b>Template language</b> na <b>Slovenčina</b> – stránka pýta e-maily po slovensky.</li>
-          <li>Tam istom okne otvor <b>Customize action URL</b> a nastav ho na
-            <code>https://henkukaj.sk/ucet-akcia.html</code> ${kopia('https://henkukaj.sk/ucet-akcia.html')} –
-            odkaz v e-maile potom vedie na našu stránku, nie na dealboard-e60bf.firebaseapp.com, a potvrdenie vyzerá ako zvyšok webu
-            (<a href="/ucet-akcia.html?nahlad=overeny" target="_blank" rel="noopener">pozrieť</a>).</li>
-        </ol>
+        <h3 class="karta-nadpis">Krok 3 – e-maily o účte</h3>
+        <div class="hlaska ok"><svg class="ix"><use href="#ix-check"></use></svg> <span><b>Netreba nič nastavovať.</b>
+          Potvrdenie e-mailu aj odkaz na nové heslo posielame sami z <b>noreply@henkukaj.sk</b> v našom vzhľade
+          a odkaz vedie na <a href="/ucet-akcia.html?nahlad=overeny" target="_blank" rel="noopener">našu stránku</a>.</span></div>
+        <p class="settings-hint">Firebase má pre tento projekt úpravu svojich šablón zakázanú („Email template updates are currently
+          unavailable for this project“) – jeho e-maily by chodili po anglicky, podpísané „dealboard-e60bf“ a s odkazom na
+          dealboard-e60bf.firebaseapp.com. Preto si od neho pýtame len jednorazový odkaz a e-mail zostavíme a pošleme sami.
+          Nižšie je, ako vyzerajú; posielanie vyskúšaš tlačidlom „Poslať skúšobný e-mail“.</p>
         <div id="em-sablony"></div>
       </div>
       <form class="karta" id="em-form" autocomplete="off">

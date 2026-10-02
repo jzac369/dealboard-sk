@@ -374,7 +374,20 @@
 
   window.hkPrihlas = (email, heslo) => signInWithEmailAndPassword(auth, email, heslo);
   window.hkOdhlas = () => signOut(auth);
-  window.hkZabudnute = email => sendPasswordResetEmail(auth, email);
+  // Aj odkaz na nové heslo posiela náš plánovač - Firebase má úpravu
+  // šablón pre tento projekt zakázanú, takže by chodil jeho vlastný text
+  // s odkazom na dealboard-e60bf.firebaseapp.com.
+  window.hkZabudnute = async function (email) {
+    try {
+      await addDoc(collection(db, "ucty_akcie"), {
+        typ: 'heslo', email: String(email).trim().toLowerCase().slice(0, 120),
+        stav: 'caka', vytvorene: serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn('Žiadosť o nové heslo sa nezapísala, posielam cez Firebase:', e);
+      await sendPasswordResetEmail(auth, email);
+    }
+  };
   window.hkZnovaOverenie = () => posliOverenie(auth.currentUser);
   window.hkObnovUcet = async () => {
     if (!auth.currentUser || auth.currentUser.isAnonymous) return;

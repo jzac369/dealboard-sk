@@ -66,7 +66,7 @@
 </script>
 
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="assets/admin/admin.css?v=20261002c">
+<link rel="stylesheet" href="assets/admin/admin.css?v=20261002d">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <!-- Ochrana proti clickjackingu: admin sa nesmie dať vložiť do rámca
      cudzej stránky, ktorá by ti cez neviditeľný rámec podstrčila klik
@@ -734,7 +734,15 @@
         try { await sendEmailVerification(cred.user, { url: 'https://henkukaj.sk/?ucet=overeny' }); }
         catch (e2) { await sendEmailVerification(cred.user); }
       }
-      await sendPasswordResetEmail(auth2, email);
+      // Odkaz na nastavenie hesla pošle plánovač v našom vzhľade.
+      try {
+        await addDoc(collection(getFirestore(app2), 'ucty_akcie'), {
+          typ: 'heslo', email, stav: 'caka', vytvorene: serverTimestamp(),
+        });
+      } catch (err) {
+        console.warn('Žiadosť o heslo zlyhala, posielam cez Firebase:', err);
+        await sendPasswordResetEmail(auth2, email);
+      }
       await signOut(auth2);
       logChange('ucty', 'ucty', `Pridaný používateľ ${email}`);
       toast(`Účet ${email} je vytvorený. Prišli mu dva e-maily: overenie adresy a nastavenie hesla.`);
@@ -3481,12 +3489,12 @@
 </div>
 
 
-<script src="assets/admin/menu.js?v=20261002c"></script>
-<script type="module" src="assets/admin/spolocne.js?v=20261002c"></script>
-<script type="module" src="assets/admin/obsah.js?v=20261002c"></script>
-<script type="module" src="assets/admin/zarabanie.js?v=20261002c"></script>
-<script type="module" src="assets/admin/marketing.js?v=20261002c"></script>
-<script type="module" src="assets/admin/analytika.js?v=20261002c"></script>
-<script type="module" src="assets/admin/system.js?v=20261002c"></script>
+<script src="assets/admin/menu.js?v=20261002d"></script>
+<script type="module" src="assets/admin/spolocne.js?v=20261002d"></script>
+<script type="module" src="assets/admin/obsah.js?v=20261002d"></script>
+<script type="module" src="assets/admin/zarabanie.js?v=20261002d"></script>
+<script type="module" src="assets/admin/marketing.js?v=20261002d"></script>
+<script type="module" src="assets/admin/analytika.js?v=20261002d"></script>
+<script type="module" src="assets/admin/system.js?v=20261002d"></script>
 </body>
 </html>
