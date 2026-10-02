@@ -1,0 +1,20 @@
+[
+  {
+    "kluc": "overenie",
+    "nazov": "Overenie e-mailu po registrácii",
+    "kde": "Firebase → Authentication → Templates → Email address verification",
+    "predmet": "Potvrď svoj e-mail na HenKukaj.sk"
+  },
+  {
+    "kluc": "heslo",
+    "nazov": "Zabudnuté heslo",
+    "kde": "Firebase → Authentication → Templates → Password reset",
+    "predmet": "Nové heslo na HenKukaj.sk"
+  },
+  {
+    "kluc": "zmena",
+    "nazov": "Zmena e-mailu v účte",
+    "kde": "Firebase → Authentication → Templates → Email address change",
+    "predmet": "V tvojom účte sa zmenila e-mailová adresa"
+  }
+]

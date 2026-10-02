@@ -61,21 +61,62 @@ def nastavenia(db) -> dict:
     return {**PREDVOLENE, **{k: v for k, v in d.items() if v not in (None, "")}}
 
 
-def _html(text: str) -> str:
-    """Jednoduchá HTML verzia: odseky, klikateľné odkazy, pätička."""
+# Odkaz, kde si človek vypne, čo mu chodí. Jedným klikom sa odhlásiť
+# nedá - profil smie meniť len prihlásený, inak by stačilo poslať cudziu
+# adresu a vypnúť odber za niekoho iného.
+ODHLASIT = "https://henkukaj.sk/?ucet=nastavenia"
+LOGO = "https://henkukaj.sk/images/logo.png"
+SITE = "https://henkukaj.sk/"
+
+
+def _html(text: str, odhlasit: bool = False, tlacidlo: tuple[str, str] | None = None) -> str:
+    """HTML verzia vo farbách stránky: logo, oranžový pruh, odseky s
+    klikateľnými odkazmi, voliteľné tlačidlo a pätička s odhlásením.
+
+    Zámerne bez externých štýlov a obrázkov okrem loga - poštové programy
+    väčšinu z toho aj tak zahodia a inline štýly sú jediné, čomu rozumejú
+    všetky (Gmail, Outlook aj Seznam)."""
     import re
+
     bezpecne = html.escape(text)
-    bezpecne = re.sub(r"(https?://[^\s<]+)", r'<a href="\1" style="color:#C44C0A">\1</a>', bezpecne)
-    odseky = "".join(f'<p style="margin:0 0 14px">{o.replace(chr(10), "<br>")}</p>' for o in bezpecne.split("\n\n"))
-    return f"""<!doctype html><html lang="sk"><body style="margin:0;background:#F3F5F8;padding:24px 12px;font-family:Segoe UI,Roboto,Arial,sans-serif">
-<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #E3E7ED">
-<div style="background:#E8590C;padding:16px 22px;color:#fff;font-weight:800;font-size:18px">HenKukaj.sk</div>
-<div style="padding:22px;color:#2B3445;font-size:15px;line-height:1.55">{odseky}</div>
-<div style="padding:14px 22px;border-top:1px solid #E3E7ED;color:#8A94A6;font-size:12px">HenKukaj.sk · info@henkukaj.sk</div>
+    bezpecne = re.sub(r"(https?://[^\s<]+)", r'<a href="\1" style="color:#C44C0A;text-decoration:underline">\1</a>', bezpecne)
+    casti = [o for o in bezpecne.split("\n\n") if o.strip()]
+    # Tlačidlo patrí k obsahu, nie za podpis - keď text končí podpisom,
+    # vložíme ho pred neho.
+    kam = len(casti)
+    if casti and casti[-1].lstrip().startswith(("Tím", "S pozdravom", "Tvoj tím")):
+        kam -= 1
+    odsek = lambda o: f'<p style="margin:0 0 14px">{o.replace(chr(10), "<br>")}</p>'
+    odseky = "".join(odsek(o) for o in casti[:kam])
+    podpis = "".join(odsek(o) for o in casti[kam:])
+    cta = ""
+    if tlacidlo:
+        popis, adresa = tlacidlo
+        cta = (f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px"><tr>'
+               f'<td style="background:#E8590C;border-radius:10px">'
+               f'<a href="{html.escape(adresa)}" style="display:inline-block;padding:13px 26px;color:#ffffff;'
+               f'font-weight:700;font-size:15px;text-decoration:none">{html.escape(popis)}</a></td></tr></table>')
+    pata_odhlasit = (
+        f'<br><a href="{ODHLASIT}" style="color:#8A94A6">Nastavenia e-mailov a odhlásenie</a>'
+        if odhlasit else "")
+    return f"""<!doctype html><html lang="sk"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#F5F5F3;padding:24px 12px;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #E4E4E1">
+  <div style="background:#ffffff;padding:20px 24px 14px;text-align:center">
+    <a href="{SITE}"><img src="{LOGO}" alt="HenKukaj.sk" width="190" style="width:190px;max-width:70%;height:auto;border:0"></a>
+  </div>
+  <div style="height:4px;background:#E8590C"></div>
+  <div style="padding:24px;color:#1A1A1A;font-size:15px;line-height:1.6">{odseky}{cta}{podpis}</div>
+  <div style="padding:16px 24px;border-top:1px solid #E4E4E1;background:#FAFAF8;color:#8A8A85;font-size:12px;line-height:1.6">
+    <a href="{SITE}" style="color:#C44C0A;font-weight:700;text-decoration:none">HenKukaj.sk</a> · najlepšie zľavy zo slovenských a českých e-shopov<br>
+    Píš nám na <a href="mailto:info@henkukaj.sk" style="color:#8A8A85">info@henkukaj.sk</a>{pata_odhlasit}
+  </div>
 </div></body></html>"""
 
 
-def posli(n: dict, komu: str, predmet: str, text: str) -> None:
+def posli(n: dict, komu: str, predmet: str, text: str, odhlasit: bool = False,
+          tlacidlo: tuple[str, str] | None = None) -> None:
     heslo = os.environ.get("SMTP_PASSWORD", "")
     if not heslo:
         raise RuntimeError("Chýba heslo k schránke (GitHub secret SMTP_PASSWORD).")
@@ -86,8 +127,13 @@ def posli(n: dict, komu: str, predmet: str, text: str) -> None:
     if n.get("odpovedNa"):
         sprava["Reply-To"] = n["odpovedNa"]
     sprava["Message-ID"] = make_msgid(domain=n["odosielatelEmail"].split("@")[-1])
+    if odhlasit:
+        # Poštové programy podľa toho ukážu vlastné tlačidlo "Odhlásiť".
+        # Bez neho ľudia namiesto odhlásenia klikajú "označiť ako spam",
+        # čo pokazí doručovanie všetkých ďalších e-mailov.
+        sprava["List-Unsubscribe"] = f"<{ODHLASIT}>, <mailto:{n['odpovedNa'] or n['odosielatelEmail']}?subject=Odhlasenie>"
     sprava.set_content(text)
-    sprava.add_alternative(_html(text), subtype="html")
+    sprava.add_alternative(_html(text, odhlasit=odhlasit, tlacidlo=tlacidlo), subtype="html")
     port = int(n.get("smtpPort") or 465)
     kontext = ssl.create_default_context()
     if (n.get("sifrovanie") or "ssl") == "ssl":
@@ -121,7 +167,8 @@ def test(db, vstup: dict) -> dict:
     n = nastavenia(db)
     try:
         posli(n, komu, "Skúšobný e-mail z HenKukaj.sk",
-              "Ahoj,\n\ntoto je skúšobný e-mail z admin zóny HenKukaj.sk. Ak ho čítaš, odosielanie funguje.\n\nTím HenKukaj.sk")
+              "Ahoj,\n\ntoto je skúšobný e-mail z admin zóny HenKukaj.sk. Ak ho čítaš, odosielanie funguje a vyzerá takto.",
+              tlacidlo=("Otvoriť HenKukaj.sk", SITE))
     except Exception as e:
         zapis(db, None, {"typ": "test", "komu": komu, "ok": False, "chyba": str(e)[:300]})
         raise ValueError(f"Odoslanie zlyhalo: {e}")
@@ -218,7 +265,8 @@ def strazcovia(db, nasucho: bool = False) -> int:
             logger.info("Poslal by som strážcu %s (%d dealov)", p["email"], len(najdene))
             continue
         try:
-            posli(n, p["email"], n["strazcaPredmet"].replace("{co}", co), "\n".join(riadky))
+            posli(n, p["email"], n["strazcaPredmet"].replace("{co}", co), "\n".join(riadky),
+                  odhlasit=True, tlacidlo=("Pozrieť dealy", SITE))
             for d, _ in najdene:
                 zapis(db, f"strazca-{uid}-{d['id']}", {"typ": "strazca", "komu": p["email"], "ok": True, "deal": d.get("title", "")[:80]})
             poslane += 1
@@ -290,7 +338,8 @@ def letenky(db, nasucho: bool = False) -> int:
             logger.info("Poslal by som letenky %s (%d letov)", p["email"], len(najdene))
             continue
         try:
-            posli(n, p["email"], predmet, "\n".join(riadky))
+            posli(n, p["email"], predmet, "\n".join(riadky),
+                  odhlasit=True, tlacidlo=("Pozrieť letenky na mape", "https://henkukaj.sk/#letenky"))
             zapis(db, f"letenky-{uid}-{dnes}", {"typ": "letenky", "komu": p["email"], "ok": True,
                                                 "deal": f"{len(najdene)} letov do {int(strop)} €"})
             poslane += 1
@@ -344,7 +393,8 @@ def spracuj_registracie(db, nasucho: bool = False) -> int:
                 logger.info("Poslal by som uvítanie %s", email)
                 continue
             try:
-                posli(n, email, n["uvitaniePredmet"], n["uvitanieText"].replace("{meno}", meno))
+                posli(n, email, n["uvitaniePredmet"], n["uvitanieText"].replace("{meno}", meno),
+                      odhlasit=True, tlacidlo=("Pozrieť dnešné dealy", SITE))
                 zapis(db, f"uvitanie-{u.id}", {"typ": "uvitanie", "komu": email, "ok": True, "predmet": n["uvitaniePredmet"]})
                 poslane += 1
             except Exception as e:

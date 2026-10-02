@@ -1614,6 +1614,18 @@
     cursor: pointer; font-size: .85rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
   .main-section-btn.active { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
 
+  /* Tablet a úzke okno: lišta záložiek sa posúva do strany a tlačidlo
+     účtu je len ikona. Inak sa štyri záložky, "Pridaj deal" a "Prihlásiť
+     sa" do riadku nezmestia a posledné tlačidlo vylieza za okraj. */
+  @media (max-width: 1000px) {
+    .main-section-nav { min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .main-section-nav::-webkit-scrollbar { display: none; }
+    .btn-add, .hk-acct { flex: none; }
+  }
+  @media (max-width: 900px) {
+    .btn-add { padding: 9px 14px; }
+  }
+
   @media (max-width: 720px) {
     header { height: auto; }
     .header-inner { flex-wrap: wrap; padding: 10px 16px; gap: 10px; }
@@ -2557,10 +2569,13 @@
   background: linear-gradient(135deg, #F07A2C, var(--orange-dk)); color: #fff;
   display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: .8rem; }
 .hk-avatar.velky { width: 52px; height: 52px; font-size: 1.3rem; }
-@media (max-width: 720px) {
-  .hk-acct { order: 2; padding: 8px; }
+@media (max-width: 900px) {
+  .hk-acct { padding: 8px; }
   .hk-acct.in { padding: 3px; }
   .hk-acct-txt { display: none; }
+}
+@media (max-width: 720px) {
+  .hk-acct { order: 2; }
 }
 
 .uc-modal { max-width: 440px; position: relative; border-radius: 16px; padding-bottom: 4px; }
@@ -4257,6 +4272,12 @@ body.food-page { background: #FAF8F5; }
     // Prezývku predvyplníme pri pridávaní dealu - nech ju nepíše stále.
     const fa = document.getElementById('f-author');
     if (fa && !fa.value && profil && profil.meno) fa.value = profil.meno;
+    // Odkaz "Nastavenia e-mailov" z pätičky e-mailu.
+    if (/[?&]ucet=nastavenia\b/.test(location.search)) {
+      try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+      window.otvorUcet(user ? 'ucet' : 'prihlasenie');
+      return;
+    }
     // Návrat z odkazu v overovacom e-maile.
     if (user && /[?&]ucet=overeny\b/.test(location.search)) {
       try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}

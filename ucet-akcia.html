@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#E8590C">
+<title>Tvoj účet – HenKukaj.sk</title>
+<link rel="icon" href="/assets/icon-192.png?v=2" type="image/png">
+<!--
+  Vlastná stránka pre odkazy z e-mailov o účte (overenie e-mailu, obnova
+  hesla, vrátenie zmeny adresy).
+
+  PREČO VLASTNÁ A NIE OD FIREBASE
+  Firebase má na to svoju stránku na dealboard-e60bf.firebaseapp.com.
+  V e-maile tak človek vidí dlhý odkaz na cudziu doménu, ktorú nepozná -
+  pôsobí to ako podvod a spamové filtre si to všímajú. Odkaz teraz vedie
+  na henkukaj.sk a výsledok vyzerá ako zvyšok stránky.
+
+  Firebase sem pošle parametre mode (čo sa má stať), oobCode (jednorazový
+  kód) a continueUrl (kam ísť potom). Kód overuje Firebase, nie táto
+  stránka - podstrčiť sa nedá.
+-->
+<style>
+  :root { --orange: #E8590C; --orange-dk: #C44C0A; --ink: #1A1A1A; --muted: #6B6B6B; --line: #E4E4E1;
+    --card: #fff; --bg: #F5F5F3; --green: #2E8B3D; --red: #C0392B; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+    background: var(--bg); color: var(--ink); font-family: -apple-system, 'Segoe UI', Roboto, system-ui, sans-serif; }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 18px; width: 100%; max-width: 420px;
+    padding: 30px 26px; box-shadow: 0 10px 40px rgba(0,0,0,.07); text-align: center; }
+  .logo { height: 34px; margin-bottom: 20px; }
+  h1 { font-size: 1.35rem; margin: 0 0 10px; letter-spacing: -.3px; }
+  p { color: var(--muted); line-height: 1.55; margin: 0 0 18px; font-size: .95rem; }
+  .ikona { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px; font-size: 1.9rem; background: #FFF1E8; color: var(--orange); }
+  .ikona.ok { background: #E7F5EC; color: var(--green); }
+  .ikona.zle { background: #FDECEA; color: var(--red); }
+  .btn { display: block; width: 100%; background: var(--orange); color: #fff; border: 0; border-radius: 12px;
+    padding: 14px; font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; text-decoration: none; }
+  .btn:hover { background: var(--orange-dk); }
+  .btn[disabled] { opacity: .6; cursor: default; }
+  .odkaz { display: inline-block; margin-top: 14px; color: var(--muted); font-size: .85rem; }
+  form { text-align: left; }
+  label { display: block; font-size: .85rem; font-weight: 700; margin-bottom: 6px; }
+  .pole { position: relative; margin-bottom: 14px; }
+  input { width: 100%; padding: 12px 44px 12px 14px; border: 1.5px solid var(--line); border-radius: 10px; font: inherit; font-size: 1rem; }
+  input:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,89,12,.14); }
+  .oko { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: 0;
+    cursor: pointer; color: var(--muted); font-size: .8rem; padding: 8px; }
+  .chyba { color: var(--red); font-size: .85rem; margin: 0 0 12px; min-height: 1.2em; text-align: left; }
+  .tocka { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--orange); border-radius: 50%;
+    margin: 10px auto; animation: t 1s linear infinite; }
+  @keyframes t { to { transform: rotate(360deg); } }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #ECECEC; --muted: #A9A9A9; --line: #33363B; --card: #1E2024; --bg: #141619; }
+  }
+</style>
+</head>
+<body>
+<main class="box" id="box">
+  <img src="/images/logo.png" alt="HenKukaj.sk" class="logo">
+  <div class="tocka"></div>
+  <p>Chvíľku strpenia…</p>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, applyActionCode, verifyPasswordResetCode, confirmPasswordReset, checkActionCode }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const auth = getAuth(initializeApp({
+    apiKey: "AIzaSyAZhsfBl5xLpILC2r2knGar2RgxqXK7yBQ",
+    authDomain: "dealboard-e60bf.firebaseapp.com",
+    projectId: "dealboard-e60bf",
+    storageBucket: "dealboard-e60bf.firebasestorage.app",
+    messagingSenderId: "16233224810",
+    appId: "1:16233224810:web:9d0fa4d5faa49ac4c10813",
+  }));
+  auth.languageCode = 'sk';
+
+  const p = new URLSearchParams(location.search);
+  const mode = p.get('mode') || '';
+  const kod = p.get('oobCode') || '';
+  const box = document.getElementById('box');
+  const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // Kam ísť po dokončení. Cudziu adresu zámerne nepúšťame - odkaz
+  // v e-maile by sa dal upraviť a poslať človeka inam.
+  const kamDalej = (() => {
+    const c = p.get('continueUrl') || '';
+    try { const u = new URL(c); if (/(^|\.)henkukaj\.sk$/i.test(u.hostname)) return u.toString(); } catch (e) {}
+    return 'https://henkukaj.sk/';
+  })();
+
+  const CHYBY = {
+    'auth/invalid-action-code': 'Tento odkaz už bol použitý alebo mu vypršala platnosť. Nechaj si poslať nový.',
+    'auth/expired-action-code': 'Odkazu vypršala platnosť. Nechaj si poslať nový.',
+    'auth/user-disabled': 'Tento účet je zablokovaný. Napíš nám na info@henkukaj.sk.',
+    'auth/user-not-found': 'Účet sa nenašiel – možno bol zrušený.',
+    'auth/weak-password': 'Heslo je príliš slabé. Použi aspoň 8 znakov.',
+    'auth/password-does-not-meet-requirements': 'Heslo nespĺňa požiadavky. Použi aspoň 8 znakov.',
+  };
+  const text = e => CHYBY[(e && e.code) || ''] || 'Niečo sa pokazilo. Skús to znova, prípadne nám napíš na info@henkukaj.sk.';
+
+  const ukaz = (ikona, trieda, nadpis, popis, tlacidlo = 'Prejsť na HenKukaj.sk') => {
+    box.innerHTML = `<img src="/images/logo.png" alt="HenKukaj.sk" class="logo">
+      <div class="ikona ${trieda}">${ikona}</div><h1>${esc(nadpis)}</h1><p>${popis}</p>
+      <a class="btn" href="${esc(kamDalej)}">${esc(tlacidlo)}</a>`;
+  };
+
+  async function overEmail() {
+    await applyActionCode(auth, kod);
+    // Prihlásenému v tomto prehliadači sa stav obnoví sám na stránke.
+    ukaz('✓', 'ok', 'E-mail je overený', 'Vitaj medzi nami! Teraz si môžeš nastaviť strážcu dealov, ukladať zľavy a dostávať newsletter.');
+  }
+
+  async function vratEmail() {
+    const info = await checkActionCode(auth, kod);
+    await applyActionCode(auth, kod);
+    ukaz('✓', 'ok', 'Adresa je vrátená späť',
+      `Tvoj účet opäť patrí k adrese <b>${esc((info.data && info.data.email) || '')}</b>. Ak si zmenu nerobil ty, zmeň si pre istotu heslo.`);
+  }
+
+  async function noveHeslo() {
+    const email = await verifyPasswordResetCode(auth, kod);
+    box.innerHTML = `<img src="/images/logo.png" alt="HenKukaj.sk" class="logo">
+      <h1>Nastav si nové heslo</h1>
+      <p>Pre účet <b>${esc(email)}</b>. Použi aspoň 8 znakov.</p>
+      <form id="f" novalidate>
+        <label for="h1">Nové heslo</label>
+        <div class="pole"><input type="password" id="h1" autocomplete="new-password" minlength="8" required>
+          <button type="button" class="oko" id="oko">Zobraziť</button></div>
+        <label for="h2">Ešte raz pre istotu</label>
+        <div class="pole"><input type="password" id="h2" autocomplete="new-password" minlength="8" required></div>
+        <p class="chyba" id="ch"></p>
+        <button class="btn" type="submit">Uložiť nové heslo</button>
+      </form>`;
+    const f = document.getElementById('f'), ch = document.getElementById('ch');
+    document.getElementById('oko').onclick = () => {
+      const i = document.getElementById('h1');
+      i.type = i.type === 'password' ? 'text' : 'password';
+      document.getElementById('oko').textContent = i.type === 'password' ? 'Zobraziť' : 'Skryť';
+    };
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const h1 = document.getElementById('h1').value, h2 = document.getElementById('h2').value;
+      ch.textContent = '';
+      if (h1.length < 8) { ch.textContent = 'Heslo musí mať aspoň 8 znakov.'; return; }
+      if (h1 !== h2) { ch.textContent = 'Heslá sa nezhodujú.'; return; }
+      const btn = f.querySelector('.btn');
+      btn.disabled = true; btn.textContent = 'Ukladám…';
+      try {
+        await confirmPasswordReset(auth, kod, h1);
+        ukaz('✓', 'ok', 'Heslo je zmenené', 'Môžeš sa prihlásiť novým heslom.', 'Prihlásiť sa');
+      } catch (err) {
+        ch.textContent = text(err);
+        btn.disabled = false; btn.textContent = 'Uložiť nové heslo';
+      }
+    };
+  }
+
+  // Náhľad bez skutočného odkazu (?nahlad=overeny|heslo|chyba) - aby sa
+  // dal vzhľad skontrolovať bez čakania na e-mail. Nič nemení, len kreslí.
+  const nahlad = p.get('nahlad');
+
+  (async () => {
+    if (nahlad === 'overeny') return ukaz('✓', 'ok', 'E-mail je overený', 'Vitaj medzi nami! Teraz si môžeš nastaviť strážcu dealov, ukladať zľavy a dostávať newsletter.');
+    if (nahlad === 'chyba') return ukaz('!', 'zle', 'Odkaz už neplatí', esc(CHYBY['auth/expired-action-code']));
+    if (nahlad === 'heslo') {
+      box.innerHTML = `<img src="/images/logo.png" alt="HenKukaj.sk" class="logo">
+        <h1>Nastav si nové heslo</h1><p>Pre účet <b>ty@example.sk</b>. Použi aspoň 8 znakov.</p>
+        <form novalidate><label>Nové heslo</label>
+          <div class="pole"><input type="password" autocomplete="new-password"><button type="button" class="oko">Zobraziť</button></div>
+          <label>Ešte raz pre istotu</label><div class="pole"><input type="password" autocomplete="new-password"></div>
+          <p class="chyba"></p><button class="btn" type="button">Uložiť nové heslo</button></form>`;
+      return;
+    }
+    if (!kod) {
+      ukaz('?', 'zle', 'Neúplný odkaz',
+        'Odkaz z e-mailu sa asi skrátil. Skús ho otvoriť znova celý, alebo si nechaj poslať nový.');
+      return;
+    }
+    try {
+      if (mode === 'verifyEmail' || mode === 'verifyAndChangeEmail') await overEmail();
+      else if (mode === 'resetPassword') await noveHeslo();
+      else if (mode === 'recoverEmail') await vratEmail();
+      else ukaz('?', 'zle', 'Neznámy odkaz', 'Tomuto odkazu nerozumieme. Skús ho otvoriť priamo z e-mailu.');
+    } catch (e) {
+      ukaz('!', 'zle', 'Odkaz už neplatí', esc(text(e)));
+    }
+  })();
+</script>
+</body>
+</html>
