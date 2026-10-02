@@ -2837,9 +2837,23 @@
   .lt-hero h1 { font-size: 1.9rem; }
   .lt-hero p { font-size: .92rem; }
   .lt-hero-art { display: none; }
-  .lt-filters { padding: 14px; border-radius: 14px; }
-  /* Na telefóne sa riadok volieb posúva do strany, nezalamuje. */
-  .lt-chips { flex-wrap: wrap; }
+  /* Filtre na telefóne: rovnaké rozloženie ako na počítači, len menšie
+     písmo a tesnejšie medzery - inak sa pod ne nezmestí ani kúsok mapy. */
+  .lt-filters { padding: 11px 12px 12px; border-radius: 14px; }
+  .lt-f-head { margin-bottom: 9px; gap: 6px; }
+  .lt-f-title { font-size: .95rem; gap: 8px; }
+  .lt-f-ico { width: 28px; height: 28px; border-radius: 8px; }
+  .lt-f-ico .ic { width: 15px; height: 15px; }
+  .lt-f-sum-lab { font-size: .7rem; }
+  .lt-sum { font-size: .68rem; padding: 2px 8px; }
+  .lt-f-row { gap: 8px; margin-bottom: 8px; }
+  .lt-group { padding: 8px 9px 10px; border-radius: 11px; }
+  .lt-group-lab { font-size: .63rem; margin-bottom: 5px; }
+  .lt-chip { font-size: .76rem; padding: 5px 11px; border-width: 1px; }
+  .lt-f-foot { padding: 8px 10px; border-radius: 11px; }
+  .lt-f-tip { font-size: .72rem; }
+  .lt-f-btn { font-size: .78rem; padding: 7px 13px; }
+  .lt-chips { flex-wrap: wrap; gap: 5px; }
   .lt-chips::-webkit-scrollbar { display: none; }
   .lt-map-wrap { height: 470px; border-radius: 14px; }
   .lt-pop-img { height: 92px; }
