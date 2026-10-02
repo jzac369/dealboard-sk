@@ -52,6 +52,13 @@ service cloud.firestore {
     // písmená a číslice - tak ho tvorí addDoc). Vlastné ID s apostrofom
     // by sa v admine dostalo do onclick a spustilo kód. Pole "id" v
     // dátach by zas prekrylo skutočné ID dokumentu.
+    // Je moderácia vypnutá? Keď áno, nový príspevok smie ísť rovno von -
+    // presne to robí prepínač v admine. Čítame to tu, lebo status si
+    // inak píše sám klient a dalo by sa to obísť mimo formulára.
+    function bezModeracie(pole) {
+      return exists(/databases/$(database)/documents/settings/moderation)
+             && get(/databases/$(database)/documents/settings/moderation).data.get(pole, true) == false;
+    }
     function autoId(id) {
       return id.matches('^[A-Za-z0-9]{20}$');
     }
@@ -76,8 +83,9 @@ service cloud.firestore {
       // konto - inak by si si cudzím uid pripisoval body.
       allow create: if (request.resource.data.status == 'pending'
                         || (request.resource.data.status == 'approved'
-                            && request.auth != null
-                            && exists(/databases/$(database)/documents/duveryhodni/$(request.auth.uid))))
+                            && (bezModeracie('dealsRequired')
+                                || (request.auth != null
+                                    && exists(/databases/$(database)/documents/duveryhodni/$(request.auth.uid))))))
                     && (!('authorUid' in request.resource.data)
                         || (request.auth != null && request.resource.data.authorUid == request.auth.uid))
                     && bezCudzichId() && autoId(dealId)
@@ -132,7 +140,8 @@ service cloud.firestore {
 
       allow create: if isAdmin();
 
-      allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
+      allow create: if (request.resource.data.status == 'pending'
+                        || (request.resource.data.status == 'approved' && bezModeracie('commentsRequired')))
                     && bezCudzichId() && autoId(commentId)
                     && request.resource.data.nickname is string
                     && request.resource.data.nickname.size() > 0
@@ -151,7 +160,8 @@ service cloud.firestore {
 
       allow create: if isAdmin();
 
-      allow create: if (request.resource.data.status == 'pending' || request.resource.data.status == 'approved')
+      allow create: if (request.resource.data.status == 'pending'
+                        || (request.resource.data.status == 'approved' && bezModeracie('couponsRequired')))
                     && bezCudzichId() && autoId(couponId)
                     && request.resource.data.author is string
                     && request.resource.data.author.size() > 0
