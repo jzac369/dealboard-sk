@@ -2033,8 +2033,10 @@
   #fb-banner strong { display: block; margin-bottom: 4px; }
 
   /* ── Modal ───────────────────────────────────────────────────────────── */
+  /* Nad mapou leteniek: Leaflet dáva svojim vrstvám z-index 400 až 700,
+     takže pri 200 sa cenovky vykresľovali cez otvorené okno účtu. */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
-    z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+    z-index: 1100; align-items: center; justify-content: center; padding: 16px; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--card); border-radius: var(--r); width: 100%; max-width: 520px;
     max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
@@ -2765,7 +2767,9 @@
 .lt-layout { display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 16px; margin-top: 16px; }
 .lt-map-wrap { position: relative; height: 620px; border-radius: 16px; overflow: hidden;
   box-shadow: var(--shadow-lg);
-  background: radial-gradient(90% 90% at 40% 40%, #EAF3FA 0%, #D3E5F2 100%); }
+  background: radial-gradient(90% 90% at 40% 40%, #EAF3FA 0%, #D3E5F2 100%); 
+  /* Vlastný kontext vrstiev - z-index Leafletu tak neprelieza von. */
+  isolation: isolate; }
 #lt-map { position: absolute; inset: 0; }
 #lt-map.leaflet-container { background: transparent; font: inherit; }
 .lt-legend { position: absolute; left: 12px; bottom: 12px; z-index: 500; display: flex; gap: 10px;
