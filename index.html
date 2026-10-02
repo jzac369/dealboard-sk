@@ -1468,7 +1468,9 @@
 }
 @media (max-width: 640px) {
   .hk-hero-wrap { margin: 12px auto 12px; padding: 0 12px; }
-  .hk-hero { height: 150px; border-radius: 12px; background-position: 75% center; }
+  /* Fotka musí sedieť na pravý okraj. Pri 75 % ostával vpravo kúsok
+     modrej - fotka je užšia než karta a nedosiahla naň. */
+  .hk-hero { height: 150px; border-radius: 12px; background-position: right center; }
   .hk-hero::before { content: ""; position: absolute; inset: 0;
     background: linear-gradient(90deg, var(--c) 0%, var(--c) 38%, color-mix(in srgb, var(--c) 55%, transparent) 62%, transparent 85%); }
   .hk-hero-in { padding: 0 16px; max-width: 72%; }
