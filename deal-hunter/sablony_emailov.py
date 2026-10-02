@@ -24,7 +24,8 @@ import emaily
 SABLONY = {
     "overenie": {
         "nazov": "Overenie e-mailu po registrácii",
-        "kde": "Firebase → Authentication → Templates → Email address verification",
+        "kde": "Posielame ho my z noreply@henkukaj.sk – vo Firebase sa telo upraviť nedá, tak sme ho obišli.",
+        "firebase": False,
         "predmet": "Potvrď svoj e-mail na HenKukaj.sk",
         "text": ("Ahoj,\n\nvitaj na HenKukaj.sk! Ešte jeden klik a máš hotovo – potvrď, že tento e-mail patrí tebe.\n\n"
                  "Potom si môžeš ukladať dealy, nastaviť si strážcu zliav a dostávať len to, čo ťa naozaj zaujíma.\n\n"
@@ -35,6 +36,7 @@ SABLONY = {
     "heslo": {
         "nazov": "Zabudnuté heslo",
         "kde": "Firebase → Authentication → Templates → Password reset",
+        "firebase": True,
         "predmet": "Nové heslo na HenKukaj.sk",
         "text": ("Ahoj,\n\nposlali sme ti odkaz na nastavenie nového hesla. Platí hodinu a použiť sa dá raz.\n\n"
                  "Ak si o zmenu nežiadal, nemusíš robiť nič – tvoje pôvodné heslo ostáva v platnosti.\n\n"
@@ -44,6 +46,7 @@ SABLONY = {
     "zmena": {
         "nazov": "Zmena e-mailu v účte",
         "kde": "Firebase → Authentication → Templates → Email address change",
+        "firebase": True,
         "predmet": "V tvojom účte sa zmenila e-mailová adresa",
         "text": ("Ahoj,\n\ne-mail v tvojom účte na HenKukaj.sk bol zmenený na %NEW_EMAIL%.\n\n"
                  "Ak si to nebol ty, klikni nižšie – adresu vrátime späť na túto. Potom si hneď zmeň heslo.\n\n"
@@ -60,7 +63,8 @@ def main() -> int:
     for kluc, s in SABLONY.items():
         html = emaily._html(s["text"], tlacidlo=s["tlacidlo"])
         (kam / f"{kluc}.html").write_text(html, encoding="utf-8")
-        zoznam.append({"kluc": kluc, "nazov": s["nazov"], "kde": s["kde"], "predmet": s["predmet"]})
+        zoznam.append({"kluc": kluc, "nazov": s["nazov"], "kde": s["kde"],
+                       "predmet": s["predmet"], "firebase": s.get("firebase", False)})
     (kam / "zoznam.json").write_text(json.dumps(zoznam, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Vygenerovaných {len(zoznam)} šablón do {kam}")
     return 0

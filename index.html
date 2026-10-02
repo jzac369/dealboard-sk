@@ -236,7 +236,26 @@
   // Odkaz v overovacom e-maile vráti človeka späť na stránku. Ak by
   // doména nebola vo Firebase povolená, pošleme e-mail bez návratu -
   // lepšie ako neposlať nič.
+  // Overovací e-mail posiela náš plánovač, nie Firebase: telo šablóny
+  // "Email address verification" sa vo Firebase upraviť nedá (zamkli ho,
+  // aby sa služba nedala zneužiť na rozosielanie), takže by chodil
+  // anglický text s odkazom na dealboard-e60bf.firebaseapp.com.
+  // Zapíšeme teda žiadosť a plánovač ju do pár sekúnd vybaví - odkaz si
+  // vypýta od Firebase, ale e-mail pošle v našom vzhľade z henkukaj.sk.
+  //
+  // Keby sa zápis nepodaril (napr. chyba pravidiel), pošleme ho postaru
+  // cez Firebase - radšej škaredý e-mail než žiadny.
   async function posliOverenie(user) {
+    try {
+      await addDoc(collection(db, "ucty_akcie"), {
+        typ: 'overenie', uid: user.uid, email: user.email,
+        meno: ((window.HK_UCET && window.HK_UCET.profil && window.HK_UCET.profil.meno) || '').slice(0, 40),
+        stav: 'caka', vytvorene: serverTimestamp(),
+      });
+      return;
+    } catch (e) {
+      console.warn('Žiadosť o overovací e-mail sa nezapísala, posielam cez Firebase:', e);
+    }
     try {
       await sendEmailVerification(user, { url: location.origin + '/?ucet=overeny' });
     } catch (e) {

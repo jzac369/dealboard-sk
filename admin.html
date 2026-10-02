@@ -66,7 +66,7 @@
 </script>
 
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="assets/admin/admin.css?v=20261002b">
+<link rel="stylesheet" href="assets/admin/admin.css?v=20261002c">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <!-- Ochrana proti clickjackingu: admin sa nesmie dať vložiť do rámca
      cudzej stránky, ktorá by ti cez neviditeľný rámec podstrčila klik
@@ -722,8 +722,18 @@
         email: cred.user.email, ...(meno ? { meno } : {}), newsletter: false, overeny: false,
         vytvorene: serverTimestamp(), upravene: serverTimestamp(),
       });
-      try { await sendEmailVerification(cred.user, { url: 'https://henkukaj.sk/?ucet=overeny' }); }
-      catch (err) { await sendEmailVerification(cred.user); }
+      // Overovací e-mail pošle plánovač v našom vzhľade (viď ucty.py);
+      // žiadosť zapisujeme ako nový používateľ, takže sedí s pravidlami.
+      try {
+        await addDoc(collection(getFirestore(app2), 'ucty_akcie'), {
+          typ: 'overenie', uid: cred.user.uid, email: cred.user.email, meno,
+          stav: 'caka', vytvorene: serverTimestamp(),
+        });
+      } catch (err) {
+        console.warn('Žiadosť o overovací e-mail zlyhala, posielam cez Firebase:', err);
+        try { await sendEmailVerification(cred.user, { url: 'https://henkukaj.sk/?ucet=overeny' }); }
+        catch (e2) { await sendEmailVerification(cred.user); }
+      }
       await sendPasswordResetEmail(auth2, email);
       await signOut(auth2);
       logChange('ucty', 'ucty', `Pridaný používateľ ${email}`);
@@ -3471,12 +3481,12 @@
 </div>
 
 
-<script src="assets/admin/menu.js?v=20261002b"></script>
-<script type="module" src="assets/admin/spolocne.js?v=20261002b"></script>
-<script type="module" src="assets/admin/obsah.js?v=20261002b"></script>
-<script type="module" src="assets/admin/zarabanie.js?v=20261002b"></script>
-<script type="module" src="assets/admin/marketing.js?v=20261002b"></script>
-<script type="module" src="assets/admin/analytika.js?v=20261002b"></script>
-<script type="module" src="assets/admin/system.js?v=20261002b"></script>
+<script src="assets/admin/menu.js?v=20261002c"></script>
+<script type="module" src="assets/admin/spolocne.js?v=20261002c"></script>
+<script type="module" src="assets/admin/obsah.js?v=20261002c"></script>
+<script type="module" src="assets/admin/zarabanie.js?v=20261002c"></script>
+<script type="module" src="assets/admin/marketing.js?v=20261002c"></script>
+<script type="module" src="assets/admin/analytika.js?v=20261002c"></script>
+<script type="module" src="assets/admin/system.js?v=20261002c"></script>
 </body>
 </html>

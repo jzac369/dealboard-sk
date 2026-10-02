@@ -487,14 +487,16 @@ U.stranka('emaily', {
       </div>
       <div class="karta">
         <h3 class="karta-nadpis">Krok 3 – vzhľad e-mailov z Firebase</h3>
-        <p class="settings-hint">Overenie e-mailu, zabudnuté heslo a zmenu adresy posiela Firebase vlastnými šablónami –
-          v základe sú po anglicky a podpísané „dealboard-e60bf“. Tu máš pripravené naše: po slovensky, s logom a oranžovým pruhom,
-          rovnako ako ostatné e-maily.</p>
+        <p class="settings-hint"><b>Overovací e-mail po registrácii posielame sami</b> – Firebase má jeho text zamknutý, takže by chodil
+          po anglicky a s odkazom na dealboard-e60bf.firebaseapp.com. Nemusíš s ním robiť nič.
+          Zabudnuté heslo a zmenu adresy posiela Firebase; tam vlož šablóny nižšie.</p>
         <ol class="em-kroky">
           <li>Vo Firebase otvor <a href="https://console.firebase.google.com/project/dealboard-e60bf/settings/general" target="_blank" rel="noopener">Project settings → General</a>
             a nastav <b>Public-facing name</b> na <code>HenKukaj.sk</code> ${kopia('HenKukaj.sk')} – tým zmizne „dealboard-e60bf“ z predmetu aj podpisu.</li>
           <li>V <a href="https://console.firebase.google.com/project/dealboard-e60bf/authentication/emails" target="_blank" rel="noopener">Authentication → Templates</a>
-            klikni pri každej šablóne na ceruzku a vlož predmet aj HTML zdola.</li>
+            klikni pri šablónach <b>Password reset</b> a <b>Email address change</b> na ceruzku. Nastav <b>Sender name</b> na
+            <code>HenKukaj.sk</code>, <b>Reply to</b> na <code>info@henkukaj.sk</code> a vlož predmet aj HTML zdola.
+            Vľavo dole prepni <b>Template language</b> na <b>Slovenčina</b> – stránka pýta e-maily po slovensky.</li>
           <li>Tam istom okne otvor <b>Customize action URL</b> a nastav ho na
             <code>https://henkukaj.sk/ucet-akcia.html</code> ${kopia('https://henkukaj.sk/ucet-akcia.html')} –
             odkaz v e-maile potom vedie na našu stránku, nie na dealboard-e60bf.firebaseapp.com, a potvrdenie vyzerá ako zvyšok webu
@@ -551,11 +553,11 @@ U.stranka('emaily', {
     fetch('assets/emaily/zoznam.json?t=' + Date.now()).then(r => r.json()).then(zoz => {
       const t = el.querySelector('#em-sablony');
       if (!t) return;
-      t.innerHTML = zoz.map(x => `<div class="em-sablona">
+      t.innerHTML = zoz.map(x => `<div class="em-sablona${x.firebase ? '' : ' nase'}">
         <div><b>${esc(x.nazov)}</b><small>${esc(x.kde)}</small>
           <div class="em-pre">Predmet: <b>${esc(x.predmet)}</b></div></div>
-        <div class="tl-rad">${kopia(x.predmet)}<button class="btn" type="button" data-sablona="${esc(x.kluc)}">
-          <svg class="ix"><use href="#ix-copy"></use></svg> Kopírovať HTML</button>
+        <div class="tl-rad">${x.firebase ? kopia(x.predmet) + `<button class="btn" type="button" data-sablona="${esc(x.kluc)}">
+          <svg class="ix"><use href="#ix-copy"></use></svg> Kopírovať HTML</button>` : '<span class="badge badge-approved">rieši plánovač</span>'}
           <a class="btn btn-ic" href="assets/emaily/${esc(x.kluc)}.html" target="_blank" rel="noopener" title="Pozrieť"><svg class="ix"><use href="#ix-eye"></use></svg></a></div></div>`).join('');
     }).catch(() => {});
     el.addEventListener('click', async e => {

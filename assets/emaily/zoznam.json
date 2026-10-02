@@ -2,19 +2,22 @@
   {
     "kluc": "overenie",
     "nazov": "Overenie e-mailu po registrácii",
-    "kde": "Firebase → Authentication → Templates → Email address verification",
-    "predmet": "Potvrď svoj e-mail na HenKukaj.sk"
+    "kde": "Posielame ho my z noreply@henkukaj.sk – vo Firebase sa telo upraviť nedá, tak sme ho obišli.",
+    "predmet": "Potvrď svoj e-mail na HenKukaj.sk",
+    "firebase": false
   },
   {
     "kluc": "heslo",
     "nazov": "Zabudnuté heslo",
     "kde": "Firebase → Authentication → Templates → Password reset",
-    "predmet": "Nové heslo na HenKukaj.sk"
+    "predmet": "Nové heslo na HenKukaj.sk",
+    "firebase": true
   },
   {
     "kluc": "zmena",
     "nazov": "Zmena e-mailu v účte",
     "kde": "Firebase → Authentication → Templates → Email address change",
-    "predmet": "V tvojom účte sa zmenila e-mailová adresa"
+    "predmet": "V tvojom účte sa zmenila e-mailová adresa",
+    "firebase": true
   }
 ]

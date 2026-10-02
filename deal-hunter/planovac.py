@@ -212,6 +212,12 @@ def kontrola(db, nasucho: bool) -> None:
     posli_pripomienky(db, teraz, nasucho)
     spusti_facebook_naplanovane(db, teraz, nasucho)
     try:
+        if not nasucho:
+            import ucty
+            ucty.dobehni(db)
+    except Exception as e:
+        logger.warning("Čakajúce overovacie e-maily zlyhali: %s", e)
+    try:
         import emaily
         emaily.spracuj_registracie(db, nasucho)
         emaily.strazcovia(db, nasucho)
@@ -255,12 +261,14 @@ def slucka(db) -> None:
     import queue
     import time as _time
     import admin_ulohy
+    import ucty
 
     # Úlohy z admina (načítanie odkazu, kontrola platnosti, spustenie
-    # workflow) prichádzajú živým odberom - vykonajú sa hneď počas
-    # čakania medzi kontrolami, nie až o päť minút.
+    # workflow) a žiadosti o overovací e-mail prichádzajú živým odberom -
+    # vykonajú sa hneď počas čakania medzi kontrolami, nie až o päť minút.
     fronta: queue.Queue = queue.Queue()
     odber = admin_ulohy.sleduj(db, fronta)
+    odber_ucty = ucty.sleduj(db, fronta)
 
     def cakaj(sekundy: float) -> None:
         do = _time.monotonic() + sekundy
@@ -273,9 +281,12 @@ def slucka(db) -> None:
             except queue.Empty:
                 return
             try:
-                admin_ulohy.spracuj(db, ref)
+                if ref.parent.id == "ucty_akcie":
+                    ucty.spracuj(db, ref)
+                else:
+                    admin_ulohy.spracuj(db, ref)
             except Exception:
-                logger.exception("Úloha z admina zlyhala")
+                logger.exception("Úloha z odberu zlyhala")
 
     koniec = _time.monotonic() + DLZKA_SLUCKY_MIN * 60
     while True:
@@ -294,8 +305,9 @@ def slucka(db) -> None:
                   + timedelta(minutes=INTERVAL_MIN - teraz.minute % INTERVAL_MIN))
         cakaj(max(30, (dalsia - teraz).total_seconds()))
 
-    if odber:
-        odber.unsubscribe()
+    for o in (odber, odber_ucty):
+        if o:
+            o.unsubscribe()
     r = subprocess.run(["gh", "workflow", "run", "planovac.yml"], capture_output=True, text=True)
     if r.returncode == 0:
         logger.info("Slučka končí, nástupca spustený.")

@@ -382,6 +382,23 @@ service cloud.firestore {
                             && request.resource.data.size() <= 3000;
     }
 
+    // Žiadosť o overovací e-mail. Píše ju stránka po registrácii a pri
+    // "Poslať znova"; e-mail potom pošle plánovač v našom vzhľade -
+    // telo Firebase šablóny sa upraviť nedá.
+    //
+    // Smie si ju vypýtať len prihlásený a len na svoju vlastnú adresu,
+    // inak by sa dala použiť na zasypanie cudzej schránky poštou.
+    match /ucty_akcie/{id} {
+      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow create: if request.auth != null && autoId(id)
+                    && request.resource.data.keys().hasOnly(['typ', 'uid', 'email', 'meno', 'stav', 'vytvorene'])
+                    && request.resource.data.typ == 'overenie'
+                    && request.resource.data.stav == 'caka'
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.email == request.auth.token.email;
+      allow update, delete: if false;
+    }
+
     // ── Komunita: body, odznaky, rebríček, dôvera ────────────────────
     // Počíta ich plánovač cez service account. Stránka ich len číta -
     // keby si body zapisoval prehliadač, vedel by si si ich dopísať sám.
