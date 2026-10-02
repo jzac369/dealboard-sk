@@ -246,7 +246,8 @@
     }
   }
 
-  const PROFIL_ZAKLAD = { meno: '', newsletter: false, temy: [], frekvencia: 'tyzden', letiska: [], kraj: '', ulozene: [] };
+  const PROFIL_ZAKLAD = { meno: '', newsletter: false, temy: [], frekvencia: 'tyzden', letiska: [], kraj: '', ulozene: [],
+    strazcovia: [], letenkyMax: 0, historiaDealy: [], historiaHladania: [] };
 
   async function nacitajProfil(user) {
     const ref = doc(db, "users", user.uid);
@@ -289,6 +290,7 @@
       console.warn('Profil sa nepodarilo zosúladiť:', e);
     }
     window.HK_UCET = { user, profil };
+    nacitajKomunitu(user.uid);
     if (window.hkUcetZmena) window.hkUcetZmena();
   }
 
@@ -316,6 +318,40 @@
     await nacitajProfil(user);
     return user;
   };
+
+  // ── Komunita: body, odznaky, dôvera ──────────────────────────────
+  // Body a odznaky počíta plánovač (prispievatelia/{uid}), stránka ich
+  // len číta - inak by si ich vedel ktokoľvek dopísať sám. "Dôveryhodný"
+  // znamená, že dealy od teba idú na stránku rovno, bez čakania.
+  async function nacitajKomunitu(uid) {
+    const [profil, dovera] = await Promise.all([
+      getDoc(doc(db, "prispevatelia", uid)).catch(() => null),
+      getDoc(doc(db, "duveryhodni", uid)).catch(() => null),
+    ]);
+    window.HK_UCET.komunita = profil && profil.exists() ? profil.data() : null;
+    window.HK_UCET.dovera = !!(dovera && dovera.exists());
+    if (window.hkUcetZmena) window.hkUcetZmena();
+  }
+  // Rebríček a odznaky autorov - jeden dokument pre celú stránku.
+  getDoc(doc(db, "verejne", "rebricek"))
+    .then(s => { window.HK_REBRICEK = s.exists() ? s.data() : null; if (window.renderDealsList) window.renderDealsList(); })
+    .catch(() => {});
+
+  // História: čo si otvoril a čo si hľadal. Len pre prihlásených a len
+  // u nich v profile; neprihlásených nesledujeme nijako.
+  let historiaCas = null;
+  function ulozHistoriu(pole, hodnota, strop) {
+    const { user, profil } = window.HK_UCET || {};
+    if (!user || !profil) return;
+    const zoznam = [hodnota, ...(profil[pole] || []).filter(x => x !== hodnota)].slice(0, strop);
+    profil[pole] = zoznam;
+    clearTimeout(historiaCas);
+    historiaCas = setTimeout(() => {
+      updateDoc(doc(db, "users", user.uid), { [pole]: zoznam, upravene: serverTimestamp() }).catch(() => {});
+    }, 1500);
+  }
+  window.hkHistoriaDeal = id => ulozHistoriu('historiaDealy', String(id), 40);
+  window.hkHistoriaHladanie = q => { q = String(q || '').trim().slice(0, 60); if (q.length > 1) ulozHistoriu('historiaHladania', q, 20); };
 
   window.hkPrihlas = (email, heslo) => signInWithEmailAndPassword(auth, email, heslo);
   window.hkOdhlas = () => signOut(auth);
@@ -694,6 +730,7 @@
         window.normalizeText(d.description).includes(q)
       );
       window.hkHladanie('dealy', document.getElementById('search-input').value, window.allDeals.length);
+      window.hkHistoriaHladanie(document.getElementById('search-input').value);
       window.dealsHasMore = false;
     } catch (e) {
       console.error('Chyba pri vyhľadávaní dealov:', e);
@@ -963,6 +1000,7 @@
 
   window.trackClick = function(dealId) {
     if (!dealId || dealId.startsWith('demo-')) return;
+    if (!dealId.startsWith('letenky-') && !dealId.startsWith('reklama-')) window.hkHistoriaDeal(dealId);
     window.hkUdalost(dealId.startsWith('letenky-') ? 'letenky_rezervacia' : 'preklik_deal');
     if (_hkPrihlaseny()) {
       setDoc(doc(db, 'kliky_den', _hkDnes()), { [dealId]: increment(1) }, { merge: true }).catch(() => {});
@@ -1377,11 +1415,16 @@
   window.submitDeal = async (data, honeypot) => {
     if (honeypot) throw new Error("spam");
     if (!window.canSubmit()) throw new Error("rate-limit");
-    const status = await getInitialStatus('deals');
+    // Dôveryhodný prispievateľ: deal ide na stránku rovno. Posudzuje to
+    // plánovač podľa pravidiel z adminu a rovnaká podmienka je aj
+    // v pravidlách databázy, takže sa to nedá obísť.
+    const uc = window.HK_UCET || {};
+    const status = uc.dovera ? 'approved' : await getInitialStatus('deals');
     const discountPercent = (data.originalPrice && data.dealPrice && data.originalPrice > data.dealPrice)
       ? Math.round((1 - data.dealPrice / data.originalPrice) * 100) : 0;
     await addDoc(collection(db, "deals"), {
       ...data,
+      ...(uc.user && !uc.user.isAnonymous ? { authorUid: uc.user.uid } : {}),
       discountPercent,
       votes: 0,
       comments: 0,
@@ -2226,56 +2269,98 @@
 @media (max-width: 640px) {
   .deal-card > .deal-main-row, .deal-card > .deal-footer { display: none; }
   .deal-card { border-radius: 16px; border-left-width: 5px; }
-  .dm { display: block; padding: 14px 14px 14px 13px; position: relative; }
-  .dm-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; position: relative; }
+  /* Varianta B: nižšia karta bez popisu, tlačidlo vpravo v riadku akcií.
+     Na obrazovku sa tak zmestia zhruba štyri dealy namiesto dvoch. */
+  .dm { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px;
+    padding: 10px 12px 10px 11px; position: relative; }
+  .dm-top, .dm-hlavna, .dm-popis { grid-column: 1 / -1; }
+  .dm-popis { display: none; }
+  .dm-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; position: relative; }
   .dm-top .chips { margin: 0; flex: 1; min-width: 0; }
-  .dm-top .chip { font-size: .8rem; padding: 4px 11px; font-weight: 700; }
-  .dm-top .chip-logo { width: 18px; height: 18px; }
-  .dm-menu { margin-left: auto; width: 34px; height: 30px; border: 0; background: none; color: #9AA0A6; cursor: pointer;
+  .dm-top .chip { font-size: .68rem; padding: 2px 8px; font-weight: 700; }
+  .dm-top .chip-logo { width: 14px; height: 14px; }
+  .dm-menu { margin-left: auto; width: 26px; height: 22px; border: 0; background: none; color: #9AA0A6; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; flex: none; }
   .dm-menu:active { background: var(--bg); }
-  .dm-menu .ic { width: 22px; height: 22px; }
+  .dm-menu .ic { width: 18px; height: 18px; }
   .dm-pop { position: absolute; right: 0; top: 34px; z-index: 20; background: var(--card); border: 1px solid var(--line);
     border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.16); padding: 6px; min-width: 200px; display: grid; }
   .dm-pop button, .dm-pop a { display: flex; align-items: center; gap: 10px; padding: 10px; border: 0; background: none;
     font: inherit; font-size: .9rem; color: var(--ink); text-decoration: none; border-radius: 8px; cursor: pointer; text-align: left; }
   .dm-pop button:active, .dm-pop a:active { background: var(--bg); }
-  .dm-hlavna { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: start; }
-  .dm .deal-img { order: 0; width: 112px; min-width: 0; height: 112px; margin: 0; border-radius: 12px; background: #F1F1EF; }
+  .dm-hlavna { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; align-items: start; }
+  .dm .deal-img { order: 0; width: 72px; min-width: 0; height: 72px; margin: 0; border-radius: 9px; background: #F1F1EF; }
   .dm .dm-info { order: 1; }
   .dm .deal-img img { object-fit: contain; }
-  .dm-info { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-  .dm .deal-title { font-size: 1.12rem; font-weight: 800; line-height: 1.28; letter-spacing: -.1px;
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
-  .dm .deal-price-row { flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; }
-  .dm .price-now { font-size: 1.45rem; letter-spacing: -.3px; }
-  .dm .price-was { font-size: .9rem; }
-  .dm .price-pct { font-size: .82rem; background: #FDEBDF; color: var(--orange-dk); padding: 3px 9px; border-radius: 999px; }
-  .dm-vek { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .8rem; color: var(--muted); }
+  .dm-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .dm .deal-title { font-size: .86rem; font-weight: 800; line-height: 1.25; letter-spacing: -.1px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+  .dm .deal-price-row { flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 0; }
+  .dm .price-now { font-size: 1.05rem; letter-spacing: -.3px; }
+  .dm .price-was { font-size: .72rem; }
+  .dm .price-pct { font-size: .68rem; background: #FDEBDF; color: var(--orange-dk); padding: 1px 6px; border-radius: 999px; }
+  .dm-vek { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .7rem; color: var(--muted); }
   .dm-vek .author-name, .dm-vek .author-sep { display: none; }
-  .dm-vek .avatar { width: 30px; height: 30px; font-size: .68rem; }
-  .dm-popis { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: .92rem; line-height: 1.45;
-    color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .dm-akcie { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 14px; }
-  .dm-akcie .vote-seg { height: 40px; margin: 0; background: var(--bg); border-color: var(--line); flex: none; }
-  .dm-akcie .vote-seg button { width: 34px; }
-  .dm-akcie .vote-seg .vs-num { min-width: 42px; font-size: .92rem; }
+  .dm-vek .avatar { width: 20px; height: 20px; font-size: .5rem; }
+  /* Popis sa na mobile nezobrazuje - celý je v detaile dealu. */
+  .dm-akcie { grid-column: 1; display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+  .dm-akcie .vote-seg { height: 30px; margin: 0; background: var(--bg); border-color: var(--line); flex: none; }
+  .dm-akcie .vote-seg button { width: 26px; }
+  .dm-akcie .vote-seg .vs-num { min-width: 32px; font-size: .78rem; }
   .dm-akcie > a { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); text-decoration: none;
-    font-size: .84rem; white-space: nowrap; padding: 8px 0; min-width: 0; }
-  .dm-akcie > a .ic { width: 16px; height: 16px; flex: none; }
+    font-size: .74rem; white-space: nowrap; padding: 6px 0; min-width: 0; }
+  .dm-akcie > a .ic { width: 15px; height: 15px; flex: none; }
   .dm-akcie .save-btn.saved { color: var(--orange-dk); }
-  .dm-cta { display: flex !important; align-items: center; justify-content: center; width: 100%; margin: 14px 0 0 !important;
-    height: 52px; padding: 0 !important; border-radius: 12px !important; font-size: 1.05rem !important; font-weight: 800; }
-  .dm .expired-band { margin: -14px -14px 12px -13px; }
+  /* Zdieľať a Uložiť ostávajú ako ikony - text by sa do riadku nezmestil. */
+  .dm-akcie .dm-slovo, .dm-akcie .save-btn span, .dm-akcie .dm-zdielat-t { display: none; }
+  .dm-cta { grid-column: 2; align-self: end; display: flex !important; align-items: center; justify-content: center;
+    width: auto !important; height: 30px; margin: 8px 0 0 !important; padding: 0 12px !important;
+    border-radius: 999px !important; font-size: .78rem !important; font-weight: 800; white-space: nowrap; }
+  .dm .expired-band { margin: -10px -12px 10px -11px; }
 }
-@media (max-width: 370px) {
-  .dm-hlavna { grid-template-columns: 92px minmax(0, 1fr); gap: 12px; }
-  .dm .deal-img { width: 92px; height: 92px; }
-  .dm .deal-title { font-size: 1.02rem; }
+@media (max-width: 360px) {
+  .dm-hlavna { grid-template-columns: 64px minmax(0, 1fr); gap: 9px; }
+  .dm .deal-img { width: 64px; height: 64px; }
+  .dm-akcie { gap: 9px; }
 }
-@media (max-width: 400px) {
-  .dm-akcie .dm-slovo { display: none; }
-}
+
+/* ── Účet: profil, odznaky, strážcovia, história ──────────────────── */
+.uc-profil .uc-text { margin: 6px 0 10px; }
+.uc-odznak { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+.uc-odznak-ik { font-size: 2rem; line-height: 1; }
+.uc-odznak b { display: block; font-size: .95rem; }
+.uc-odznak small { color: var(--muted); font-size: .8rem; }
+.uc-pokrok { height: 7px; background: var(--line); border-radius: 999px; overflow: hidden; margin: 8px 0 4px; }
+.uc-pokrok span { display: block; height: 100%; background: var(--orange); border-radius: 999px; }
+.uc-cisla { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0 4px; }
+.uc-cisla span { display: flex; flex-direction: column; font-size: .72rem; color: var(--muted); line-height: 1.3; }
+.uc-cisla b { font-size: 1.15rem; color: var(--ink); }
+.uc-dovera { background: #E7F5EC; color: #1E7A3A; border-radius: 10px; padding: 9px 11px; font-size: .82rem; margin: 10px 0 4px;
+  display: flex; align-items: center; gap: 7px; }
+.uc-dovera .ic { width: 17px; height: 17px; flex: none; }
+.uc-top { list-style: none; counter-reset: p; margin: 10px 0 0; padding: 0; }
+.uc-top li { counter-increment: p; display: flex; align-items: center; gap: 9px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: .85rem; }
+.uc-top li::before { content: counter(p) "."; color: var(--muted); font-size: .78rem; width: 18px; }
+.uc-top-m { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uc-top b { color: var(--orange-dk); }
+.uc-strazca-r { display: flex; gap: 6px; align-items: center; margin-bottom: 7px; }
+.uc-strazca-r .uc-s-q { flex: 1; min-width: 0; }
+.uc-s-cena { display: inline-flex; align-items: center; gap: 4px; font-size: .82rem; color: var(--muted); }
+.uc-s-cena input { width: 72px; }
+.uc-s-x { border: 0; background: none; color: var(--muted); font-size: 1rem; cursor: pointer; padding: 6px; border-radius: 8px; }
+.uc-s-x:hover { background: var(--bg); color: #C0392B; }
+.uc-letenky-r { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.uc-letenky-r > span { flex: 1 1 100%; }
+.uc-letenky-r input[type=range] { flex: 1 1 100%; min-width: 140px; accent-color: var(--orange); }
+.uc-historia { border: 1px solid var(--line); border-radius: 12px; padding: 0; margin-top: 12px; }
+.uc-historia > summary { cursor: pointer; padding: 11px 14px; font-weight: 700; font-size: .88rem; display: flex; align-items: center; gap: 8px; }
+.uc-historia > summary::-webkit-details-marker { display: none; }
+.uc-historia > *:not(summary) { margin: 0 14px 10px; }
+.uc-h-zoz { list-style: none; padding: 0; margin: 0 14px 10px; }
+.uc-h-zoz li { padding: 4px 0; }
+.uc-h-zoz button { background: none; border: 0; padding: 0; font: inherit; font-size: .84rem; color: var(--ink); text-align: left; cursor: pointer; }
+.uc-h-zoz button:hover { color: var(--orange-dk); }
+.author-odznak { font-size: .9rem; line-height: 1; }
 
 /* Podpis autora: krúžok s iniciálami + meno. */
 .author-badge { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
@@ -3740,10 +3825,18 @@ body.food-page { background: #FAF8F5; }
     return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
   }
 
+  // Odznak prispievateľa pri mene autora. Zoznam je v jednom verejnom
+  // dokumente (rebricek.odznaky), takže to nestojí žiadne ďalšie čítania.
+  function odznakAutora(meno) {
+    const m = (window.HK_REBRICEK || {}).odznaky || {};
+    const o = m[stripEmoji(meno || '').toLowerCase()];
+    return o ? `<span class="author-odznak" title="${escapeAttr(o.nazov + ' · ' + o.body + ' bodov')}">${escapeHtml(o.ikona)}</span>` : '';
+  }
   function authorBadge(name) {
     const clean = stripEmoji(name || '');
     if (!clean) return '';
     return `<span class="author-badge">`
+      + odznakAutora(clean)
       + `<span class="avatar" style="background:${authorColor(clean)}" aria-hidden="true">${escapeHtml(authorInitials(clean))}</span>`
       + `<span class="author-name">${escapeHtml(clean)}</span>`
       + `<span class="author-sep" aria-hidden="true">·</span></span>`;
@@ -3930,7 +4023,7 @@ body.food-page { background: #FAF8F5; }
             <button class="vs-up" onclick="vote('${d.id}', 1)" title="Dobrý deal" aria-label="Dobrý deal">${icon('plus')}</button>
           </div>
           <a href="#" onclick="openComments('${d.id}'); return false;">${icon('message-circle')} ${komentare}<span class="dm-slovo">${slovo}</span></a>
-          <a href="#" onclick="shareDeal(${jsArg(d.id)}, ${jsArg(d.title||'')}, ${Number(d.dealPrice)||0}, ${jsArg(d.currency||'€')}); return false;">${icon('share')} Zdieľať</a>
+          <a href="#" onclick="shareDeal(${jsArg(d.id)}, ${jsArg(d.title||'')}, ${Number(d.dealPrice)||0}, ${jsArg(d.currency||'€')}); return false;">${icon('share')} <span class="dm-zdielat-t">Zdieľať</span></a>
           <a href="#" class="save-btn${ulozene ? ' saved' : ''}" data-save="${d.id}" title="${ulozene ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')} <span>${ulozene ? 'Uložené' : 'Uložiť'}</span></a>
         </div>
         <a class="${x.ctaClass} dm-cta" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="nofollow sponsored noopener" onclick="event.stopPropagation(); trackClick('${d.id}')">${x.cta}</a>
@@ -4131,7 +4224,7 @@ body.food-page { background: #FAF8F5; }
     ['letenky', 'Lacné letenky', 'plane'], ['potraviny', 'Potraviny a letáky', 'basket'],
     ['kody', 'Zľavové kódy', 'ticket'],
   ];
-  const UC_LETISKA = [['BTS', 'Bratislava'], ['VIE', 'Viedeň'], ['KSC', 'Košice']];
+  const UC_LETISKA = [['BTS', 'Bratislava'], ['VIE', 'Viedeň'], ['KSC', 'Košice'], ['BRQ', 'Brno'], ['PRG', 'Praha']];
   const UC_KRAJE = ['Bratislavský', 'Trnavský', 'Trenčiansky', 'Nitriansky', 'Žilinský',
     'Banskobystrický', 'Prešovský', 'Košický'];
   let ucPohlad = 'prihlasenie';
@@ -4244,6 +4337,127 @@ body.food-page { background: #FAF8F5; }
             `<option ${p.kraj === k ? 'selected' : ''}>${k}</option>`).join('')}</select></div>
       </div>`;
   }
+  // ── Môj profil: body, odznak, poradie (počíta plánovač) ──
+  const UC_ODZNAKY = [
+    { od: 0, ikona: '🌱', nazov: 'Nováčik' }, { od: 50, ikona: '🔎', nazov: 'Lovec zliav' },
+    { od: 200, ikona: '⭐', nazov: 'Skúsený lovec' }, { od: 500, ikona: '🏅', nazov: 'Majster zliav' },
+    { od: 1500, ikona: '👑', nazov: 'Legenda' },
+  ];
+  const ucOdznak = body => UC_ODZNAKY.slice().reverse().find(o => (body || 0) >= o.od) || UC_ODZNAKY[0];
+  function ucProfilHtml() {
+    const k = (window.HK_UCET || {}).komunita;
+    const dovera = (window.HK_UCET || {}).dovera;
+    if (!k || !k.dealy) {
+      return `<div class="uc-box uc-profil">
+        <div class="uc-sub">${icon('award')} Môj profil</div>
+        <p class="uc-text">Pridaj prvý deal a začneš zbierať body a odznaky. Za zverejnený deal máš 10 bodov,
+          za každý hlas od ostatných 1 bod.</p>
+        <button type="button" class="uc-link" onclick="zavriUcet(); openModal();">+ Pridať deal</button></div>`;
+    }
+    const o = ucOdznak(k.body);
+    const dalsi = UC_ODZNAKY.find(x => x.od > (k.body || 0));
+    return `<div class="uc-box uc-profil on">
+      <div class="uc-sub">${icon('award')} Môj profil</div>
+      <div class="uc-odznak"><span class="uc-odznak-ik">${o.ikona}</span>
+        <div><b>${escapeHtml(o.nazov)}</b><small>${k.body || 0} bodov${k.poradie ? ` · ${k.poradie}. miesto v rebríčku` : ''}</small></div></div>
+      ${dalsi ? `<div class="uc-pokrok"><span style="width:${Math.min(100, Math.round((k.body - o.od) / (dalsi.od - o.od) * 100))}%"></span></div>
+        <small class="uc-nep">Do odznaku ${escapeHtml(dalsi.nazov)} ${dalsi.ikona} ti chýba ${dalsi.od - k.body} bodov.</small>` : ''}
+      <div class="uc-cisla"><span><b>${k.dealy || 0}</b>zverejnených dealov</span><span><b>${k.hlasy || 0}</b>hlasov od ľudí</span>
+        <span><b>${k.kliky || 0}</b>preklikov</span></div>
+      ${dovera ? `<p class="uc-dovera">${icon('circle-check')} <b>Overený prispievateľ</b> – tvoje dealy idú na stránku rovno, bez čakania na schválenie.</p>` : ''}
+      <button type="button" class="uc-link" onclick="ucRebricek(this)">Zobraziť rebríček →</button>
+      <div id="uc-rebricek"></div></div>`;
+  }
+  window.ucRebricek = function(btn) {
+    const el = document.getElementById('uc-rebricek');
+    if (el.innerHTML) { el.innerHTML = ''; btn.textContent = 'Zobraziť rebríček →'; return; }
+    btn.textContent = 'Skryť rebríček';
+    const top = ((window.HK_REBRICEK || {}).top) || [];
+    el.innerHTML = top.length
+      ? `<ol class="uc-top">${top.slice(0, 10).map(x => `<li><span class="uc-top-ik">${escapeHtml(ucOdznak(x.body).ikona)}</span>
+          <span class="uc-top-m">${escapeHtml(x.meno || 'Anonym')}</span><b>${x.body}</b></li>`).join('')}</ol>`
+      : '<p class="uc-hint">Rebríček sa vytvorí, keď pribudnú prvé dealy od ľudí.</p>';
+  };
+
+  // ── Strážca slov ──
+  function ucStrazcoviaHtml(p) {
+    const z = Array.isArray(p.strazcovia) ? p.strazcovia : [];
+    return `<div class="uc-box uc-strazca${z.length ? ' on' : ''}">
+      <div class="uc-sub">${icon('bell')} Strážca dealov</div>
+      <p class="uc-hint">Napíš, čo hľadáš (napr. <i>Dyson</i>, <i>AirPods</i>, <i>detská autosedačka</i>). Keď taký deal pribudne,
+        pošleme ti e-mail. Môžeš pridať aj cenu, nad ktorú ťa to nemá otravovať.</p>
+      <div id="uc-strazcovia">${z.map(ucStrazcaRiadok).join('')}</div>
+      <button type="button" class="uc-link" onclick="ucPridajStrazcu()">+ Pridať strážcu</button>
+      ${z.length >= 10 ? '<small class="uc-nep">Viac než 10 strážcov nejde.</small>' : ''}</div>`;
+  }
+  const ucStrazcaRiadok = (x = {}) => `<div class="uc-strazca-r">
+      <input type="text" class="uc-s-q" maxlength="40" value="${escapeAttr(x.q || '')}" placeholder="čo hľadáš">
+      <span class="uc-s-cena"><input type="number" class="uc-s-c" min="0" step="1" value="${x.cena ? escapeAttr(String(x.cena)) : ''}" placeholder="do"> €</span>
+      <button type="button" class="uc-s-x" onclick="this.parentElement.remove()" aria-label="Odstrániť">✕</button></div>`;
+  window.ucPridajStrazcu = function() {
+    const el = document.getElementById('uc-strazcovia');
+    if (el.children.length >= 10) return;
+    el.insertAdjacentHTML('beforeend', ucStrazcaRiadok());
+    el.lastElementChild.querySelector('.uc-s-q').focus();
+  };
+  const ucStrazcoviaCitaj = () => [...document.querySelectorAll('#uc-strazcovia .uc-strazca-r')].map(r => ({
+    q: r.querySelector('.uc-s-q').value.trim().slice(0, 40),
+    cena: Math.max(0, Math.round(Number(r.querySelector('.uc-s-c').value) || 0)),
+  })).filter(x => x.q.length > 1).slice(0, 10);
+
+  // ── Letenky z môjho letiska ──
+  function ucLetenkyHtml(p) {
+    const max = Number(p.letenkyMax) || 0;
+    const letiska = (p.letiska && p.letiska.length ? p.letiska : ['BTS'])
+      .map(k => (UC_LETISKA.find(x => x[0] === k) || [k, k])[1]).join(', ');
+    return `<div class="uc-box uc-letenky${max ? ' on' : ''}">
+      <div class="uc-sub">${icon('plane')} Lacná letenka z môjho letiska</div>
+      <label class="uc-riadok uc-letenky-r">
+        <span>Daj mi vedieť, keď nájdeme let do <b id="uc-let-max">${max || 50}</b> €</span>
+        <input type="range" id="uc-letenky-max" min="0" max="200" step="10" value="${max}"
+          oninput="document.getElementById('uc-let-max').textContent = this.value === '0' ? '–' : this.value">
+      </label>
+      <p class="uc-hint">Letiská: <b>${escapeHtml(letiska)}</b> (meníš ich vyššie pri newsletteri). Posúvnik na nulu znamená vypnuté.
+        Posielame najviac jeden takýto e-mail denne.</p></div>`;
+  }
+
+  // ── História ──
+  function ucHistoriaHtml(p) {
+    const dealy = (p.historiaDealy || []).slice(0, 8);
+    const hladania = (p.historiaHladania || []).slice(0, 8);
+    if (!dealy.length && !hladania.length) return '';
+    const nazov = id => {
+      const d = (window.allDeals || []).concat(window.topDeals || []).find(x => x.id === id);
+      return d ? d.title : null;
+    };
+    const polozky = dealy.map(id => [id, nazov(id)]).filter(x => x[1]);
+    return `<details class="uc-historia">
+      <summary>${icon('clock')} Čo som si pozeral</summary>
+      ${polozky.length ? `<div class="uc-sub">Naposledy otvorené dealy</div>
+        <ul class="uc-h-zoz">${polozky.map(([id, t]) =>
+          `<li><button type="button" onclick="zavriUcet(); openDealDetail(${jsArg(id)});">${escapeHtml(t)}</button></li>`).join('')}</ul>` : ''}
+      ${hladania.length ? `<div class="uc-sub">Hľadal si</div>
+        <div class="uc-chips">${hladania.map(q =>
+          `<button type="button" class="uc-chip" onclick="ucZnovaHladaj(${jsArg(q)})">${escapeHtml(q)}</button>`).join('')}</div>` : ''}
+      <button type="button" class="uc-link uc-tlmene" onclick="ucZmazHistoriu(this)">Vymazať históriu</button>
+    </details>`;
+  }
+  window.ucZnovaHladaj = function(q) {
+    zavriUcet();
+    const inp = document.getElementById('search-input');
+    inp.value = q;
+    window.filterDeals();
+    inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+  window.ucZmazHistoriu = async function(btn) {
+    ucCaka(btn, true, 'Mažem…');
+    try {
+      await window.hkUlozProfil({ historiaDealy: [], historiaHladania: [] });
+      ucSprava = 'História je vymazaná.';
+      ucRender();
+    } catch (e) { ucCaka(btn, false); ucChyba(window.hkChybaAuth(e)); }
+  };
+
   function ucPrefCitaj() {
     const vyber = g => [...document.querySelectorAll(`#uc-obsah .uc-chip.on[data-g="${g}"]`)].map(b => b.dataset.v);
     const temy = vyber('temy');
@@ -4379,13 +4593,17 @@ body.food-page { background: #FAF8F5; }
           · <button type="button" class="uc-link" onclick="ucSkontroluj(this)">Už som potvrdil</button></span></div>`}
         <div><label for="uc-meno">Ako ťa máme osloviť</label>
           <input type="text" id="uc-meno" maxlength="40" autocomplete="nickname" value="${escapeAttr(p.meno || '')}" placeholder="napr. Jarko"></div>
+        ${ucProfilHtml()}
         <div class="uc-box${p.newsletter ? ' on' : ''}">${ucPrefHtml(p)}</div>
+        ${ucStrazcoviaHtml(p)}
+        ${ucLetenkyHtml(p)}
         <div class="uc-err" id="uc-err" role="alert"></div>
         <button class="btn-submit" type="button" onclick="ucUlozNastavenia(this)">Uložiť nastavenia</button>
         <div class="uc-riadok">
           <span>${icon('bookmark')} Uložené dealy: <b>${window.savedDeals.size}</b></span>
           <button type="button" class="uc-link" onclick="ucZobrazUlozene()">Zobraziť →</button>
         </div>
+        ${ucHistoriaHtml(p)}
         <div class="uc-akcie">
           <button type="button" class="uc-link" onclick="ucOdhlas()">${icon('logout')} Odhlásiť sa</button>
           <button type="button" class="uc-link uc-tlmene" onclick="ucPrepni('zrusit')">Zrušiť účet</button>
@@ -4488,7 +4706,9 @@ body.food-page { background: #FAF8F5; }
     if (pref.newsletter && !pref.temy.length) return ucChyba('Vyber aspoň jednu tému newslettera, alebo ho vypni.');
     ucChyba(''); ucCaka(btn, true, 'Ukladám…');
     try {
-      await window.hkUlozProfil({ meno, ...pref });
+      const strazcovia = ucStrazcoviaCitaj();
+      const letenkyMax = Math.max(0, Math.min(200, Number(ucVal('uc-letenky-max')) || 0));
+      await window.hkUlozProfil({ meno, ...pref, strazcovia, letenkyMax });
       ucSprava = 'Nastavenia sú uložené.';
       ucRender();
       ucHlavicka();

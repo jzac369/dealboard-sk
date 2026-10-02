@@ -32,6 +32,7 @@
     zdravie: 'M19.5 13.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572 M3 13h2l2 3l2 -6l1 3h3',
     agent: 'M6 6a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l0 -4 M12 2v2 M9 12v9 M15 12v9 M5 16l4 -2 M15 14l4 2 M9 18h6 M10 8v.01 M14 8v.01',
     admini: 'M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3 M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 M12 12l0 2.5',
+    komunita: 'M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z',
     emaily: 'M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z M3 7l9 6l9 -6',
     zaloha: 'M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3 M4 6v6c0 1.657 3.582 3 8 3c1.118 0 2.183 -.086 3.15 -.241 M20 12v-6 M4 12v6c0 1.657 3.582 3 8 3c.157 0 .312 -.002 .466 -.005 M16 19h6 M19 16l3 3l-3 3',
     zaznam: 'M12 8l0 4l2 2 M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5',
@@ -54,6 +55,7 @@
       { id: 'letenky', n: 'Letenky', k: 'mapa lety ryanair' },
       { id: 'ucty', n: 'Účty a newsletter', k: 'registrácia používatelia odberatelia e-mail' },
       { id: 'emaily', n: 'E-maily', d: 'Odosielanie e-mailov z vlastnej schránky @henkukaj.sk: registrácia, uvítanie, upozornenia a skúšobný e-mail.', k: 'smtp email pošta registrácia overenie uvítanie heslo hostcreators' },
+      { id: 'komunita', n: 'Komunita', d: 'Body, odznaky a rebríček prispievateľov. Komu dealy pôjdu na stránku bez čakania.', k: 'body odznaky rebríček prispievatelia dôvera overení používatelia gamifikácia' },
       { id: 'reklamy', n: 'Reklamné miesta', d: 'Bannery na stránke: zapni, vypni, striedaj a sleduj kliky.', k: 'banner reklama sledovanietv sponzor' },
     ] },
     { g: 'Zarábanie', p: [

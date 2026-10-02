@@ -26,6 +26,7 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger("emaily")
 
@@ -44,6 +45,10 @@ PREDVOLENE = {
                      "https://henkukaj.sk\n\nTím HenKukaj.sk"),
     "novaRegistraciaZap": False,
     "novaRegistraciaKomu": "info@henkukaj.sk",
+    "strazcaZap": True,
+    "strazcaPredmet": "Našli sme deal, ktorý strážiš: {co}",
+    "letenkyZap": True,
+    "letenkyPredmet": "Lacná letenka z {letisko} za {cena} €",
 }
 
 
@@ -122,6 +127,178 @@ def test(db, vstup: dict) -> dict:
         raise ValueError(f"Odoslanie zlyhalo: {e}")
     zapis(db, None, {"typ": "test", "komu": komu, "ok": True, "predmet": "Skúšobný e-mail"})
     return {"odoslane": komu}
+
+
+# ── Strážca dealov a letenky ─────────────────────────────────────────
+def _bez_diakritiky(t: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", str(t or "").lower())
+                   if unicodedata.category(c) != "Mn")
+
+
+def _sedi(deal: dict, strazca: dict) -> bool:
+    """Všetky slová hľadaného výrazu musia byť v názve, obchode alebo popise."""
+    q = _bez_diakritiky(strazca.get("q"))
+    if len(q) < 2:
+        return False
+    text = _bez_diakritiky(f"{deal.get('title', '')} {deal.get('store', '')} {deal.get('description', '')}")
+    if not all(slovo in text for slovo in q.split()):
+        return False
+    strop = strazca.get("cena") or 0
+    if strop and (deal.get("dealPrice") or 0) > strop and not deal.get("zadarmo"):
+        return False
+    return True
+
+
+def _odberatelia(db) -> list[tuple[str, dict]]:
+    """Používatelia s overeným e-mailom - strážcov posielame len na adresy,
+    o ktorých vieme, že patria svojmu majiteľovi."""
+    try:
+        return [(d.id, d.to_dict() or {}) for d in db.collection("users").stream()
+                if (d.to_dict() or {}).get("overeny") and (d.to_dict() or {}).get("email")]
+    except Exception as e:
+        logger.warning("Používateľov sa nepodarilo načítať: %s", e)
+        return []
+
+
+def strazcovia(db, nasucho: bool = False) -> int:
+    """Nové dealy porovná so strážcami ľudí a pošle e-mail. Ten istý deal
+    pošle každému najviac raz (značka v email_log)."""
+    import komunita
+
+    n = nastavenia(db)
+    if not n["strazcaZap"] or not os.environ.get("SMTP_PASSWORD"):
+        return 0
+    stav_ref = db.document("nastavenia_admin/strazcovia_stav")
+    try:
+        stav = stav_ref.get().to_dict() or {}
+    except Exception:
+        stav = {}
+    od = stav.get("poslednyBeh")
+    if not od:
+        # Prvý beh: pozrieme len poslednú hodinu, nech nikomu nepríde
+        # naraz e-mail o všetkom, čo kedy na stránke bolo.
+        od = datetime.now(timezone.utc) - timedelta(hours=1)
+    nove = komunita.nove_dealy_pre_strazcov(db, od)
+    if not nasucho:
+        from google.cloud import firestore
+        stav_ref.set({"poslednyBeh": firestore.SERVER_TIMESTAMP}, merge=True)
+    if not nove:
+        return 0
+    try:
+        uz = {d.id for d in db.collection("email_log").select([]).stream()}
+    except Exception:
+        uz = set()
+    poslane = 0
+    for uid, p in _odberatelia(db):
+        zoznam = [x for x in (p.get("strazcovia") or []) if isinstance(x, dict)]
+        if not zoznam:
+            continue
+        najdene = []
+        for d in nove:
+            if f"strazca-{uid}-{d['id']}" in uz:
+                continue
+            s = next((x for x in zoznam if _sedi(d, x)), None)
+            if s:
+                najdene.append((d, s))
+            if len(najdene) >= 5:
+                break
+        if not najdene:
+            continue
+        co = ", ".join(sorted({str(s.get("q", "")).strip() for _, s in najdene}))[:60]
+        riadky = [f"Ahoj{(' ' + p['meno']) if p.get('meno') else ''},", "",
+                  "našli sme dealy, ktoré si dal strážiť:", ""]
+        for d, _ in najdene:
+            cena = "zadarmo" if d.get("zadarmo") else (f"{float(d.get('dealPrice') or 0):.2f} €".replace(".", ","))
+            povodna = f" namiesto {float(d['originalPrice']):.2f} €".replace(".", ",") if d.get("originalPrice") else ""
+            riadky += [f"• {d.get('title', '')}", f"  {cena}{povodna} · {d.get('store', '')}",
+                       f"  https://henkukaj.sk/?deal={d['id']}", ""]
+        riadky += ["Strážcov si upravíš alebo vypneš v účte na https://henkukaj.sk", "", "Tím HenKukaj.sk"]
+        if nasucho:
+            logger.info("Poslal by som strážcu %s (%d dealov)", p["email"], len(najdene))
+            continue
+        try:
+            posli(n, p["email"], n["strazcaPredmet"].replace("{co}", co), "\n".join(riadky))
+            for d, _ in najdene:
+                zapis(db, f"strazca-{uid}-{d['id']}", {"typ": "strazca", "komu": p["email"], "ok": True, "deal": d.get("title", "")[:80]})
+            poslane += 1
+        except Exception as e:
+            logger.warning("Strážca pre %s zlyhal: %s", p["email"], e)
+    if poslane:
+        logger.info("Strážca: odoslaných %d e-mailov", poslane)
+    return poslane
+
+
+def letenky(db, nasucho: bool = False) -> int:
+    """Lacné letenky z letísk, ktoré má človek v profile. Najviac jeden
+    e-mail denne; ceny sú zo súboru letenkovej mapy."""
+    import json
+    from pathlib import Path
+
+    n = nastavenia(db)
+    if not n["letenkyZap"] or not os.environ.get("SMTP_PASSWORD"):
+        return 0
+    subor = Path(__file__).resolve().parent.parent / "assets" / "letenky" / "ceny.json"
+    try:
+        d = json.loads(subor.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Ceny leteniek sa nepodarilo načítať: %s", e)
+        return 0
+    letiska, odkial = d.get("letiska") or {}, d.get("odkial") or {}
+    zaciatok = datetime.fromisoformat(d["zaciatok"]).date()
+    # Najlacnejší spiatočný let na trasu (cena tam + najbližšia cesta späť
+    # je zložitejšia; berieme najnižšiu cenu "tam", ako ju ukazuje mapa).
+    najlacnejsie: dict[str, list] = {}
+    for t in d.get("trasy") or []:
+        ceny = [(c, i) for i, c in enumerate(t.get("t") or []) if c and c > 0]
+        if not ceny:
+            continue
+        cena, i = min(ceny)
+        najlacnejsie.setdefault(t["z"], []).append((cena, t["do"], zaciatok + timedelta(days=i)))
+    dnes = datetime.now(timezone.utc).date().isoformat()
+    try:
+        uz = {x.id for x in db.collection("email_log").select([]).stream()}
+    except Exception:
+        uz = set()
+    poslane = 0
+    for uid, p in _odberatelia(db):
+        strop = float(p.get("letenkyMax") or 0)
+        if strop <= 0 or f"letenky-{uid}-{dnes}" in uz:
+            continue
+        najdene = []
+        for kod in (p.get("letiska") or ["BTS"]):
+            for cena, kam, den in sorted(najlacnejsie.get(kod, []))[:30]:
+                if cena <= strop:
+                    najdene.append((cena, kod, kam, den))
+        najdene.sort()
+        najdene = najdene[:6]
+        if not najdene:
+            continue
+        prva = najdene[0]
+        riadky = [f"Ahoj{(' ' + p['meno']) if p.get('meno') else ''},", "",
+                  f"z tvojich letísk sme našli lety do {int(strop)} €:", ""]
+        for cena, kod, kam, den in najdene:
+            mesto = (letiska.get(kam) or {}).get("n", kam)
+            krajina = (letiska.get(kam) or {}).get("k", "")
+            riadky.append(f"• {(odkial.get(kod) or {}).get('n', kod)} → {mesto}{f' ({krajina})' if krajina else ''}"
+                          f" za {cena:.2f} €".replace(".", ",") + f" · {den.day}. {den.month}.")
+        riadky += ["", "Všetky lety na mape: https://henkukaj.sk/#letenky",
+                   "Hranicu ceny alebo letiská si zmeníš v účte na https://henkukaj.sk", "", "Tím HenKukaj.sk"]
+        predmet = (n["letenkyPredmet"].replace("{letisko}", (odkial.get(prva[1]) or {}).get("n", prva[1]))
+                   .replace("{cena}", f"{prva[0]:.0f}"))
+        if nasucho:
+            logger.info("Poslal by som letenky %s (%d letov)", p["email"], len(najdene))
+            continue
+        try:
+            posli(n, p["email"], predmet, "\n".join(riadky))
+            zapis(db, f"letenky-{uid}-{dnes}", {"typ": "letenky", "komu": p["email"], "ok": True,
+                                                "deal": f"{len(najdene)} letov do {int(strop)} €"})
+            poslane += 1
+        except Exception as e:
+            logger.warning("Letenky pre %s zlyhali: %s", p["email"], e)
+    if poslane:
+        logger.info("Letenky: odoslaných %d e-mailov", poslane)
+    return poslane
 
 
 def spracuj_registracie(db, nasucho: bool = False) -> int:

@@ -440,6 +440,8 @@ const EMAIL_PREDVOLENE = {
   uvitanieZap: false, uvitaniePredmet: 'Vitaj na HenKukaj.sk',
   uvitanieText: 'Ahoj {meno},\n\nďakujeme za registráciu na HenKukaj.sk. Odteraz si môžeš ukladať dealy, nastaviť si obľúbené letiská a odoberať novinky.\n\nNajlepšie zľavy dňa nájdeš na https://henkukaj.sk\n\nTím HenKukaj.sk',
   novaRegistraciaZap: false, novaRegistraciaKomu: 'info@henkukaj.sk',
+  strazcaZap: true, strazcaPredmet: 'Našli sme deal, ktorý strážiš: {co}',
+  letenkyZap: true, letenkyPredmet: 'Lacná letenka z {letisko} za {cena} €',
 };
 const kopia = t => `<button type="button" class="btn btn-ic" data-kopia="${esc(t)}" title="Kopírovať"><svg class="ix"><use href="#ix-copy"></use></svg></button>`;
 U.stranka('emaily', {
@@ -503,6 +505,13 @@ U.stranka('emaily', {
         </div>
         <label class="zaskrt"><input type="checkbox" name="novaRegistraciaZap"${n.novaRegistraciaZap ? ' checked' : ''}> Upozorniť ma e-mailom na každú novú registráciu</label>
         <div class="form-mriezka" style="margin-top:10px"><label>Na adresu<input type="email" name="novaRegistraciaKomu" value="${esc(n.novaRegistraciaKomu)}"></label></div>
+        <h3 class="karta-nadpis" style="margin-top:18px">Pre registrovaných</h3>
+        <label class="zaskrt"><input type="checkbox" name="strazcaZap"${n.strazcaZap ? ' checked' : ''}> Strážca dealov – e-mail, keď pribudne deal, ktorý si človek dal strážiť</label>
+        <div class="form-mriezka" style="margin:10px 0 14px"><label class="cela">Predmet (<code>{co}</code> = čo stráži)<input type="text" name="strazcaPredmet" value="${esc(n.strazcaPredmet)}" maxlength="120"></label></div>
+        <label class="zaskrt"><input type="checkbox" name="letenkyZap"${n.letenkyZap ? ' checked' : ''}> Lacné letenky z jeho letiska – najviac jeden e-mail denne</label>
+        <div class="form-mriezka" style="margin-top:10px"><label class="cela">Predmet (<code>{letisko}</code>, <code>{cena}</code>)<input type="text" name="letenkyPredmet" value="${esc(n.letenkyPredmet)}" maxlength="120"></label></div>
+        <p class="settings-hint" style="margin-top:10px">Posielajú sa len na overené adresy a len tým, ktorí si strážcu alebo hranicu ceny
+          sami nastavili vo svojom účte. Nastavenia komunity sú v sekcii <a href="#komunita">Komunita</a>.</p>
         <p class="settings-hint" style="margin-top:10px">Posielajú sa len pri registráciách od zapnutia – doterajší používatelia nič nedostanú.
           Plánovač kontroluje nové registrácie každých 5 minút.</p>
         <div class="tl-rad" style="margin-top:12px"><button class="btn btn-save" type="submit"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť</button></div>
@@ -525,8 +534,10 @@ U.stranka('emaily', {
       e.preventDefault();
       const f = k => form.elements[k];
       const d = {};
-      ['odosielatelMeno', 'odosielatelEmail', 'smtpHost', 'sifrovanie', 'pouzivatel', 'odpovedNa', 'uvitaniePredmet', 'uvitanieText', 'novaRegistraciaKomu']
-        .forEach(k => { d[k] = f(k).value.trim(); });
+      ['odosielatelMeno', 'odosielatelEmail', 'smtpHost', 'sifrovanie', 'pouzivatel', 'odpovedNa', 'uvitaniePredmet', 'uvitanieText',
+        'novaRegistraciaKomu', 'strazcaPredmet', 'letenkyPredmet'].forEach(k => { d[k] = f(k).value.trim(); });
+      d.strazcaZap = f('strazcaZap').checked;
+      d.letenkyZap = f('letenkyZap').checked;
       d.smtpPort = Number(f('smtpPort').value) || 465;
       d.uvitanieZap = f('uvitanieZap').checked;
       d.novaRegistraciaZap = f('novaRegistraciaZap').checked;
@@ -551,7 +562,8 @@ U.stranka('emaily', {
       }
     }));
     fs.onSnapshot(fs.query(U.kol('email_log'), fs.orderBy('kedy', 'desc'), fs.limit(50)), sn => {
-      const TYP = { test: 'Skúšobný', uvitanie: 'Uvítanie', 'nova-registracia': 'Nová registrácia' };
+      const TYP = { test: 'Skúšobný', uvitanie: 'Uvítanie', 'nova-registracia': 'Nová registrácia',
+        strazca: 'Strážca dealov', letenky: 'Lacné letenky' };
       const t = el.querySelector('#em-log');
       if (t) t.innerHTML = sn.size ? `<div class="tab-wrap"><table class="tab"><tbody>${sn.docs.map(d => {
         const x = d.data();
@@ -561,5 +573,121 @@ U.stranka('emaily', {
           <td class="r">${!x.ok && x.typ === 'uvitanie' ? `<button class="btn" data-em-znova="${esc(d.id)}">Poslať znova</button>` : ''}</td></tr>`;
       }).join('')}</tbody></table></div>` : '<p class="vis-empty">Zatiaľ žiadne.</p>';
     }, () => {});
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Komunita: body, odznaky, rebríček a dôveryhodní prispievatelia
+// ═══════════════════════════════════════════════════════════════════
+// Body počíta plánovač raz za hodinu (komunita.py) - admin tu nastavuje
+// pravidlá a vidí výsledok. Dôvera znamená, že dealy od toho človeka idú
+// na stránku rovno; vymáhajú ju aj pravidlá databázy.
+const KOM_PREDVOLENE = {
+  zapnute: true, bodyZaDeal: 10, bodyZaHlas: 1, bodyZa5Preklikov: 1, bodyZaZamietnuty: -5,
+  doveraZapnuta: false, doveraMinDealov: 5, doveraMinUspesnost: 80, doveraMinBodov: 50,
+};
+const KOM_POLIA = [
+  ['bodyZaDeal', 'Body za zverejnený deal', -50, 100],
+  ['bodyZaHlas', 'Body za hlas od ľudí', 0, 10],
+  ['bodyZa5Preklikov', 'Body za každých 5 preklikov', 0, 10],
+  ['bodyZaZamietnuty', 'Body za zamietnutý deal', -50, 0],
+];
+const KOM_DOVERA = [
+  ['doveraMinDealov', 'Zverejnených dealov aspoň', 1, 500],
+  ['doveraMinUspesnost', 'Úspešnosť aspoň (%)', 0, 100],
+  ['doveraMinBodov', 'Bodov aspoň', 0, 10000],
+];
+U.stranka('komunita', {
+  async init(el) {
+    const s = await fs.getDoc(U.ref('nastavenia_admin', 'komunita'));
+    const n = { ...KOM_PREDVOLENE, ...(s.exists() ? s.data() : {}) };
+    el.innerHTML = `
+      <div class="kpi-row" id="km-kpi"></div>
+      <form class="karta" id="km-form">
+        <h3 class="karta-nadpis">Body a odznaky</h3>
+        <label class="zaskrt"><input type="checkbox" name="zapnute"${n.zapnute ? ' checked' : ''}> Zbierať body a odznaky za pridané dealy</label>
+        <div class="ag-cisla" style="margin-top:12px">${KOM_POLIA.map(([k, t, mn, mx]) => `<label><span>${t}</span>
+          <span class="ag-in"><input type="number" name="${k}" min="${mn}" max="${mx}" value="${n[k]}"></span></label>`).join('')}</div>
+        <p class="settings-hint" style="margin-top:10px">Odznaky sa udeľujú podľa bodov: 🌱 Nováčik (0), 🔎 Lovec zliav (50),
+          ⭐ Skúsený lovec (200), 🏅 Majster zliav (500), 👑 Legenda (1500). Človek ich vidí vo svojom účte a odznak sa ukazuje
+          aj pri jeho mene na karte dealu.</p>
+        <h3 class="karta-nadpis" style="margin-top:20px">Dôveryhodní prispievatelia</h3>
+        <label class="zaskrt"><input type="checkbox" name="doveraZapnuta"${n.doveraZapnuta ? ' checked' : ''}> Zverejňovať dealy od overených ľudí bez čakania na schválenie</label>
+        <div class="ag-cisla" style="margin-top:12px">${KOM_DOVERA.map(([k, t, mn, mx]) => `<label><span>${t}</span>
+          <span class="ag-in"><input type="number" name="${k}" min="${mn}" max="${mx}" value="${n[k]}"></span></label>`).join('')}</div>
+        <p class="settings-hint" style="margin-top:10px">Všetky tri podmienky musia platiť naraz. Úspešnosť je podiel zverejnených
+          z rozhodnutých dealov toho človeka. Komu podmienky prestanú vychádzať, dôveru automaticky stratí.
+          Ich dealy sa normálne zobrazia v <a href="#dealy">Dealoch</a> a dajú sa kedykoľvek skryť.</p>
+        <div class="tl-rad" style="margin-top:12px"><button class="btn btn-save" type="submit"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť</button>
+          <button class="btn" type="button" id="km-prepocet"><svg class="ix"><use href="#ix-refresh"></use></svg> Prepočítať teraz</button></div>
+        <div id="km-stav"></div>
+      </form>
+      <div class="karta"><h3 class="karta-nadpis">Rebríček</h3>
+        <div class="tab-wrap"><table class="tab"><thead><tr><th>#</th><th>Prispievateľ</th><th class="n">Body</th><th class="n">Dealov</th>
+          <th class="n">Hlasov</th><th class="n">Preklikov</th><th class="n">Úspešnosť</th><th></th></tr></thead>
+          <tbody id="km-zoznam"></tbody></table></div></div>
+      <div class="karta"><h3 class="karta-nadpis">Dôveru majú</h3><div id="km-dovera"></div></div>`;
+    const form = el.querySelector('#km-form');
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const d = { zapnute: form.elements.zapnute.checked, doveraZapnuta: form.elements.doveraZapnuta.checked };
+      [...KOM_POLIA, ...KOM_DOVERA].forEach(([k, , mn, mx]) => {
+        d[k] = Math.max(mn, Math.min(mx, Math.round(Number(form.elements[k].value) || 0)));
+      });
+      await U.akcia(form.querySelector('[type=submit]'), async () => {
+        await fs.setDoc(U.ref('nastavenia_admin', 'komunita'), { ...d, upravene: fs.serverTimestamp() }, { merge: true });
+        Object.assign(n, d);
+        HK().logChange('komunita', 'ucty', 'Komunita: ' + JSON.stringify(d).slice(0, 200));
+        window.toast('Uložené. Prejaví sa pri najbližšom prepočte (do hodiny).');
+      });
+    });
+    el.querySelector('#km-prepocet').addEventListener('click', e => U.akcia(e.currentTarget, async () => {
+      // Plánovač prepočítava raz za hodinu; zmazaním značky ho prinútime
+      // prepočítať pri najbližšej kontrole (do 5 minút).
+      await fs.setDoc(U.ref('nastavenia_admin', 'komunita_stav'), { poslednyBeh: null }, { merge: true });
+      el.querySelector('#km-stav').innerHTML = '<div class="hlaska info">Plánovač prepočíta body do 5 minút.</div>';
+    }));
+    el.addEventListener('click', async e => {
+      const b = e.target.closest('[data-km]');
+      if (!b) return;
+      const uid = b.dataset.uid, meno = b.dataset.meno || '';
+      if (b.dataset.km === 'dovera-daj') {
+        if (!await window.potvrd(`Dať ${meno} dôveru? Jeho ďalšie dealy pôjdu na stránku rovno, bez schvaľovania.`)) return;
+        await fs.setDoc(U.ref('duveryhodni', uid), { meno, od: fs.serverTimestamp(), dovod: 'ručne z adminu', pridal: HK().email });
+        HK().logChange('komunita', 'ucty', `Dôvera udelená: ${meno}`);
+      } else if (b.dataset.km === 'dovera-vezmi') {
+        if (!await window.potvrd(`Odobrať ${meno} dôveru? Jeho dealy budú znova čakať na schválenie.`)) return;
+        await fs.deleteDoc(U.ref('duveryhodni', uid));
+        HK().logChange('komunita', 'ucty', `Dôvera odobratá: ${meno}`);
+      }
+      this.show(el);
+    });
+  },
+  async show(el) {
+    const [ludia, dovera, reb] = await Promise.all([
+      fs.getDocs(U.kol('prispevatelia')),
+      fs.getDocs(U.kol('duveryhodni')),
+      fs.getDoc(U.ref('verejne', 'rebricek')).catch(() => null),
+    ]);
+    const zoz = ludia.docs.map(d => ({ ...d.data(), uid: d.id })).sort((a, b) => (b.body || 0) - (a.body || 0));
+    const maju = new Map(dovera.docs.map(d => [d.id, d.data()]));
+    const kedy = reb && reb.exists() ? reb.data().aktualizovane : null;
+    el.querySelector('#km-kpi').innerHTML =
+      U.kpi('Prispievateľov', zoz.length, '', kedy ? `prepočítané ${U.pred(kedy)}` : 'ešte neprepočítané') +
+      U.kpi('Dealov od ľudí', zoz.reduce((a, x) => a + (x.dealy || 0), 0)) +
+      U.kpi('Hlasov spolu', zoz.reduce((a, x) => a + (x.hlasy || 0), 0)) +
+      U.kpi('S dôverou', maju.size);
+    el.querySelector('#km-zoznam').innerHTML = zoz.length ? zoz.map((x, i) => `<tr>
+        <td>${i + 1}.</td><td><b>${esc(x.odznak || '')} ${esc(x.meno || '')}</b><small>${esc(x.odznakNazov || '')}</small></td>
+        <td class="n"><b>${U.cislo(x.body || 0)}</b></td><td class="n">${x.dealy || 0}</td><td class="n">${x.hlasy || 0}</td>
+        <td class="n">${x.kliky || 0}</td><td class="n">${x.uspesnost || 0} %</td>
+        <td class="r nowrap">${maju.has(x.uid)
+          ? '<span class="badge badge-approved">dôvera</span>'
+          : `<button class="btn" data-km="dovera-daj" data-uid="${esc(x.uid)}" data-meno="${esc(x.meno || '')}">Dať dôveru</button>`}</td></tr>`).join('')
+      : '<tr><td colspan="8" class="vis-empty">Zatiaľ žiadni prispievatelia. Body sa počítajú len za dealy od prihlásených ľudí.</td></tr>';
+    el.querySelector('#km-dovera').innerHTML = maju.size ? `<div class="tab-wrap"><table class="tab"><tbody>${[...maju].map(([uid, d]) => `<tr>
+        <td><b>${esc(d.meno || uid)}</b><small>${esc(d.dovod || '')}${d.od ? ' · ' + esc(U.den(d.od)) : ''}</small></td>
+        <td class="r"><button class="btn btn-reject" data-km="dovera-vezmi" data-uid="${esc(uid)}" data-meno="${esc(d.meno || '')}">Odobrať</button></td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="vis-empty">Nikto zatiaľ nemá dôveru. Dealy od ľudí čakajú na tvoje schválenie.</p>';
   },
 });

@@ -214,8 +214,11 @@ def kontrola(db, nasucho: bool) -> None:
     try:
         import emaily
         emaily.spracuj_registracie(db, nasucho)
+        emaily.strazcovia(db, nasucho)
     except Exception as e:
-        logger.warning("E-maily po registrácii zlyhali: %s", e)
+        logger.warning("E-maily zlyhali: %s", e)
+
+    raz_za_hodinu(db, teraz, nasucho)
 
     spustit = co_spustit(rozvrh, teraz)
     if not spustit:
@@ -405,6 +408,35 @@ def spusti_facebook_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
     for d in na_rade:
         d.reference.update({"spustene": teraz})
     logger.info("Spustené zdieľanie %d naplánovaných príspevkov.", len(na_rade))
+
+
+def raz_za_hodinu(db, teraz: datetime, nasucho: bool) -> None:
+    """Body a odznaky prispievateľov a denný e-mail o lacných letenkách.
+    Prechádza všetky dealy a používateľov, tak to nerobíme každých 5 minút."""
+    from google.cloud import firestore
+
+    ref = db.document("nastavenia_admin/komunita_stav")
+    try:
+        posledny = (ref.get().to_dict() or {}).get("poslednyBeh")
+        if posledny and teraz - posledny < timedelta(minutes=55):
+            return
+    except Exception as e:
+        logger.warning("Stav komunity sa nepodarilo načítať: %s", e)
+        return
+    if nasucho:
+        logger.info("Prepočítal by som body prispievateľov a poslal letenky.")
+        return
+    ref.set({"poslednyBeh": firestore.SERVER_TIMESTAMP}, merge=True)
+    try:
+        import komunita
+        komunita.prepocitaj(db)
+    except Exception as e:
+        logger.warning("Body prispievateľov sa nepodarilo prepočítať: %s", e)
+    try:
+        import emaily
+        emaily.letenky(db, nasucho)
+    except Exception as e:
+        logger.warning("E-maily o letenkách zlyhali: %s", e)
 
 
 def main() -> int:
