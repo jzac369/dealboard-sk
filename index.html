@@ -1058,7 +1058,7 @@
 
   window.vote = async (id, delta) => {
     if (id.startsWith("demo-")) return;
-    if (!currentUid) { alert("Načítavam... skús o sekundu znova."); return; }
+    if (!currentUid) { window.hkToast('Načítavam… Skús o sekundu znova.', 'error'); return; }
     const voteRef = doc(db, "deals", id, "voters", currentUid);
     const today = todayStr();
     try {
@@ -1097,7 +1097,9 @@
       window.refreshHottestSidebar();
     } catch(e) {
       console.error('Vote error:', e);
-      alert('Hlasovanie zlyhalo: ' + e.message);
+      window.hkToast(e.code === 'resource-exhausted'
+        ? 'Hlasovanie momentálne nie je dostupné. Skús to neskôr.'
+        : 'Hlasovanie sa nepodarilo. Skús to znova.', 'error');
     }
   };
 
@@ -1224,7 +1226,10 @@
   window.openComments = function(dealId, targetId) {
     activeCommentDealId = dealId;
     commentsListTargetId = targetId || 'comments-list';
-    if (!targetId) document.getElementById('comments-modal').classList.add('open');
+    if (!targetId) {
+      document.getElementById('comments-err').textContent = '';
+      document.getElementById('comments-modal').classList.add('open');
+    }
     document.getElementById(commentsListTargetId).innerHTML = '<div class="loading">Načítavam komentáre…</div>';
     if (unsubComments) unsubComments();
     const cq = query(collection(db, "deals", dealId, "comments"), where("status", "==", "approved"), orderBy("timestamp", "desc"));
@@ -1294,18 +1299,24 @@
     const nickname = document.getElementById('c-nickname').value.trim();
     const text     = document.getElementById('c-text').value.trim();
     const honeypot = document.getElementById('c-honeypot').value.trim();
-    if (!nickname || !text) { alert('Vyplň prosím prezývku aj text komentára.'); return; }
+    const chyba = document.getElementById('comments-err');
+    if (!nickname || !text) {
+      chyba.textContent = 'Vyplň prosím prezývku aj text komentára.';
+      document.getElementById(!nickname ? 'c-nickname' : 'c-text').focus();
+      return;
+    }
     if (!activeCommentDealId) return;
+    chyba.textContent = '';
     try {
       const status = await window.submitComment(activeCommentDealId, nickname, text, honeypot);
       document.getElementById('c-text').value = '';
       if (status === 'approved') {
-        alert('Komentár bol zverejnený.');
+        window.hkToast('Komentár bol zverejnený.');
       } else {
-        alert('Komentár bol odoslaný na schválenie.');
+        window.hkToast('Komentár bol odoslaný na schválenie.');
       }
     } catch(e) {
-      alert('Chyba pri odosielaní komentára.');
+      chyba.textContent = 'Komentár sa nepodarilo odoslať. Skús to znova.';
     }
   };
 
@@ -1399,7 +1410,7 @@
   window.loadCouponsPage(true);
 
   window.voteCoupon = async (id, delta) => {
-    if (!currentUid) { alert("Načítavam... skús o sekundu znova."); return; }
+    if (!currentUid) { window.hkToast('Načítavam… Skús o sekundu znova.', 'error'); return; }
     const voteRef = doc(db, "coupons", id, "voters", currentUid);
     const today = todayStr();
     try {
@@ -1429,7 +1440,10 @@
         document.querySelectorAll(`[data-vote-for="c-${id}"] .vs-num`)
           .forEach(el => { el.textContent = item.votes + '°'; });
       }
-    } catch(e) { console.error(e); }
+    } catch(e) {
+      console.error('Coupon vote error:', e);
+      window.hkToast('Hlasovanie o kóde sa nepodarilo. Skús to neskôr.', 'error');
+    }
   };
 
   window.submitCoupon = async (data) => {
@@ -1643,7 +1657,10 @@
     transition: background .15s;
   }
   .btn-add:hover { background: var(--orange-dk); }
-  .main-section-nav { display: flex; gap: 4px; background: var(--bg); border-radius: 24px; padding: 3px; }
+  .main-section-nav { display: flex; flex: 1 1 auto; min-width: 0; overflow-x: auto;
+    gap: 4px; background: var(--bg); border-radius: 24px; padding: 3px;
+    scrollbar-width: none; -ms-overflow-style: none; }
+  .main-section-nav::-webkit-scrollbar { display: none; }
   .main-section-btn { background: none; border: none; padding: 7px 16px; border-radius: 20px;
     cursor: pointer; font-size: .85rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
   .main-section-btn.active { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
@@ -1652,8 +1669,6 @@
      účtu je len ikona. Inak sa štyri záložky, "Pridaj deal" a "Prihlásiť
      sa" do riadku nezmestia a posledné tlačidlo vylieza za okraj. */
   @media (max-width: 1000px) {
-    .main-section-nav { min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
-    .main-section-nav::-webkit-scrollbar { display: none; }
     .btn-add, .hk-acct { flex: none; }
   }
   @media (max-width: 900px) {
@@ -1857,13 +1872,15 @@
     position: relative;
     width: 100%;
     max-width: 420px;
-    border-radius: 20px;
+    border-radius: 16px;
     overflow: hidden;
+    background: var(--card);
     box-shadow: 0 12px 40px rgba(0,0,0,.35);
     animation: promoPopIn .25s ease-out;
   }
   @keyframes promoPopIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .promo-popup-img { display: block; width: 100%; height: auto; }
+  .promo-popup-actions { padding: 14px 18px 18px; }
   .promo-popup-close {
     position: absolute; top: 10px; right: 10px;
     width: 34px; height: 34px; border-radius: 50%;
@@ -2038,15 +2055,35 @@
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
     z-index: 1100; align-items: center; justify-content: center; padding: 16px; }
   .modal-overlay.open { display: flex; }
-  .modal { background: var(--card); border-radius: var(--r); width: 100%; max-width: 520px;
+  .modal { background: var(--card); border-radius: 16px; width: 100%; max-width: 520px;
     max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
-  .modal-header { background: var(--orange);
-    color: #fff; padding: 18px 22px; border-radius: var(--r) var(--r) 0 0;
+  .modal-header { background: var(--card); border-bottom: 1px solid var(--line);
+    color: var(--ink); padding: 18px 22px; border-radius: 16px 16px 0 0;
     display: flex; align-items: center; justify-content: space-between; }
-  .modal-header h2 { font-size: 1.05rem; }
-  .modal-close { background: none; border: none; color: #fff; font-size: 1.4rem;
-    cursor: pointer; line-height: 1; }
+  .modal-header h2 { font-size: 1.1rem; }
+  .modal-header p { margin: 4px 0 0; color: var(--muted); font-size: .83rem; }
+  .modal-close { background: none; border: none; color: var(--muted); font-size: 1.4rem;
+    cursor: pointer; line-height: 1; width: 38px; height: 38px; border-radius: 50%; flex: none; }
+  .modal-close:hover { background: var(--bg); color: var(--ink); }
   .modal-body { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .modal-body input[type=text], .modal-body input[type=number], .modal-body input[type=date],
+  .modal-body select, .modal-body textarea { border-radius: 9px; }
+  #modal .modal-body > .btn-submit, #coupon-modal .modal-body > .btn-submit {
+    position: sticky; bottom: 0; z-index: 2; box-shadow: 0 0 0 8px var(--card); }
+  #comments-modal .comments-list { display: flex; flex-direction: column; gap: 10px;
+    max-height: 300px; overflow-y: auto; }
+  #comments-modal .comments-compose { border-top: 1px solid var(--line); padding-top: 16px; }
+  #comments-modal .comments-compose .btn-submit { margin-top: 12px; }
+  .hk-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    z-index: 12000; width: min(440px, calc(100vw - 32px)); box-sizing: border-box;
+    display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px;
+    border: 1px solid var(--line); border-left: 4px solid var(--orange);
+    border-radius: 12px; background: var(--card); color: var(--ink);
+    box-shadow: 0 12px 36px rgba(0,0,0,.18); line-height: 1.4; }
+  .hk-toast.error { border-left-color: #C0392B; }
+  .hk-toast span { flex: 1; }
+  .hk-toast button { border: 0; background: none; color: var(--muted); font: inherit;
+    font-size: 1.15rem; line-height: 1; cursor: pointer; padding: 1px 4px; }
   label { font-size: .85rem; font-weight: 600; display: block; margin-bottom: 4px; color: var(--ink); }
   input[type=text], input[type=number], input[type=url], input[type=date], select, textarea {
     width: 100%; padding: 10px 13px; border: 1.5px solid var(--line); border-radius: 6px;
@@ -2213,7 +2250,9 @@
 /* Kód je hlavná vec celého formulára, nech tak aj vyzerá. */
 .code-input{ font-family:ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size:1.05rem; letter-spacing:1.5px; text-align:center; text-transform:uppercase;
-  border:1.5px dashed var(--orange) !important; color:var(--badge-t); background:var(--badge) !important; }
+  border:1.5px solid var(--line) !important; color:var(--ink); background:var(--white) !important; }
+.code-input:focus, .code-input:not(:placeholder-shown) {
+  border-color:var(--orange) !important; background:var(--badge) !important; }
 .code-input::placeholder{ letter-spacing:1px; opacity:.55; }
 
 .seg-pick{ display:flex; border:1.5px solid var(--line); border-radius:var(--r); overflow:hidden; }
@@ -2462,13 +2501,6 @@
   color: var(--muted); text-decoration: none; font-size: .85rem; padding: 9px 4px; }
 .detail-link:hover { color: var(--orange-dk); }
 
-/* Hlavička modálu: oranžový pruh cez celú šírku zaberal veľa miesta a
-   nehovoril nič, čo by človek nevedel. */
-#detail-modal .modal-header { background: var(--card); color: var(--ink);
-  border-bottom: 1px solid var(--line); }
-#detail-modal .modal-header h2 { font-size: .95rem; color: var(--muted); font-weight: 600; }
-#detail-modal .modal-close { color: var(--muted); }
-
 /* Zvislé zarovnanie v riadku karty.
    Riadok má align-items: stretch, ale prepínač aj obrázok majú pevnú
    výšku, takže sa prilepili k hornej hrane a s obsahom vedľa neseděli. */
@@ -2618,18 +2650,20 @@
 .uc-close { position: absolute; right: 10px; top: 8px; z-index: 1; width: 34px; height: 34px;
   background: none; border: none; border-radius: 50%; font-size: 1.1rem; color: var(--muted); cursor: pointer; }
 .uc-close:hover { background: var(--bg); color: var(--ink); }
-.uc-head { text-align: center; padding: 28px 28px 6px; }
-.uc-logo { width: 54px; height: 54px; border-radius: 50%; background: var(--badge); color: var(--orange);
-  display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
-.uc-logo .ic { width: 26px; height: 26px; }
-.uc-head h2 { font-size: 1.35rem; letter-spacing: -.3px; }
-.uc-head p { color: var(--muted); font-size: .86rem; margin-top: 5px; line-height: 1.45; }
+  .uc-head { display: grid; grid-template-columns: 48px 1fr; column-gap: 14px;
+    align-items: center; text-align: left; padding: 28px 28px 6px; }
+  .uc-logo { width: 48px; height: 48px; border-radius: 50%; background: var(--badge); color: var(--orange);
+    display: inline-flex; align-items: center; justify-content: center; grid-row: span 2; }
+  .uc-logo .ic { width: 26px; height: 26px; }
+  .uc-head h2 { font-size: 1.25rem; letter-spacing: -.3px; }
+  .uc-head p { color: var(--muted); font-size: .86rem; margin-top: 2px; line-height: 1.45; }
 .uc-head-profil { display: flex; align-items: center; gap: 14px; text-align: left; padding: 26px 28px 4px; }
 .uc-head-profil h2 { font-size: 1.2rem; }
 .uc-mail { font-size: .82rem; color: var(--muted); word-break: break-all; }
-.uc-tabs { display: flex; margin: 16px 28px 0; background: var(--bg); border-radius: 999px; padding: 3px; }
+.uc-tabs { display: flex; margin: 16px 28px 0; background: var(--bg); border-radius: 12px; padding: 3px; }
 .uc-tabs button { flex: 1; border: none; background: none; padding: 8px; border-radius: 999px; font: inherit;
   font-weight: 700; font-size: .85rem; color: var(--muted); cursor: pointer; }
+.uc-tabs button { border-radius: 9px; }
 .uc-tabs button.on { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
 .uc-body { padding: 18px 28px 24px; display: flex; flex-direction: column; gap: 14px; }
 .uc-body input[type=email], .uc-body input[type=password], .uc-body input[type=text], .uc-body select {
@@ -3226,9 +3260,10 @@ body.food-page { background: #FAF8F5; }
 
 <!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
 <div id="promo-popup-overlay" class="promo-popup-overlay" style="display:none;">
-  <div class="promo-popup-box">
+  <div class="promo-popup-box" role="dialog" aria-modal="true" aria-label="Pridaj deal">
     <button id="promo-popup-close" class="promo-popup-close" aria-label="Zavrieť">&times;</button>
     <img src="assets/pridaj-deal-banner.jpg" alt="Našiel si aj ty skvelý deal? Zazdieľaj ho a podeľ sa s ostatnými!" class="promo-popup-img">
+    <div class="promo-popup-actions"><button class="btn-submit" id="promo-popup-add" type="button">Pridať deal</button></div>
   </div>
 </div>
 
@@ -3496,10 +3531,10 @@ body.food-page { background: #FAF8F5; }
 </div>
 
 <div class="modal-overlay" id="modal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deal-modal-title">
     <div class="modal-header">
-      <h2>Pridaj nový deal</h2>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div><h2 id="deal-modal-title">Pridaj nový deal</h2><p>Podeľ sa o výhodnú ponuku s ostatnými.</p></div>
+      <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeModal()">✕</button>
     </div>
     <!-- Poradie polí nie je náhodné. Odkaz je prvý, lebo z neho vieme
          odvodiť obchod a človek ho má po ruke - práve ho skopíroval.
@@ -3619,12 +3654,12 @@ body.food-page { background: #FAF8F5; }
 
 <!-- Deal Detail Modal -->
 <div class="modal-overlay" id="detail-modal">
-  <div class="modal" style="max-width:600px;">
+  <div class="modal" style="max-width:600px;" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
     <div class="modal-header">
-      <h2>Detail dealu</h2>
-      <button class="modal-close" onclick="closeDetail()">✕</button>
+      <div><h2 id="detail-modal-title">Detail dealu</h2><p>Cena, obchod a informácie o ponuke.</p></div>
+      <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeDetail()">✕</button>
     </div>
-    <div class="modal-body" id="detail-body" style="max-height:80vh; overflow-y:auto;">
+    <div class="modal-body" id="detail-body">
       <div class="loading">Načítavam…</div>
     </div>
   </div>
@@ -3632,27 +3667,28 @@ body.food-page { background: #FAF8F5; }
 
 <!-- Comments Modal -->
 <div class="modal-overlay" id="comments-modal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="comments-modal-title">
     <div class="modal-header">
-      <h2><svg class="ic" aria-hidden="true"><use href="#i-message-circle"></use></svg> Komentáre</h2>
-      <button class="modal-close" onclick="closeComments()">✕</button>
+      <div><h2 id="comments-modal-title">Komentáre</h2><p>Otázky a skúsenosti k dealu.</p></div>
+      <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeComments()">✕</button>
     </div>
     <div class="modal-body">
-      <div id="comments-list" style="display:flex; flex-direction:column; gap:10px; max-height:300px; overflow-y:auto;"></div>
-      <div style="border-top:1px solid var(--line); padding-top:14px; margin-top:6px;">
+      <div id="comments-list" class="comments-list"></div>
+      <div class="comments-compose">
         <div>
-          <label>Prezývka *</label>
+          <label for="c-nickname">Prezývka *</label>
           <input type="text" id="c-nickname" placeholder="napr. Jarko123" maxlength="40">
         </div>
         <div style="margin-top:10px;">
-          <label>Komentár *</label>
+          <label for="c-text">Komentár *</label>
           <textarea id="c-text" rows="3" placeholder="Napíš svoj komentár…" maxlength="500"></textarea>
         </div>
         <div style="position:absolute; left:-9999px; opacity:0;" aria-hidden="true">
           <input type="text" id="c-honeypot" tabindex="-1" autocomplete="off">
         </div>
         <p style="font-size:.76rem; color:var(--muted); margin-top:6px;">Komentár sa zobrazí po schválení moderátorom.</p>
-        <button class="btn-submit" style="margin-top:10px;" onclick="handleCommentSubmit()">Odoslať komentár</button>
+        <div class="form-err" id="comments-err" role="alert"></div>
+        <button class="btn-submit" type="button" onclick="handleCommentSubmit()">Odoslať komentár</button>
       </div>
     </div>
   </div>
@@ -3660,15 +3696,16 @@ body.food-page { background: #FAF8F5; }
 
 <!-- Add Coupon Modal -->
 <div class="modal-overlay" id="coupon-modal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="coupon-modal-title">
     <div class="modal-header">
-      <h2>Pridaj zľavový kód</h2>
-      <button class="modal-close" onclick="closeCouponModal()">✕</button>
+      <div><h2 id="coupon-modal-title">Pridaj zľavový kód</h2><p>Pomôž ostatným ušetriť pri nákupe.</p></div>
+      <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeCouponModal()">✕</button>
     </div>
     <!-- Zľava sa už nepíše voľným textom. Ľudia do nej písali "20% na
          všetko", "-20 %" aj "zľava dvadsať percent" a na kartách to
          vyzeralo rozhádzane. Prepínač + číslo dá vždy rovnaký tvar. -->
     <div class="modal-body">
+      <div class="form-err" id="coupon-err" role="alert"></div>
       <div>
         <label>Odkaz na e-shop *</label>
         <input type="text" id="cp-url" placeholder="zalando.sk (https:// doplníme automaticky)">
@@ -3700,6 +3737,7 @@ body.food-page { background: #FAF8F5; }
         <div id="cp-amount-wrap">
           <label id="cp-amount-label">Koľko %</label>
           <input type="number" id="cp-amount" placeholder="20" step="0.01" min="0" oninput="updateCouponPreview()">
+          <div class="field-err" id="coupon-amount-err" role="alert"></div>
         </div>
         <div>
           <label for="cp-expiry">Platí do</label>
@@ -3731,12 +3769,49 @@ body.food-page { background: #FAF8F5; }
         </div>
       </div>
 
-      <button class="btn-submit" onclick="handleCouponSubmit()">Odoslať na schválenie</button>
+      <button class="btn-submit" type="button" onclick="handleCouponSubmit()">Odoslať na schválenie</button>
     </div>
   </div>
 </div>
 
+<div class="modal-overlay" id="food-watch-modal" onclick="if (event.target === this) foodCloseWatch()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="food-watch-title">
+    <div class="modal-header">
+      <div><h2 id="food-watch-title">Strážca ceny potraviny</h2><p>Pri ďalšej návšteve ti ukážeme, či cena klesla.</p></div>
+      <button class="modal-close" type="button" aria-label="Zavrieť" onclick="foodCloseWatch()">✕</button>
+    </div>
+    <form class="modal-body" onsubmit="foodSaveWatch(event)">
+      <div><label for="food-watch-item">Potravina</label>
+        <select id="food-watch-item" onchange="foodWatchCena()"></select></div>
+      <p class="uc-hint" id="food-watch-now"></p>
+      <div><label for="food-watch-target">Upozorniť pri cene najviac (€)</label>
+        <input type="text" id="food-watch-target" inputmode="decimal" placeholder="Napr. 1,49" autocomplete="off"></div>
+      <div class="form-err" id="food-watch-err" role="alert"></div>
+      <button class="btn-submit" type="submit">Uložiť strážcu</button>
+    </form>
+  </div>
+</div>
+
 <script>
+  let hkToastTimer;
+  window.hkToast = function(sprava, typ = 'info') {
+    document.querySelector('.hk-toast')?.remove();
+    clearTimeout(hkToastTimer);
+    const toast = document.createElement('div');
+    toast.className = 'hk-toast' + (typ === 'error' ? ' error' : '');
+    toast.setAttribute('role', typ === 'error' ? 'alert' : 'status');
+    const text = document.createElement('span');
+    text.textContent = sprava;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Zavrieť oznámenie');
+    close.textContent = '×';
+    close.addEventListener('click', () => { clearTimeout(hkToastTimer); toast.remove(); });
+    toast.append(text, close);
+    document.body.appendChild(toast);
+    hkToastTimer = setTimeout(() => toast.remove(), typ === 'error' ? 9000 : 6000);
+  };
+
   // ── State ────────────────────────────────────────────────────────────────
   // ── Render ───────────────────────────────────────────────────────────────
   // ── Uložené dealy + filter platnosti ────────────────────────────────
@@ -5908,21 +5983,38 @@ body.food-page { background: #FAF8F5; }
   // Upozornenie žije v prehliadači. Mail ani push neposielame a
   // netvárime sa, že áno - keď sa človek vráti, ukážeme mu, čo zlacnelo.
   window.foodAddWatch = () => {
-    const items = foodData.items || [];
-    const names = items.map(it => it.label);
-    const pick = prompt('Na ktorú potravinu ťa máme upozorniť?\n\n' + names.join(', '));
-    if (!pick) return;
-    const item = items.find(it => it.label.toLowerCase() === pick.trim().toLowerCase());
-    if (!item) { alert('Takú potravinu v zozname nemáme.'); return; }
+    const items = foodData?.items || [];
+    if (!items.length) { window.hkToast('Zoznam potravín sa ešte načítava.', 'error'); return; }
+    document.getElementById('food-watch-item').innerHTML = items.map((item, i) =>
+      `<option value="${i}">${escapeHtml(item.label)}</option>`).join('');
+    document.getElementById('food-watch-target').value = '';
+    document.getElementById('food-watch-err').textContent = '';
+    window.foodWatchCena();
+    document.getElementById('food-watch-modal').classList.add('open');
+  };
+  window.foodCloseWatch = () => document.getElementById('food-watch-modal').classList.remove('open');
+  window.foodWatchCena = () => {
+    const item = (foodData?.items || [])[Number(document.getElementById('food-watch-item').value)];
+    if (!item) return;
     const now = pricesOf(item, '')[0].price;
-    const raw = prompt(`Teraz stojí ${price(now)}. Pri akej cene ťa máme upozorniť?`,
-                       String(Math.round(now * 90) / 100).replace('.', ','));
-    if (!raw) return;
-    const target = parseFloat(raw.replace(',', '.'));
-    if (isNaN(target) || target <= 0) { alert('To nie je platná cena.'); return; }
+    document.getElementById('food-watch-now').textContent = `Aktuálna najnižšia cena: ${price(now)}`;
+  };
+  window.foodSaveWatch = e => {
+    e.preventDefault();
+    const item = (foodData?.items || [])[Number(document.getElementById('food-watch-item').value)];
+    if (!item) return;
+    const raw = document.getElementById('food-watch-target').value.trim();
+    const target = Number(raw.replace(',', '.'));
+    if (!/^\d+(?:[,.]\d{1,2})?$/.test(raw) || !Number.isFinite(target) || target <= 0) {
+      document.getElementById('food-watch-err').textContent = 'Zadaj platnú cenu vyššiu ako 0 €.';
+      document.getElementById('food-watch-target').focus();
+      return;
+    }
     foodWatch = foodWatch.filter(w => w.label !== item.label);
     foodWatch.push({ label: item.label, target: Math.round(target * 100) / 100 });
     lsSet(WATCH_KEY, foodWatch);
+    window.foodCloseWatch();
+    window.hkToast('Strážca ceny je uložený.');
     renderFood();
   };
   window.foodDropWatch = (label) => {
@@ -6134,7 +6226,7 @@ body.food-page { background: #FAF8F5; }
   }
 
   window.leafletAlerts = () => {
-    alert('Upozornenia na nové letáky pripravujeme. Zatiaľ sa sem stačí pozrieť — letáky sú vždy tie najnovšie priamo od obchodu.');
+    window.hkToast('Upozornenia na nové letáky pripravujeme. Letáky tu nájdeš vždy aktuálne.');
   };
 
   window.goToDeals = () => {
@@ -6456,22 +6548,29 @@ body.food-page { background: #FAF8F5; }
   window.openCouponModal  = () => {
     const exp = document.getElementById('cp-expiry');
     if (exp && !exp.min) exp.min = new Date().toISOString().slice(0, 10);
+    document.getElementById('coupon-err').textContent = '';
+    document.getElementById('coupon-amount-err').textContent = '';
     document.getElementById('coupon-modal').classList.add('open');
   };
   window.closeCouponModal = () => document.getElementById('coupon-modal').classList.remove('open');
 
   window.handleCouponSubmit = async function() {
+    const chyba = document.getElementById('coupon-err');
+    const chybaCeny = document.getElementById('coupon-amount-err');
+    chyba.textContent = '';
+    chybaCeny.textContent = '';
     const author   = window.stripEmoji(document.getElementById('cp-author').value);
     const code     = document.getElementById('cp-code').value.trim().toUpperCase();
     const store    = document.getElementById('cp-store').value.trim();
     const discount = couponDiscountText();
     const url      = normalizeUrl(document.getElementById('cp-url').value.trim());
     if (!author || !code || !store || !url) {
-      alert('Vyplň prosím povinné polia (*).');
+      chyba.textContent = 'Vyplň prosím povinné polia (*).';
+      document.getElementById(!url ? 'cp-url' : !store ? 'cp-store' : !code ? 'cp-code' : 'cp-author').focus();
       return;
     }
     if (!discount) {
-      alert('Doplň prosím výšku zľavy.');
+      chybaCeny.textContent = 'Doplň prosím výšku zľavy.';
       document.getElementById('cp-amount').focus();
       return;
     }
@@ -6500,12 +6599,12 @@ body.food-page { background: #FAF8F5; }
         document.getElementById(id).value = '');
       resetCouponForm();
       if (status === 'approved') {
-        alert('Ďakujeme! Kód bol zverejnený.');
+        window.hkToast('Ďakujeme! Kód bol zverejnený.');
       } else {
-        alert('Ďakujeme! Kód bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
+        window.hkToast('Ďakujeme! Kód bol odoslaný na schválenie.');
       }
     } catch(e) {
-      alert('Chyba pri ukladaní. Skontroluj Firebase konfiguráciu.');
+      chyba.textContent = 'Kód sa nepodarilo uložiť. Skontroluj pripojenie a skús to znova.';
     }
   };
 
@@ -6516,6 +6615,7 @@ body.food-page { background: #FAF8F5; }
     // preto prehliadač ani neponúkne.
     const until = document.getElementById('f-until');
     if (until && !until.min) until.min = new Date().toISOString().slice(0, 10);
+    document.getElementById('deal-err').textContent = '';
     document.getElementById('modal').classList.add('open');
   };
   window.closeModal = () => document.getElementById('modal').classList.remove('open');
@@ -6832,13 +6932,13 @@ body.food-page { background: #FAF8F5; }
     const img  = document.getElementById('img-preview');
     if (!file) { wrap.style.display = 'none'; return; }
     if (!isImageFile(file)) {
-      alert('Vybraný súbor nie je obrázok. Vyber prosím fotku (JPG, PNG, atď.).');
+      document.getElementById('deal-err').textContent = 'Vybraný súbor nie je obrázok. Vyber fotku JPG alebo PNG.';
       e.target.value = ''; showFileName(null);
       wrap.style.display = 'none';
       return;
     }
     if (file.size > 5*1024*1024) {
-      alert('Obrázok je príliš veľký. Maximálna veľkosť je 5 MB.');
+      document.getElementById('deal-err').textContent = 'Obrázok je príliš veľký. Maximálna veľkosť je 5 MB.';
       e.target.value = ''; showFileName(null);
       wrap.style.display = 'none';
       return;
@@ -6968,9 +7068,9 @@ body.food-page { background: #FAF8F5; }
       document.getElementById('img-preview-wrap').style.display = 'none';
       resetDealForm();
       if (status === 'approved') {
-        alert('Ďakujeme! Deal bol zverejnený.');
+        window.hkToast('Ďakujeme! Deal bol zverejnený.');
       } else {
-        alert('Ďakujeme! Deal bol odoslaný na schválenie a zobrazí sa po kontrole moderátorom.');
+        window.hkToast('Ďakujeme! Deal bol odoslaný na schválenie.');
       }
     } catch(e) {
       const spravy = {
@@ -7032,7 +7132,7 @@ body.food-page { background: #FAF8F5; }
   .pwa-ios-box { background: var(--card, #fff); color: var(--ink, #1a1a1a); border-radius: 18px; padding: 22px; max-width: 420px; width: 100%; }
   .pwa-ios-box h3 { margin: 0 0 12px; font-size: 1.15rem; }
   .pwa-ios-box ol { margin: 0 0 18px; padding-left: 22px; line-height: 1.7; }
-  .pwa-ios-box button { width: 100%; background: var(--orange, #E8590C); color: #fff; border: 0; border-radius: 12px; padding: 13px; font: inherit; font-weight: 800; cursor: pointer; }
+  .pwa-ios-box button { width: 100%; background: var(--orange, #E8590C); color: #fff; border: 0; border-radius: 24px; padding: 13px; font: inherit; font-weight: 800; cursor: pointer; }
 </style>
 <script>
   // Inštalovateľná aplikácia: service worker (offline režim) a ponuka
@@ -7136,6 +7236,10 @@ body.food-page { background: #FAF8F5; }
       overlay.style.display = 'none';
     }
     closeBtn.addEventListener('click', closePopup);
+    document.getElementById('promo-popup-add').addEventListener('click', () => {
+      closePopup();
+      window.openModal();
+    });
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) closePopup();
     });
