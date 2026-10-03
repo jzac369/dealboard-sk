@@ -2740,6 +2740,22 @@
 .uc-profil-save { margin-top: 20px; }
 .uc-profil-body > .uc-akcie { margin-top: 16px; }
 .uc-profil-panel .uc-section-heading { margin: 0; font-size: .95rem; }
+.uc-activity { border-top: 1px solid var(--line); padding-top: 18px; }
+.uc-activity h3 { font-size: .95rem; margin: 0 0 10px; }
+.uc-activity-list { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.uc-activity-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 70px;
+  border: 0; background: var(--card); padding: 12px; text-align: left; font: inherit; cursor: pointer; }
+.uc-activity-row + .uc-activity-row { border-top: 1px solid var(--line); }
+.uc-activity-row:hover, .uc-activity-row:focus-visible { background: #FFF8F2; }
+.uc-activity-icon { width: 36px; height: 36px; border-radius: 10px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--badge); color: var(--orange-dk); }
+.uc-activity-icon .ic { width: 18px; height: 18px; }
+.uc-activity-copy { flex: 1; min-width: 0; }
+.uc-activity-copy b { display: block; font-size: .88rem; color: var(--ink); }
+.uc-activity-copy small { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; line-height: 1.35; }
+.uc-activity-arrow { color: var(--orange-dk); font-size: 1.05rem; flex: none; }
+.uc-activity .uc-hint { margin-top: 10px; }
 @media (max-width: 640px) {
   .uc-head { padding: 24px 20px 4px; }
   .uc-head-profil { padding: 24px 20px 4px; }
@@ -3273,9 +3289,9 @@ body.food-page { background: #FAF8F5; }
     <div class="main-section-nav">
       <button class="main-section-btn active" onclick="setMainSection('deals', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Dealy</button>
       <button class="main-section-btn" id="btn-letenky" style="display:none;" onclick="setMainSection('flights', this)"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Letenky</button>
-      <button class="main-section-btn" onclick="setMainSection('food', this)"><svg class="ic" aria-hidden="true"><use href="#i-basket"></use></svg> Najlacnejšie potraviny</button>
+      <button class="main-section-btn" onclick="setMainSection('food', this)"><svg class="ic" aria-hidden="true"><use href="#i-basket"></use></svg> Potraviny</button>
       <button class="main-section-btn" onclick="setMainSection('leaflets', this)"><svg class="ic" aria-hidden="true"><use href="#i-news"></use></svg> Letáky</button>
-      <button class="main-section-btn" onclick="setMainSection('coupons', this)"><svg class="ic" aria-hidden="true"><use href="#i-ticket"></use></svg> Zľavové kódy</button>
+      <button class="main-section-btn" onclick="setMainSection('coupons', this)"><svg class="ic" aria-hidden="true"><use href="#i-ticket"></use></svg> Kódy</button>
     </div>
     <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
     <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
@@ -4450,7 +4466,7 @@ body.food-page { background: #FAF8F5; }
     document.getElementById('ucet-modal').classList.add('open');
     setTimeout(() => {
       const prve = document.querySelector('#uc-obsah input:not([type=checkbox])');
-      if (prve && window.innerWidth > 640) prve.focus();
+      if (prve && window.innerWidth > 640 && ucPohlad !== 'ucet') prve.focus();
     }, 50);
   }
   window.otvorUcet = function(pohlad) {
@@ -4539,17 +4555,27 @@ body.food-page { background: #FAF8F5; }
   function ucProfilHtml() {
     const k = (window.HK_UCET || {}).komunita;
     const dovera = (window.HK_UCET || {}).dovera;
-    if (!k || !k.dealy) {
-      return `<div class="uc-box uc-profil">
-        <div class="uc-sub">${icon('award')} Môj profil</div>
-        <p class="uc-text">Pridaj prvý deal a začneš zbierať body a odznaky. Za zverejnený deal máš 10 bodov,
-          za každý hlas od ostatných 1 bod.</p>
-        <button type="button" class="uc-link" onclick="zavriUcet(); openModal();">+ Pridať deal</button></div>`;
-    }
+    const aktivity = `<section class="uc-activity" aria-label="Tvoje aktivity">
+      <h3>Tvoje aktivity</h3>
+      <div class="uc-activity-list">
+        <button type="button" class="uc-activity-row" onclick="zavriUcet(); openModal();">
+          <span class="uc-activity-icon">${icon('plus')}</span>
+          <span class="uc-activity-copy"><b>Pridať deal</b><small>Za zverejnenie získaš 10 bodov</small></span>
+          <span class="uc-activity-arrow" aria-hidden="true">→</span>
+        </button>
+        <button type="button" class="uc-activity-row" onclick="ucOtvorStrazcu()">
+          <span class="uc-activity-icon">${icon('bell')}</span>
+          <span class="uc-activity-copy"><b>Strážca dealov</b><small>Upozornenia na produkty a značky</small></span>
+          <span class="uc-activity-arrow" aria-hidden="true">→</span>
+        </button>
+      </div>
+      <p class="uc-hint">Za každý hlas od ostatných získaš ďalší bod.</p>
+    </section>`;
+    if (!k || !k.dealy) return aktivity;
     const o = ucOdznak(k.body);
     const dalsi = UC_ODZNAKY.find(x => x.od > (k.body || 0));
-    return `<div class="uc-box uc-profil on">
-      <div class="uc-sub">${icon('award')} Môj profil</div>
+    return `${aktivity}<div class="uc-box uc-profil on">
+      <div class="uc-sub">${icon('award')} Body a odznaky</div>
       <div class="uc-odznak"><span class="uc-odznak-ik">${o.ikona}</span>
         <div><b>${escapeHtml(o.nazov)}</b><small>${k.body || 0} bodov${k.poradie ? ` · ${k.poradie}. miesto v rebríčku` : ''}</small></div></div>
       ${dalsi ? `<div class="uc-pokrok"><span style="width:${Math.min(100, Math.round((k.body - o.od) / (dalsi.od - o.od) * 100))}%"></span></div>
@@ -4560,6 +4586,11 @@ body.food-page { background: #FAF8F5; }
       <button type="button" class="uc-link" onclick="ucRebricek(this)">Zobraziť rebríček →</button>
       <div id="uc-rebricek"></div></div>`;
   }
+  window.ucOtvorStrazcu = function() {
+    ucUcetTab('upozornenia');
+    requestAnimationFrame(() => document.querySelector('#uc-panel-upozornenia .uc-strazca')
+      ?.scrollIntoView({ block: 'nearest' }));
+  };
   window.ucRebricek = function(btn) {
     const el = document.getElementById('uc-rebricek');
     if (el.innerHTML) { el.innerHTML = ''; btn.textContent = 'Zobraziť rebríček →'; return; }
