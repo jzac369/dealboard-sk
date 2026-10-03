@@ -1103,15 +1103,27 @@
     }
   };
 
-  // ── Rate limiting (localStorage) – max 1 príspevok / 15 min ────────────────
-  const RATE_LIMIT_MS = 15 * 60 * 1000;
-  window.canSubmit = () => {
-    const last = parseInt(localStorage.getItem('db_lastSubmit') || '0', 10);
-    return Date.now() - last >= RATE_LIMIT_MS;
-  };
+  // ── Rate limiting (localStorage) – max 3 dealy za 10 minút ────────────────
+  const RATE_LIMIT_MS = 10 * 60 * 1000;
+  const RATE_LIMIT_COUNT = 3;
+  const RATE_LIMIT_KEY = 'db_submitTimes';
+  function recentSubmitTimes() {
+    let times = [];
+    try {
+      const stored = JSON.parse(localStorage.getItem(RATE_LIMIT_KEY) || '[]');
+      if (Array.isArray(stored)) times = stored;
+    } catch (_) { /* Poškodený lokálny záznam nesmie zablokovať formulár. */ }
+    // Starší záznam započítame, aby aktualizácia stránky nevynulovala limit.
+    const previous = Number(localStorage.getItem('db_lastSubmit'));
+    if (previous) times.push(previous);
+    const now = Date.now();
+    return [...new Set(times)].filter(t => Number.isFinite(t) && t <= now && now - t < RATE_LIMIT_MS)
+      .sort((a, b) => a - b);
+  }
+  window.canSubmit = () => recentSubmitTimes().length < RATE_LIMIT_COUNT;
   window.msUntilNextSubmit = () => {
-    const last = parseInt(localStorage.getItem('db_lastSubmit') || '0', 10);
-    return Math.max(0, RATE_LIMIT_MS - (Date.now() - last));
+    const times = recentSubmitTimes();
+    return times.length < RATE_LIMIT_COUNT ? 0 : Math.max(0, RATE_LIMIT_MS - (Date.now() - times[0]));
   };
 
   // ── Zmenší a skomprimuje obrázok, vráti base64 dátový text (žiadny Storage potrebný) ──
@@ -1477,7 +1489,8 @@
       status,
       timestamp: serverTimestamp()
     });
-    localStorage.setItem('db_lastSubmit', String(Date.now()));
+    localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify([...recentSubmitTimes(), Date.now()]));
+    localStorage.removeItem('db_lastSubmit');
     return status;
   };
 </script>
@@ -5462,7 +5475,7 @@ body.food-page { background: #FAF8F5; }
       <div class="lt-stat"><b>od ${naj < Infinity ? ltCena(Math.round(naj * 100) / 100) : '—'}</b>tam aj späť</div>
       <div class="lt-stat"><b>${hod}</b>posledná aktualizácia</div>`;
     document.getElementById('lt-note').innerHTML =
-      `Ceny sú najnižšie ceny Ryanairu za jednu osobu a let bez batožiny do podpalubia, zistené ${hod}. ` +
+      `Ceny sú najnižšie ceny Ryanairu za jednu osobu a let bez batožiny do podpalubia, aktualizované ${hod}. ` +
       `Letenky sa rýchlo míňajú a ceny menia — pred kúpou ich over na stránke, kam ťa odkaz zavedie. ` +
       `Wizz Air a ďalších dopravcov pripravujeme.`;
   }
@@ -7061,7 +7074,7 @@ body.food-page { background: #FAF8F5; }
     }
     if (!window.canSubmit()) {
       const mins = Math.ceil(window.msUntilNextSubmit() / 60000);
-      chybaFormulara.textContent = `Môžeš pridať len 1 deal za 15 minút. Skús to znova o ${mins} min.`;
+      chybaFormulara.textContent = `Môžeš pridať najviac 3 dealy za 10 minút. Skús to znova o ${mins} min.`;
       return;
     }
     const submitBtn = document.getElementById('deal-submit');
@@ -7106,7 +7119,7 @@ body.food-page { background: #FAF8F5; }
       }
     } catch(e) {
       const spravy = {
-        'rate-limit': 'Môžeš pridať len 1 deal za 15 minút. Skús to o chvíľu znova.',
+        'rate-limit': 'Môžeš pridať najviac 3 dealy za 10 minút. Skús to o chvíľu znova.',
         'spam': 'Pri odosielaní nastala chyba. Skús to znova.',
         'too-large': 'Obrázok je príliš veľký. Maximálna veľkosť je 5 MB.',
         'not-image': 'Vybraný súbor nie je obrázok.',
