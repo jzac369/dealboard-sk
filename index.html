@@ -5642,9 +5642,8 @@ body.food-page { background: #FAF8F5; }
     return `<div class="fd-list-box">
       <div class="fd-list-h">
         <h2>Zoznam potravín</h2>
-        <span class="fd-src">Ceny k ${escapeHtml(datum)} · zdroj:
-          <a href="https://www.cenyslovensko.sk" target="_blank" rel="noopener">CenySlovensko.sk</a>
-          – Ministerstvo financií SR</span>
+        <span class="fd-src">Ceny k ${escapeHtml(datum)} · Zdroj: CenySlovensko.sk – Ministerstvo financií SR.
+          Dostupnosť produktov sa môže v jednotlivých predajniach líšiť. HenKukaj.sk nezaručuje ich skladovú dostupnosť.</span>
       </div>
       ${body || `<div class="empty" style="font-size:.85rem;padding:18px 6px;">Nič sa nenašlo.</div>`}
     </div>`;
