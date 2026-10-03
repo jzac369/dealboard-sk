@@ -1634,7 +1634,7 @@
     background: none; border: none; outline: none; color: var(--ink);
     padding: 9px 16px; width: 100%; font-size: .9rem;
   }
-  .header-search input::placeholder { color: var(--muted); }
+  .header-search input::placeholder { color: #C3C8CC; opacity: 1; }
   .btn-add {
     background: var(--orange);
     color: #fff; font-weight: 700;
@@ -2063,7 +2063,7 @@
   .date-field { position: relative; }
   .date-field input[type=date] { position: relative; }
   .date-field .date-ph { position: absolute; left: 15px; top: 50%;
-    transform: translateY(-50%); font-size: .9rem; color: #C8C4B8;
+    transform: translateY(-50%); font-size: .9rem; color: #C3C8CC;
     background: var(--white); padding-right: 6px; pointer-events: none; }
   .date-field.filled .date-ph, .date-field.active .date-ph { display: none; }
   input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .55; }
@@ -2083,7 +2083,7 @@
   .file-field input[type=file]:focus-visible + .file-btn { border-color: var(--orange); }
   .file-name { font-size: .82rem; color: var(--muted); min-width: 0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  input::placeholder, textarea::placeholder { color: #C8C4B8; font-weight: 400; }
+  input::placeholder, textarea::placeholder { color: #C3C8CC; opacity: 1; font-weight: 400; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .btn-submit { background: var(--orange); color: #fff; border: none; padding: 12px;
     border-radius: 24px; font-size: .95rem; font-weight: 700; cursor: pointer;
@@ -2690,6 +2690,22 @@
   border-top: 1px solid var(--line); padding-top: 14px; }
 .uc-cervene { background: #C0392B; }
 .uc-cervene:hover { background: #A93226; }
+.uc-profil-tabs { margin-top: 20px; border-radius: 12px; padding: 4px; }
+.uc-profil-tabs button { border-radius: 9px; font-weight: 600; }
+.uc-profil-tabs button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.uc-profil-body { gap: 0; padding-top: 16px; }
+.uc-profil-panel[hidden] { display: none; }
+.uc-profil-panel { display: flex; flex-direction: column; gap: 18px; }
+.uc-profil-panel > .uc-box { border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 18px 0 0; background: transparent; }
+.uc-profil-panel > .uc-box.on { border-color: var(--line); background: transparent; }
+.uc-profil-panel .uc-sub { font-size: .76rem; font-weight: 700; color: var(--ink); }
+.uc-profil-panel .uc-hint, .uc-profil-panel .uc-nep { font-size: .83rem; }
+.uc-profil-panel .uc-text { color: var(--ink); }
+.uc-profil-panel .uc-check { padding: 4px 0; }
+.uc-profil-panel .uc-riadok { margin: 0; }
+.uc-profil-save { margin-top: 20px; }
+.uc-profil-body > .uc-akcie { margin-top: 16px; }
+.uc-profil-panel .uc-section-heading { margin: 0; font-size: .95rem; }
 @media (max-width: 640px) {
   .uc-head { padding: 24px 20px 4px; }
   .uc-head-profil { padding: 24px 20px 4px; }
@@ -4296,6 +4312,7 @@ body.food-page { background: #FAF8F5; }
     'Banskobystrický', 'Prešovský', 'Košický'];
   let ucPohlad = 'prihlasenie';
   let ucSprava = '';
+  let ucAktivnaZalozka = 'profil';
 
   window.nastavUcty = function(n) {
     const zobraz = (n && n.enabled === true) || /[?&]nahlad=ucet\b/.test(location.search);
@@ -4328,6 +4345,7 @@ body.food-page { background: #FAF8F5; }
     if (/[?&]ucet=nastavenia\b/.test(location.search)) {
       try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
       window.otvorUcet(user ? 'ucet' : 'prihlasenie');
+      if (user) ucUcetTab('upozornenia');
       return;
     }
     // Návrat z odkazu v overovacom e-maile.
@@ -4364,12 +4382,38 @@ body.food-page { background: #FAF8F5; }
     if (window.hkUdalost) window.hkUdalost('ucet_otvorenie');
     ucSprava = '';
     ucPohlad = pohlad || (window.HK_UCET.user ? 'ucet' : 'prihlasenie');
+    if (ucPohlad === 'ucet') ucAktivnaZalozka = 'profil';
     otvorUcetOkno();
   };
   window.zavriUcet = () => document.getElementById('ucet-modal').classList.remove('open');
   document.addEventListener('keydown', e => { if (e.key === 'Escape') window.zavriUcet(); });
 
   window.ucPrepni = function(pohlad) { ucPohlad = pohlad; ucSprava = ''; ucRender(); };
+
+  window.ucUcetTab = function(zalozka) {
+    if (!['profil', 'upozornenia', 'ulozene'].includes(zalozka)) return;
+    ucAktivnaZalozka = zalozka;
+    document.querySelectorAll('#ucet-modal .uc-profil-tabs [role="tab"]').forEach(tab => {
+      const aktivny = tab.dataset.zalozka === zalozka;
+      tab.classList.toggle('on', aktivny);
+      tab.setAttribute('aria-selected', String(aktivny));
+      tab.tabIndex = aktivny ? 0 : -1;
+    });
+    document.querySelectorAll('#ucet-modal .uc-profil-panel').forEach(panel => {
+      panel.hidden = panel.dataset.zalozka !== zalozka;
+    });
+  };
+  document.addEventListener('keydown', e => {
+    const tab = e.target.closest('#ucet-modal .uc-profil-tabs [role="tab"]');
+    if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const tabs = [...tab.parentElement.querySelectorAll('[role="tab"]')];
+    const i = tabs.indexOf(tab);
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1
+      : (i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    ucUcetTab(tabs[next].dataset.zalozka);
+    tabs[next].focus();
+  });
 
   function ucChyba(text) {
     const el = document.getElementById('uc-err');
@@ -4486,9 +4530,9 @@ body.food-page { background: #FAF8F5; }
     return `<div class="uc-box uc-letenky${max ? ' on' : ''}">
       <div class="uc-sub">${icon('plane')} Lacná letenka z môjho letiska</div>
       <label class="uc-riadok uc-letenky-r">
-        <span>Daj mi vedieť, keď nájdeme let do <b id="uc-let-max">${max || 50}</b> €</span>
+        <span>Cenový limit: <b id="uc-let-max">${max ? `${max} €` : 'vypnuté'}</b></span>
         <input type="range" id="uc-letenky-max" min="0" max="200" step="10" value="${max}"
-          oninput="document.getElementById('uc-let-max').textContent = this.value === '0' ? '–' : this.value">
+          oninput="document.getElementById('uc-let-max').textContent = this.value === '0' ? 'vypnuté' : this.value + ' €'">
       </label>
       <p class="uc-hint">Letiská: <b>${escapeHtml(letiska)}</b> (meníš ich vyššie pri newsletteri). Posúvnik na nulu znamená vypnuté.
         Posielame najviac jeden takýto e-mail denne.</p></div>`;
@@ -4658,25 +4702,37 @@ body.food-page { background: #FAF8F5; }
         <span class="hk-avatar velky">${escapeHtml(meno.charAt(0).toUpperCase())}</span>
         <div><h2 id="uc-title">Ahoj, ${escapeHtml(meno)}</h2><div class="uc-mail">${escapeHtml(user.email)}</div></div>
       </div>
-      <div class="uc-body">
+      <div class="uc-tabs uc-profil-tabs" role="tablist" aria-label="Môj účet">
+        <button type="button" id="uc-tab-profil" role="tab" data-zalozka="profil" aria-controls="uc-panel-profil" aria-selected="${ucAktivnaZalozka === 'profil'}" tabindex="${ucAktivnaZalozka === 'profil' ? '0' : '-1'}" class="${ucAktivnaZalozka === 'profil' ? 'on' : ''}" onclick="ucUcetTab('profil')">Profil</button>
+        <button type="button" id="uc-tab-upozornenia" role="tab" data-zalozka="upozornenia" aria-controls="uc-panel-upozornenia" aria-selected="${ucAktivnaZalozka === 'upozornenia'}" tabindex="${ucAktivnaZalozka === 'upozornenia' ? '0' : '-1'}" class="${ucAktivnaZalozka === 'upozornenia' ? 'on' : ''}" onclick="ucUcetTab('upozornenia')">Upozornenia</button>
+        <button type="button" id="uc-tab-ulozene" role="tab" data-zalozka="ulozene" aria-controls="uc-panel-ulozene" aria-selected="${ucAktivnaZalozka === 'ulozene'}" tabindex="${ucAktivnaZalozka === 'ulozene' ? '0' : '-1'}" class="${ucAktivnaZalozka === 'ulozene' ? 'on' : ''}" onclick="ucUcetTab('ulozene')">Uložené</button>
+      </div>
+      <div class="uc-body uc-profil-body">
         ${ucSprava ? `<div class="uc-ok">${ucSprava}</div>` : ''}
         ${user.emailVerified ? '' : `<div class="uc-stav">
           <b>Potvrď svoj e-mail.</b> Poslali sme ti odkaz – kým ho nepotvrdíš, newsletter ti posielať nebudeme.
           <span class="uc-stav-akcie"><button type="button" class="uc-link" onclick="ucZnovaOverenie(this)">Poslať znova</button>
           · <button type="button" class="uc-link" onclick="ucSkontroluj(this)">Už som potvrdil</button></span></div>`}
-        <div><label for="uc-meno">Ako ťa máme osloviť</label>
-          <input type="text" id="uc-meno" maxlength="40" autocomplete="nickname" value="${escapeAttr(p.meno || '')}" placeholder="napr. Jarko"></div>
-        ${ucProfilHtml()}
-        <div class="uc-box${p.newsletter ? ' on' : ''}">${ucPrefHtml(p)}</div>
-        ${ucStrazcoviaHtml(p)}
-        ${ucLetenkyHtml(p)}
-        <div class="uc-err" id="uc-err" role="alert"></div>
-        <button class="btn-submit" type="button" onclick="ucUlozNastavenia(this)">Uložiť nastavenia</button>
-        <div class="uc-riadok">
-          <span>${icon('bookmark')} Uložené dealy: <b>${window.savedDeals.size}</b></span>
-          <button type="button" class="uc-link" onclick="ucZobrazUlozene()">Zobraziť →</button>
+        <div class="uc-profil-panel" id="uc-panel-profil" data-zalozka="profil" role="tabpanel" aria-labelledby="uc-tab-profil" ${ucAktivnaZalozka === 'profil' ? '' : 'hidden'}>
+          <div><label for="uc-meno">Ako ťa máme osloviť?</label>
+            <input type="text" id="uc-meno" maxlength="40" autocomplete="nickname" value="${escapeAttr(p.meno || '')}" placeholder="Napr. Jarko"></div>
+          ${ucProfilHtml()}
         </div>
-        ${ucHistoriaHtml(p)}
+        <div class="uc-profil-panel" id="uc-panel-upozornenia" data-zalozka="upozornenia" role="tabpanel" aria-labelledby="uc-tab-upozornenia" ${ucAktivnaZalozka === 'upozornenia' ? '' : 'hidden'}>
+          <h3 class="uc-section-heading">E-mailové upozornenia</h3>
+          <div class="uc-box${p.newsletter ? ' on' : ''}">${ucPrefHtml(p)}</div>
+          ${ucStrazcoviaHtml(p)}
+          ${ucLetenkyHtml(p)}
+        </div>
+        <div class="uc-profil-panel" id="uc-panel-ulozene" data-zalozka="ulozene" role="tabpanel" aria-labelledby="uc-tab-ulozene" ${ucAktivnaZalozka === 'ulozene' ? '' : 'hidden'}>
+          <div class="uc-riadok">
+            <span>${icon('bookmark')} Uložené dealy: <b>${window.savedDeals.size}</b></span>
+            <button type="button" class="uc-link" onclick="ucZobrazUlozene()">Zobraziť →</button>
+          </div>
+          ${ucHistoriaHtml(p)}
+        </div>
+        <div class="uc-err" id="uc-err" role="alert"></div>
+        <button class="btn-submit uc-profil-save" type="button" onclick="ucUlozNastavenia(this)">Uložiť nastavenia</button>
         <div class="uc-akcie">
           <button type="button" class="uc-link" onclick="ucOdhlas()">${icon('logout')} Odhlásiť sa</button>
           <button type="button" class="uc-link uc-tlmene" onclick="ucPrepni('zrusit')">Zrušiť účet</button>
