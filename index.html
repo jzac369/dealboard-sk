@@ -1751,10 +1751,21 @@
   .cat-nav button.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
 
   /* ── Sidebar (now used for promo/info) ─────────────────────────────────── */
-  /* Hľadanie drží vrch pravého stĺpca, medzera pod ním dorovnáva
-     prvú kartu so zoznamom vľavo. */
-  .sidebar-search { width: 100%; flex: none; margin: 16px 0 14px; }
-  .sidebar-spacer { margin: 16px 0 6px; height: 33px; }
+  /* Hľadanie drží vrch pravého stĺpca a pod ním dorovnáva medzera
+     prvú kartu so zoznamom vľavo.
+     PREČO JE POĽE NIŽŠIE A VYŠŠIE NEŽ RIADOK TRIEDENIA
+     Medzi spodkom hlavičky a prvou kartou je asi 40 px. Pole vysoké
+     44 px aj s medzerou sa tam nezmestí, medzera by vyšla záporná a
+     karta "Najhorúcejšie dealy" končila o 20 px nižšie než prvý deal.
+     Nižšie pole (36 px) a posun o 8 px nahor uvoľnia presne toľko,
+     aby stĺpce sedeli a pod poľom ostalo 12 px. */
+  .deals-search.sidebar-search { width: 100%; flex: none; height: 36px; margin: -8px 0 0; }
+  .sidebar-spacer { margin: 0 0 6px; height: 33px; }
+  /* Na užšej obrazovke je stĺpec pod zoznamom - tam niet čo zarovnávať
+     a posun nahor by pole prilepil k poslednému dealu. */
+  @media (max-width: 1000px) {
+    .deals-search.sidebar-search { height: 44px; margin: 0 0 14px; }
+  }
   @media (max-width: 720px) { .sidebar-spacer { display: none; } }
   .sidebar h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em;
     color: var(--muted); margin-bottom: 10px; font-weight: 700; }
