@@ -33,10 +33,22 @@ FIRESTORE_PROJECT_ID = os.environ.get("FIRESTORE_PROJECT_ID", "dealboard-e60bf")
 # znamenala, že návrhy v admin paneli nikdy neuvidíš.
 DEALS_COLLECTION = "deals"
 
-# Meno, pod ktorým sa návrhy zobrazia v poli "autor".
-# Bez emoji zámerne - stránka ich v menách autorov nepoužíva a
-# na každom systéme sa kreslia inak.
-AGENT_AUTHOR_NAME = os.environ.get("AGENT_AUTHOR_NAME", "Deal Hunter")
+# Mená, pod ktorými sa návrhy agenta zobrazia v poli "autor".
+# Vyberá sa z nich náhodne, aby zoznam nevyzeral ako jeden robot.
+# Koncovka ".DH" je zámerná: podľa nej sa dá kedykoľvek zistiť, že
+# deal nepridal človek, ale agent.
+# Bez emoji - stránka ich v menách autorov nepoužíva a na každom
+# systéme sa kreslia inak.
+AGENT_AUTHOR_NAMES = _env_list("AGENT_AUTHOR_NAMES") or [
+    "karci773.DH", "roseHIP.DH", "srlak007.DH", "miso71421.DH", "savancek7.DH",
+]
+AGENT_AUTHOR_NAME = os.environ.get("AGENT_AUTHOR_NAME") or AGENT_AUTHOR_NAMES[0]
+
+
+def meno_autora() -> str:
+    """Náhodné meno zo zoznamu - volá sa pre každý návrh zvlášť."""
+    import random
+    return random.choice(AGENT_AUTHOR_NAMES)
 
 
 # ── Výber a filtrovanie dealov ────────────────────────────────────────

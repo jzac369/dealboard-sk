@@ -224,7 +224,9 @@ def write_pending_deals(
                 document[pole] = bez_html(document[pole])
         # Čas určuje server, nie stroj, na ktorom beží scraper.
         document["timestamp"] = firestore.SERVER_TIMESTAMP
-        document["author"] = config.AGENT_AUTHOR_NAME
+        # Každý návrh dostane iné meno - zoznam na stránke tak nevyzerá
+        # ako jeden robot, ktorý pridal všetko.
+        document["author"] = config.meno_autora()
         document["votes"] = _random_boost()
 
         doc_ref = collection.document()
