@@ -2,8 +2,11 @@ name: Generuj SEO stránky dealov
 
 on:
   schedule:
-    - cron: "0 * * * *"   # každú hodinu - aby cerstvo schvaleny deal
-    #                      mal svoju stranku skor, kvoli zdielaniu
+    # Kazde tri hodiny. Pri kazdom behu sa cita cela kolekcia dealov aj
+    # kuponov, takze hodinovy beh stal okolo 5 % dennej kvoty Firestore
+    # za nieco, co sa meni parkrat denne. Cerstvo schvaleny deal ma svoju
+    # stranku aj tak skoro - dalsi beh je najneskor o tri hodiny.
+    - cron: "0 */3 * * *"
   workflow_dispatch: {}
 
 permissions:

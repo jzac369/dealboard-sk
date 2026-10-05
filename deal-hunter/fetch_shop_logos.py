@@ -258,7 +258,12 @@ def _hlavna_domena(host: str) -> str:
 def obchody_z_dealov(db) -> dict[str, str]:
     """kľúč obchodu -> doména, z ktorej stiahneme logo."""
     hlasy: dict[str, dict[str, int]] = {}
-    for doc in db.collection("deals").stream():
+    # Len to, čo je na stránke alebo čaká na schválenie. Čítať pri každom
+    # behu aj zamietnuté dealy znamenalo stovky dokumentov navyše - a táto
+    # úloha beží každú hodinu. "in" nepotrebuje zložený index.
+    from google.cloud.firestore_v1.base_query import FieldFilter as _FF
+    for doc in (db.collection("deals")
+                .where(filter=_FF("status", "in", ["approved", "pending"])).stream()):
         d = doc.to_dict() or {}
         if d.get("status") not in ("approved", "pending"):
             continue
