@@ -83,6 +83,11 @@ def main() -> int:
         data = kayak.calendar(odkial, kam, mesiac, mesiac)
         vysledky = (data or {}).get("results") or []
         logger.info("Výsledkov: %d", len(vysledky))
+        if vysledky:
+            # Tvar odpovede si radšej pozrieme celý - cena nemusí byť tam,
+            # kde ju čakáme (jednosmerná vs. spiatočná).
+            logger.info("Surový prvý výsledok: %s",
+                        json.dumps(vysledky[0], ensure_ascii=False)[:900])
         for r in vysledky[:5]:
             noha = r.get("outboundLeg") or {}
             spat = (r.get("inboundLegs") or [{}])[0]
