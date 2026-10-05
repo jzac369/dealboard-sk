@@ -35,6 +35,8 @@ RADY = {
               "behu ju znova nespustí, ale treba zistiť prečo."),
     "rozvrh": ("Plánovač nedokázal prečítať rozvrh, takže nič nespustil. "
                "Automatické úlohy sa medzitým neodbavujú."),
+    "historia": ("Ceny potravín sa dnes neobnovili - nedá sa prečítať "
+                 "doterajšia história a prepisovať ju naslepo by zmazalo grafy."),
     "spustenie": "Plánovaču sa nepodarilo spustiť úlohu na GitHube.",
     "slucka": ("Poistka zastavila opakované spúšťanie tej istej úlohy. "
                "Niečo je v plánovači pokazené - pozri logy."),

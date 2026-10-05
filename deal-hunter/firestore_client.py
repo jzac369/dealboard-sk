@@ -669,6 +669,10 @@ FOOD_PRICES_DOC = "food_prices/current"
 FOOD_HISTORY_DAYS = 60
 
 
+class HistoriaNedostupna(Exception):
+    """Doterajšiu históriu cien sa nepodarilo prečítať - nesmie sa prepísať."""
+
+
 def _food_history(ref, data: dict) -> dict:
     """
     K existujúcej histórii pridá dnešnú najnižšiu cenu každej položky.
@@ -681,11 +685,14 @@ def _food_history(ref, data: dict) -> dict:
     Porovnávač vracia ceny raz denne, takže dnešný záznam prepisujeme,
     nie pridávame - inak by tri behy agenta spravili tri body za deň.
     """
+    # Keď sa história nedá prečítať, NEpokračujeme s prázdnou. Zapisujeme
+    # celý dokument naraz, takže by sme tým doterajšie dni prepísali.
+    # 4. 10. 2026 pri vyčerpanej kvóte Firestore sa takto stratilo
+    # dvanásť dní zbieraných cien a grafy na stránke zostali prázdne.
     try:
         current = (ref.get().to_dict() or {}).get("history") or {}
     except Exception as e:
-        logger.warning("Históriu cien sa nepodarilo prečítať: %s", e)
-        current = {}
+        raise HistoriaNedostupna(str(e)) from e
 
     day = data.get("reportDate") or date.today().isoformat()
     history: dict[str, list] = {}
@@ -749,7 +756,14 @@ def refresh_food_prices(db: firestore.Client, snapshot_data: dict | None = None)
                        "nechávam včerajšie.", e)
         return False
     if data and data.get("items"):
-        data["history"] = _food_history(ref, data)
+        try:
+            data["history"] = _food_history(ref, data)
+        except HistoriaNedostupna as e:
+            logger.error("História cien sa nedá prečítať (%s) — ceny dnes neprepisujem, "
+                         "aby sa doterajšie dni nestratili.", e)
+            import poplach
+            poplach.chyba("historia", e)
+            return False
     if not data or not data.get("items"):
         # Radšej necháme včerajšie ceny než prázdnu sekciu.
         return False

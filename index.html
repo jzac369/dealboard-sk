@@ -5684,16 +5684,23 @@ body.food-page { background: #FAF8F5; }
     const vals = series.map(s => s.p);
     const lo = Math.min(...vals), hi = Math.max(...vals);
     const span = (hi - lo) || 1;
+    // Bod kreslíme podľa dátumu, nie podľa poradia. Keď nám v zbere
+    // vypadne deň, medzera v čiare to prizná namiesto toho, aby sa
+    // týždeň pauzy tváril ako jeden krok.
+    const dni = series.map(s => Date.parse(s.d + 'T00:00:00Z') / 86400000);
+    const rozsah = (dni[dni.length - 1] - dni[0]) || 1;
     const points = series.map((s, i) => {
-      const x = 2 + i * ((SPARK_W - 4) / (series.length - 1));
+      const x = 2 + ((dni[i] - dni[0]) / rozsah) * (SPARK_W - 4);
       const y = SPARK_H - 4 - ((s.p - lo) / span) * (SPARK_H - 8);
       return `${Math.round(x * 10) / 10},${Math.round(y * 10) / 10}`;
     }).join(' ');
 
     const first = vals[0], last = vals[vals.length - 1];
     const pct = first ? Math.round((last / first - 1) * 100) : 0;
-    const days = series.length;
-    const note = `oproti ${days} ${days === 1 ? 'dňu' : (days < 5 ? 'dňom' : 'dňom')}`;
+    // Počet dní počítame z dátumov, nie z počtu bodov - inak by sedem
+    // meraní za dva týždne hlásilo "oproti 7 dňom".
+    const days = Math.max(1, Math.round(dni[dni.length - 1] - dni[0]));
+    const note = `oproti ${days} ${days === 1 ? 'dňu' : 'dňom'}`;
     if (pct < 0) return { points, color: '#2E8B3D', trend: `↓ ${pct} %`, note };
     if (pct > 0) return { points, color: '#D64545', trend: `↑ +${pct} %`, note };
     return { points, color: '#B3ADA4', trend: '↔ 0 %', note: 'stabilná cena' };
