@@ -46,6 +46,8 @@ import logging
 import os
 import subprocess
 import sys
+
+import poplach
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -119,14 +121,25 @@ def na_rade(casy, posledny_termin: str | None, teraz: datetime,
 
 
 def nacitaj(db) -> dict:
-    """Rozvrh z databázy doplnený o predvolené hodnoty."""
+    """
+    Rozvrh z databázy doplnený o predvolené hodnoty.
+
+    Keď sa načítať nedá, vrátime `nedoveryhodny: True`. V rozvrhu je totiž
+    aj záznam, čo už dnes bežalo - bez neho by každá kontrola vyhodnotila
+    ranný termín ako neodbavený a úlohu spustila znova. Presne toto sa
+    stalo 5. 10. 2026 pri vyčerpanej kvóte Firestore.
+    """
+    nedoveryhodny = False
     try:
         data = db.document("settings/schedule").get().to_dict() or {}
     except Exception as e:
-        logger.error("Rozvrh sa nepodarilo načítať (%s) — používam predvolený", e)
+        logger.error("Rozvrh sa nepodarilo načítať (%s) — nič nespúšťam", e)
+        poplach.chyba("rozvrh", e)
         data = {}
+        nedoveryhodny = True
     ulohy = {k: {**v, **(data.get("jobs") or {}).get(k, {})} for k, v in PREDVOLENY.items()}
-    return {"jobs": ulohy, "runNow": data.get("runNow") or {}, "stav": data.get("stav") or {}}
+    return {"jobs": ulohy, "runNow": data.get("runNow") or {}, "stav": data.get("stav") or {},
+            "nedoveryhodny": nedoveryhodny}
 
 
 def zapis_beh(db, uloha: str, termin: str | None, rucne: bool) -> None:
@@ -152,9 +165,18 @@ def zapis_beh(db, uloha: str, termin: str | None, rucne: bool) -> None:
 # nepodarí zapísať do databázy.
 SPUSTENE_V_BEHU: set[tuple[str, str | None]] = set()
 
+# Koľkokrát tento proces spustil ktorú úlohu. Keby sa raz objavila ďalšia
+# chyba, o ktorej dnes nevieme, tento strop ju zastaví po pár behoch -
+# nie po dvoch stovkách ako 5. 10. 2026.
+POCET_SPUSTENI: dict[str, int] = {}
+STROP_SPUSTENI = 4
+
 
 def co_spustit(rozvrh: dict, teraz: datetime, lokalne: bool = False) -> list[tuple[str, str | None, bool]]:
     """Zoznam (úloha, termín, spustené ručne) na spustenie."""
+    if rozvrh.get("nedoveryhodny"):
+        # Radšej vynechaný termín než úloha spúšťaná dookola.
+        return []
     vysledok = []
     for meno, info in ULOHY.items():
         if bool(info.get("lokalne")) != lokalne:
@@ -231,12 +253,21 @@ def kontrola(db, nasucho: bool) -> None:
 
     raz_za_den(db, teraz, nasucho)
 
-    spustit = co_spustit(rozvrh, teraz)
+    spusti_ulohy(db, co_spustit(rozvrh, teraz), nasucho)
+
+
+def spusti_ulohy(db, spustit: list[tuple[str, str | None, bool]], nasucho: bool) -> None:
+    """Spustí, čo je na rade - so stropom a poplachom, keby sa to zacyklilo."""
     if not spustit:
         logger.info("Nič nie je na rade.")
         return
 
     for meno, termin, rucne in spustit:
+        if POCET_SPUSTENI.get(meno, 0) >= STROP_SPUSTENI:
+            logger.error("Úlohu %s som v tomto behu spustil už %dx — zastavujem.",
+                         meno, POCET_SPUSTENI[meno])
+            poplach.nahlas("slucka", f"úloha {meno}")
+            continue
         workflow = ULOHY[meno]["workflow"]
         dovod = "ručne z admina" if rucne else f"termín {termin[11:16]}"
         if nasucho:
@@ -247,7 +278,9 @@ def kontrola(db, nasucho: bool) -> None:
             # Termín NEzapisujeme - ďalšia kontrola to skúsi znova.
             # Opačné poradie by zlyhanú úlohu potichu vynechalo.
             logger.error("Spustenie %s zlyhalo: %s", meno, (r.stderr or r.stdout).strip()[:300])
+            poplach.nahlas("spustenie", f"{meno}: {(r.stderr or r.stdout).strip()[:200]}")
             continue
+        POCET_SPUSTENI[meno] = POCET_SPUSTENI.get(meno, 0) + 1
         # Termín si zapamätáme aj v pamäti procesu. Keď zápis do databázy
         # zlyhá (5. 10. 2026 to spôsobila vyčerpaná kvóta), slučka by inak
         # o päť minút spustila to isté znova - a tak dookola, celý deň.
@@ -257,6 +290,7 @@ def kontrola(db, nasucho: bool) -> None:
         except Exception as e:
             logger.error("Beh %s sa nepodarilo zapísať (%s) — v tomto behu plánovača "
                          "ho už nespustím znova.", meno, e)
+            poplach.chyba("zapis", e)
         logger.info("Spustené: %s (%s)", meno, dovod)
 
 

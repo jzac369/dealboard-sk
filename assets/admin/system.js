@@ -126,7 +126,8 @@ U.stranka('zdravie', {
 // Nastavenia agenta (settings/agent)
 // ═══════════════════════════════════════════════════════════════════
 const PREDVOLENE_AGENT = {
-  zdroje: ['zlacnene', 'feeds', 'shop_feeds'], minZlava: 25, maxZlava: 95, minCena: 15, maxNaBeh: 10, maxNaObchod: 4,
+  zdroje: ['zlacnene', 'feeds', 'shop_feeds'], minZlava: 25, maxZlava: 95, minCena: 15, maxNaBeh: 5, maxNaDen: 10, maxNaObchod: 4,
+  znovaPoDnochZverejnene: 7, znovaPoDnochZamietnute: 10,
   maxNaKategoriu: 3, podielObmedzenych: 0.2, feedMinPokles: 20, obmedzeneKategorie: ['Jedlo & Nápoje'], blokovaneKategorie: [],
   vylucenaSlova: ['vzorka', 'vzorky', 'sample'],
 };
@@ -135,7 +136,13 @@ const CISLA = [
   ['minZlava', 'Minimálna zľava', '%', 0, 95, 'Pod touto zľavou agent položku ani nezváži.'],
   ['maxZlava', 'Maximálna zľava', '%', 5, 100, 'Nad ňou to býva chyba v dátach, nie deal.'],
   ['minCena', 'Minimálna cena', '€', 0, 100000, 'Odfiltruje drobnosti typu jogurt za 1 €.'],
-  ['maxNaBeh', 'Návrhov na jeden beh', '', 1, 50, 'Pri 3 behoch denne je to denný strop × 3.'],
+  ['maxNaBeh', 'Návrhov na jeden beh', '', 1, 50, 'Agent beží dvakrát denne — ráno a večer.'],
+  ['maxNaDen', 'Tvrdý strop na deň', '', 1, 100,
+   'Viac návrhov za deň nepríde ani pri poruche. Počíta sa v databáze, nie na beh.'],
+  ['znovaPoDnochZverejnene', 'Zverejnený deal ponúknuť znova po', 'dňoch', 1, 365,
+   'Dovtedy ho agent nenavrhne druhýkrát.'],
+  ['znovaPoDnochZamietnute', 'Zamietnutý deal ponúknuť znova po', 'dňoch', 1, 365,
+   'Aby sa to, čo si raz zamietol, nevracalo do Telegramu.'],
   ['maxNaObchod', 'Najviac z jedného obchodu', 'na beh', 1, 50, 'Aby výber nevyzeral ako leták jedného reťazca.'],
   ['maxNaKategoriu', 'Najviac z jednej kategórie', 'na beh', 1, 50, ''],
   ['feedMinPokles', 'Pokles ceny vo feede', '%', 0, 95, 'O koľko musí cena klesnúť pod doteraz najnižšiu videnú.'],

@@ -499,6 +499,8 @@ def main() -> int:
     except firestore_client.PamatNedostupna as e:
         # Bez pamäte by agent navrhol všetko odznova. Radšej skončíme.
         logger.error("=== Koniec. Pamäť agenta nie je dostupná (%s), nezapisujem nič. ===", e)
+        import poplach
+        poplach.chyba("pamat", e)
         return 0
     logger.info("Známych dealov na deduplikáciu: %d", len(seen_keys) + len(seen_urls))
 

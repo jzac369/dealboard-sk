@@ -117,10 +117,23 @@ def _escape(text: str) -> str:
     )
 
 
+# Posledná poistka proti zaplavenému Telegramu. Nepotrebuje databázu, a
+# tak funguje aj keď je Firestore nedostupný - presne vtedy, keď 5. 10.
+# 2026 prišlo za deň vyše 230 opakovaných návrhov.
+MAX_NAVRHOV_ZA_BEH = 15
+_POSLANE_NAVRHY = 0
+
+
 def send_deal_for_approval(deal_id: str, deal: dict) -> bool:
     """Pošle jeden návrh s tlačidlami Schváliť / Zamietnuť."""
+    global _POSLANE_NAVRHY
     if not is_configured():
         return False
+    if _POSLANE_NAVRHY >= MAX_NAVRHOV_ZA_BEH:
+        logger.error("Strop %d návrhov v jednom behu je vyčerpaný — %s neposielam.",
+                     MAX_NAVRHOV_ZA_BEH, deal_id)
+        return False
+    _POSLANE_NAVRHY += 1
 
     keyboard = {
         "inline_keyboard": [[
