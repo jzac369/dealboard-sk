@@ -1448,9 +1448,13 @@
       const item = window.allCoupons.find(c => c.id === id);
       if (item) {
         item.votes = (item.votes || 0) + netChange;
-        // Rovnaká pasca ako pri dealoch: karta už triedu .vote-count nemá.
-        document.querySelectorAll(`[data-vote-for="c-${id}"] .vs-num`)
-          .forEach(el => { el.textContent = item.votes + '°'; });
+        // Zopakovaný hlas ho ruší, opačný prepína.
+        window.kdMojeHlasy[id] = window.kdMojeHlasy[id] === delta ? 0 : delta;
+        // Prekreslíme práve túto kartu. Celý zoznam by preskočil
+        // a návštevník by stratil miesto, kde práve bol.
+        document.querySelectorAll(`[data-hlas-pre="${id}"]`).forEach(el => {
+          el.outerHTML = window.kdHlasHtml(item);
+        });
       }
     } catch(e) {
       console.error('Coupon vote error:', e);
@@ -1571,7 +1575,14 @@
 .kd-title { font-size: 1rem; font-weight: 800; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kd-title .num { color: var(--orange); }
 .kd-title .obchod { font-weight: 600; color: var(--muted); font-size: .86rem; }
-.kd-sub { font-size: .8rem; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kd-sub { font-size: .8rem; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer; }
+/* Dlhší popis sa zmestí len skrátený. Kliknutím sa rozbalí - bez toho
+   sa na dotykovom displeji k celému textu nedá dostať vôbec, lebo
+   bublina s názvom sa tam nezobrazuje. */
+.kd-sub.on { white-space: normal; overflow: visible; }
+.kd-sub:hover { color: var(--ink); }
+.kd-sub .kd-viac { color: var(--brand); font-weight: 600; margin-left: 4px; white-space: nowrap; }
 .kd-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; align-items: center; }
 .kd-badge { font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: #555; }
 .kd-badge.ok { background: #E6F5EA; color: #1E7A3A; }
@@ -1582,6 +1593,11 @@
 .kd-hlas button svg { width: 15px; height: 15px; }
 .kd-hlas button:hover { background: var(--bg); color: var(--ink); }
 .kd-hlas button.up:hover { color: #1E7A3A; } .kd-hlas button.dn:hover { color: #C0392B; }
+/* Vlastný hlas musí byť vidieť. Bez toho tlačidlo vyzerá ako nefunkčné:
+   hlas sa zapísal, ale na karte sa nič nezmenilo. */
+.kd-hlas button.on { background: var(--bg); }
+.kd-hlas button.up.on { color: #1E7A3A; }
+.kd-hlas button.dn.on { color: #C0392B; }
 .kd-hlas .n { font-size: .72rem; font-weight: 700; color: #1E7A3A; margin-right: 2px; }
 .kd-akcie { display: flex; gap: 8px; align-items: center; }
 .kd-code { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1.5px dashed #F2A56B;
@@ -6373,6 +6389,33 @@ body.food-page { background: #FAF8F5; }
     });
   };
 
+  // Ako kódy hlasoval tento návštevník. Držíme to v pamäti stránky, aby sa
+  // kvôli zvýrazneniu nemusel načítavať hlas ku každému kódu zvlášť.
+  window.kdMojeHlasy = {};
+
+  // Na window zámerne: hlasovanie beží v modulovom bloku vyššie a ten
+  // do tohto klasického nevidí.
+  window.kdHlasHtml = function(c) {
+    const moj = window.kdMojeHlasy[c.id] || 0;
+    const n = c.votes || 0;
+    return `<span class="kd-hlas" data-hlas-pre="${c.id}">
+        ${n > 0 ? `<span class="n" title="Toľkokrát kód niekomu fungoval">${n}×</span>` : ''}
+        <button class="up${moj === 1 ? ' on' : ''}" onclick="voteCoupon('${c.id}', 1)"
+                title="${moj === 1 ? 'Zrušiť môj hlas' : 'Funguje'}" aria-label="Funguje"
+                aria-pressed="${moj === 1}">${PALEC_HORE}</button>
+        <button class="dn${moj === -1 ? ' on' : ''}" onclick="voteCoupon('${c.id}', -1)"
+                title="${moj === -1 ? 'Zrušiť môj hlas' : 'Nefunguje'}" aria-label="Nefunguje"
+                aria-pressed="${moj === -1}">${PALEC_DOLE}</button>
+      </span>`;
+  };
+
+  // Popis sa na karte nezmestí celý. Kliknutie ho rozbalí a zbalí.
+  window.kdPopis = function(el) {
+    el.classList.toggle('on');
+    const viac = el.querySelector('.kd-viac');
+    if (viac) viac.textContent = el.classList.contains('on') ? 'menej' : 'viac';
+  };
+
   function couponCard(c) {
     const expired = couponExpired(c);
     const kod = c.code || '';
@@ -6386,17 +6429,13 @@ body.food-page { background: #FAF8F5; }
         : `<span class="kd-badge">Do ${shortDate(c.expiryDate)}</span>`);
     }
     const popis = (c.description || '').trim();
-    const hlas = expired ? '' : `<span class="kd-hlas">
-        ${(c.votes || 0) > 0 ? `<span class="n" title="Toľkokrát kód niekomu fungoval">${c.votes}×</span>` : ''}
-        <button class="up" onclick="voteCoupon('${c.id}', 1)" title="Funguje" aria-label="Funguje">${PALEC_HORE}</button>
-        <button class="dn" onclick="voteCoupon('${c.id}', -1)" title="Nefunguje" aria-label="Nefunguje">${PALEC_DOLE}</button>
-      </span>`;
+    const hlas = expired ? '' : window.kdHlasHtml(c);
     return `
     <div class="kd-card${expired ? ' is-expired' : ''}" id="coupon-${c.id}">
       ${shopTile(c)}
       <div style="min-width:0;">
         <div class="kd-title">${expired ? 'Starší kód: ' : ''}${zvyrazni(c.discount || 'Zľavový kód')}${c.store ? ` <span class="obchod">· ${escapeHtml(c.store)}</span>` : ''}</div>
-        ${popis ? `<div class="kd-sub" title="${escapeAttr(popis)}">${escapeHtml(popis)}</div>` : ''}
+        ${popis ? `<div class="kd-sub" onclick="kdPopis(this)" title="Kliknutím zobrazíš celý popis">${escapeHtml(popis)}${popis.length > 60 ? '<span class="kd-viac">viac</span>' : ''}</div>` : ''}
         <div class="kd-badges">${odznaky.join('')}${hlas}</div>
       </div>
       <div class="kd-akcie">
