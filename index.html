@@ -1751,6 +1751,9 @@
   .cat-nav button.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
 
   /* ── Sidebar (now used for promo/info) ─────────────────────────────────── */
+  /* Hľadanie drží vrch pravého stĺpca, medzera pod ním dorovnáva
+     prvú kartu so zoznamom vľavo. */
+  .sidebar-search { width: 100%; flex: none; margin: 16px 0 14px; }
   .sidebar-spacer { margin: 16px 0 6px; height: 33px; }
   @media (max-width: 720px) { .sidebar-spacer { display: none; } }
   .sidebar h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em;
@@ -3362,14 +3365,10 @@ body.food-page { background: #FAF8F5; }
   <!-- Main: Deals -->
   <main id="deals-main">
     <div class="tabs-bar">
-      <!-- Vyhľadávanie má vlastný riadok: vedľa piatich tlačidiel triedenia
-           ostalo pole široké ~120 px a dlhší výraz sa doň nezmestil. -->
-      <label class="deals-search" for="search-input">
-        <svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg>
-        <span class="sr-only">Hľadať v dealoch</span>
-        <input type="search" id="search-input" placeholder="Hľadaj produkt, obchod alebo kategóriu…"
-               oninput="filterDeals()" autocomplete="off" enterkeyhint="search">
-      </label>
+      <!-- Vyhľadávanie je v pravom stĺpci nad "Najhorúcejšími dealmi".
+           Vedľa piatich tlačidiel triedenia ostalo pole široké ~120 px
+           a dlhší výraz sa doň nezmestil; vlastný riadok zasa zaberal
+           miesto nad zoznamom. -->
       <div class="sort-bar">
         <button class="sort-btn active" onclick="setSort('new', this)"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> Najnovšie</button>
         <button class="sort-btn" onclick="setSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie</button>
@@ -3531,6 +3530,12 @@ body.food-page { background: #FAF8F5; }
 
   <!-- Sidebar -->
   <aside class="sidebar">
+    <label class="deals-search sidebar-search" id="sidebar-search" for="search-input">
+      <svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg>
+      <span class="sr-only">Hľadať v dealoch</span>
+      <input type="search" id="search-input" placeholder="Hľadaj deal…"
+             oninput="filterDeals()" autocomplete="off" enterkeyhint="search">
+    </label>
     <div class="sidebar-spacer" aria-hidden="true"></div>
     <div class="sidebar-box" id="hottest-sidebar-box">
       <h3><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie dealy</h3>
@@ -4353,6 +4358,10 @@ body.food-page { background: #FAF8F5; }
     // potraviny.
     document.querySelector('.container').classList.toggle('full-width',
       section === 'food' || section === 'leaflets' || section === 'flights');
+    // Hľadanie v pravom stĺpci filtruje dealy, takže na iných
+    // záložkách nemá čo robť - Kódy aj Potraviny majú vlastné.
+    var hl = document.getElementById('sidebar-search');
+    if (hl) hl.style.display = section === 'deals' ? '' : 'none';
     document.body.classList.toggle('leaflet-page', section === 'leaflets');
     if (section === 'leaflets') renderLeafletHot();
     // Teplé takmer biele pozadie patrí k tejto sekcii. Sivé zo zvyšku
