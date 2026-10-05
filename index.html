@@ -1483,6 +1483,7 @@
     await addDoc(collection(db, "deals"), {
       ...data,
       ...(uc.user && !uc.user.isAnonymous ? { authorUid: uc.user.uid } : {}),
+      ...(status === 'approved' ? { zverejnene: serverTimestamp() } : {}),
       discountPercent,
       votes: 0,
       comments: 0,

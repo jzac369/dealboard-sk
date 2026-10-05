@@ -494,7 +494,12 @@ def main() -> int:
     firestore_client.boost_existing_deals(db)
     firestore_client.boost_coupons(db)
 
-    seen_keys, seen_urls = firestore_client.get_existing_keys(db)
+    try:
+        seen_keys, seen_urls = firestore_client.get_existing_keys(db)
+    except firestore_client.PamatNedostupna as e:
+        # Bez pamäte by agent navrhol všetko odznova. Radšej skončíme.
+        logger.error("=== Koniec. Pamäť agenta nie je dostupná (%s), nezapisujem nič. ===", e)
+        return 0
     logger.info("Známych dealov na deduplikáciu: %d", len(seen_keys) + len(seen_urls))
 
     unique = deduplicate(sane, seen_keys, seen_urls)

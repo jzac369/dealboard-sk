@@ -52,8 +52,14 @@ MAX_DISCOUNT_PERCENT = _env_float("MAX_DISCOUNT_PERCENT", 95)
 # lebo odhad kategórie podľa názvu ich zaradí medzi "Iné".
 MIN_DEAL_PRICE = _env_float("MIN_DEAL_PRICE", 15.0)
 # Koľko návrhov maximálne zapísať za jeden beh.
-# Pri 3 behoch denne to dáva denný strop 30 návrhov na schválenie.
-MAX_DEALS_PER_RUN = _env_int("MAX_DEALS_PER_RUN", 10)
+# Dva behy denne (ráno a večer) dávajú 10 návrhov na deň.
+MAX_DEALS_PER_RUN = _env_int("MAX_DEALS_PER_RUN", 5)
+
+# Tvrdý denný strop. Je to poistka, nie bežný limit: 5. 10. 2026 sa
+# plánovač kvôli vyčerpanej kvóte Firestore reštartoval každých 5 minút,
+# spustil agenta zakaždým znova a za deň prišlo vyše 230 návrhov. Tento
+# strop to zastaví aj vtedy, keď sa taká slučka zopakuje.
+MAX_DEALS_PER_DAY = _env_int("MAX_DEALS_PER_DAY", 10)
 # Nezverejňovať deal, ku ktorému nevieme zostaviť odkaz na predajcu.
 # Bez toho by sa do sveta dostal odkaz na zdroj (zlacnene.sk), teda na
 # cudziu stránku. Radšej deal vynechať; obchod sa doplní do tabuľky
@@ -67,7 +73,12 @@ MAX_PER_STORE = _env_int("MAX_PER_STORE", 4)
 # obsadili celý výber - letáky reťazcov sú prevažne potravinové.
 MAX_PER_CATEGORY = _env_int("MAX_PER_CATEGORY", 3)
 # Koľko dní dozadu sa pozerať pri kontrole duplicít.
-DEDUPE_LOOKBACK_DAYS = _env_int("DEDUPE_LOOKBACK_DAYS", 30)
+DEDUPE_LOOKBACK_DAYS = _env_int("DEDUPE_LOOKBACK_DAYS", 10)
+# Ten istý produkt sa znova navrhne najskôr po toľkých dňoch. Zverejnený
+# deal nemá zmysel ponúkať znova hneď a zamietnutý už vôbec - preto má
+# zamietnutie dlhšiu lehotu.
+DEDUPE_APPROVED_DAYS = _env_int("DEDUPE_APPROVED_DAYS", 7)
+DEDUPE_REJECTED_DAYS = _env_int("DEDUPE_REJECTED_DAYS", 10)
 
 
 # ── Zdroje ────────────────────────────────────────────────────────────
@@ -190,6 +201,9 @@ _CISLA = {
     "maxZlava": ("MAX_DISCOUNT_PERCENT", 5, 100),
     "minCena": ("MIN_DEAL_PRICE", 0, 100000),
     "maxNaBeh": ("MAX_DEALS_PER_RUN", 1, 50),
+    "maxNaDen": ("MAX_DEALS_PER_DAY", 1, 100),
+    "znovaPoDnochZverejnene": ("DEDUPE_APPROVED_DAYS", 1, 365),
+    "znovaPoDnochZamietnute": ("DEDUPE_REJECTED_DAYS", 1, 365),
     "maxNaObchod": ("MAX_PER_STORE", 1, 50),
     "maxNaKategoriu": ("MAX_PER_CATEGORY", 1, 50),
     "podielObmedzenych": ("CAPPED_CATEGORY_SHARE", 0, 1),

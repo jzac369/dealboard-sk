@@ -71,7 +71,7 @@ ULOHY = {
 # Rozvrh, ktorý platí, kým ho v admine niekto nezmení. Zodpovedá časom,
 # ktoré boli doteraz v cron-e (prepočítané na letný čas).
 PREDVOLENY = {
-    "agent":     {"enabled": True, "times": ["07:30", "12:30", "18:30"]},
+    "agent":     {"enabled": True, "times": ["07:30", "18:30"]},
     "letenky":   {"enabled": True, "times": ["07:30"]},
     "ziar":      {"enabled": True, "times": ["06:10"]},
     "facebook":  {"enabled": True, "times": ["09:00", "17:00"]},
@@ -148,6 +148,11 @@ def zapis_beh(db, uloha: str, termin: str | None, rucne: bool) -> None:
         db.document("settings/schedule").update(zmena)
 
 
+# Čo už tento proces spustil. Chráni pred opakovaním, keď sa termín
+# nepodarí zapísať do databázy.
+SPUSTENE_V_BEHU: set[tuple[str, str | None]] = set()
+
+
 def co_spustit(rozvrh: dict, teraz: datetime, lokalne: bool = False) -> list[tuple[str, str | None, bool]]:
     """Zoznam (úloha, termín, spustené ručne) na spustenie."""
     vysledok = []
@@ -162,7 +167,7 @@ def co_spustit(rozvrh: dict, teraz: datetime, lokalne: bool = False) -> list[tup
             continue
         termin = na_rade(nast.get("times"), (rozvrh["stav"].get(meno) or {}).get("lastSlot"),
                          teraz, info["okno_h"])
-        if termin:
+        if termin and (meno, termin.isoformat()) not in SPUSTENE_V_BEHU:
             vysledok.append((meno, termin.isoformat(), False))
     return vysledok
 
@@ -224,7 +229,7 @@ def kontrola(db, nasucho: bool) -> None:
     except Exception as e:
         logger.warning("E-maily zlyhali: %s", e)
 
-    raz_za_hodinu(db, teraz, nasucho)
+    raz_za_den(db, teraz, nasucho)
 
     spustit = co_spustit(rozvrh, teraz)
     if not spustit:
@@ -243,10 +248,15 @@ def kontrola(db, nasucho: bool) -> None:
             # Opačné poradie by zlyhanú úlohu potichu vynechalo.
             logger.error("Spustenie %s zlyhalo: %s", meno, (r.stderr or r.stdout).strip()[:300])
             continue
-        # Keby tento zápis zlyhal, úloha môže bežať dvakrát. To je
-        # neškodné: duplicitné dealy, lety aj príspevky na Facebook sú
-        # ošetrené na vlastnej úrovni. Vypadnutý beh by bol horší.
-        zapis_beh(db, meno, termin, rucne)
+        # Termín si zapamätáme aj v pamäti procesu. Keď zápis do databázy
+        # zlyhá (5. 10. 2026 to spôsobila vyčerpaná kvóta), slučka by inak
+        # o päť minút spustila to isté znova - a tak dookola, celý deň.
+        SPUSTENE_V_BEHU.add((meno, termin))
+        try:
+            zapis_beh(db, meno, termin, rucne)
+        except Exception as e:
+            logger.error("Beh %s sa nepodarilo zapísať (%s) — v tomto behu plánovača "
+                         "ho už nespustím znova.", meno, e)
         logger.info("Spustené: %s (%s)", meno, dovod)
 
 
@@ -368,7 +378,8 @@ def zverejni_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
         if nasucho:
             logger.info("Zverejnil by som %s: %s", d.id, deal.get("title"))
             continue
-        d.reference.update({"status": "approved", "timestamp": firestore.SERVER_TIMESTAMP})
+        d.reference.update({"status": "approved", "timestamp": firestore.SERVER_TIMESTAMP,
+                            "zverejnene": firestore.SERVER_TIMESTAMP})
         db.collection("audit_log").add({
             "dealId": d.id, "action": "approved", "detail": deal.get("title"),
             "by": "Plánovač (odložené zverejnenie)", "timestamp": firestore.SERVER_TIMESTAMP,
@@ -422,15 +433,22 @@ def spusti_facebook_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
     logger.info("Spustené zdieľanie %d naplánovaných príspevkov.", len(na_rade))
 
 
-def raz_za_hodinu(db, teraz: datetime, nasucho: bool) -> None:
-    """Body a odznaky prispievateľov a denný e-mail o lacných letenkách.
-    Prechádza všetky dealy a používateľov, tak to nerobíme každých 5 minút."""
+def raz_za_den(db, teraz: datetime, nasucho: bool) -> None:
+    """
+    Body a odznaky prispievateľov a denný e-mail o lacných letenkách.
+
+    Beží raz denne, nie každú hodinu: prepočet bodov prejde všetky dealy
+    aj používateľov a pri hodinovom behu to bolo okolo deväťtisíc
+    zbytočných prečítaní denne.
+    """
     from google.cloud import firestore
 
+    if teraz.hour < 7:
+        return
     ref = db.document("nastavenia_admin/komunita_stav")
     try:
         posledny = (ref.get().to_dict() or {}).get("poslednyBeh")
-        if posledny and teraz - posledny < timedelta(minutes=55):
+        if posledny and teraz - posledny < timedelta(hours=20):
             return
     except Exception as e:
         logger.warning("Stav komunity sa nepodarilo načítať: %s", e)

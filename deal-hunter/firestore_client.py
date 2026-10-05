@@ -31,7 +31,35 @@ STATE_DOCUMENT = "seen_keys"
 
 # Firestore dokument má limit 1 MiB. Kľúč má ~60 bajtov, takže sa ich
 # zmestí okolo 16 000. Držíme sa bezpečne pod tým a najstaršie zahadzujeme.
-MAX_REMEMBERED_KEYS = 12000
+MAX_REMEMBERED_KEYS = 6000
+
+
+class PamatNedostupna(Exception):
+    """Pamäť agenta sa nedá prečítať - bez nej sa nesmie nič zapisovať.
+
+    Doteraz beh pokračoval ďalej s prázdnou pamäťou. Keď 5. 10. 2026
+    došla kvóta Firestore, čítanie zlyhalo pri každom behu a agent
+    navrhol tie isté dealy dookola - za deň ich prišlo vyše 230.
+    Radšej jeden vynechaný beh než plný Telegram duplicít.
+    """
+
+
+def _dnes_cislo() -> int:
+    """Dnešok ako číslo dňa - na počítanie lehôt v pamäti."""
+    return date.today().toordinal()
+
+
+def _kluc_s_datumom(kluc: str, den: int | None = None) -> str:
+    return f"{kluc}|{den or _dnes_cislo()}"
+
+
+def _rozober(zaznam: str) -> tuple[str, int | None]:
+    """"kluc|739000" -> ("kluc", 739000). Starý zápis bez dátumu vráti None."""
+    if "|" in zaznam:
+        kluc, _, den = zaznam.rpartition("|")
+        if den.isdigit():
+            return kluc, int(den)
+    return zaznam, None
 
 
 def get_client() -> firestore.Client:
@@ -60,20 +88,29 @@ def get_existing_keys(db: firestore.Client) -> tuple[set[str], set[str]]:
     """
     keys: set[str] = set()
     urls: set[str] = set()
+    hranica = _dnes_cislo() - max(config.DEDUPE_APPROVED_DAYS, config.DEDUPE_REJECTED_DAYS)
 
     # 1) Pamäť agenta — jeden dokument, jedno prečítanie.
     try:
         snapshot = _state_ref(db).get()
-        if snapshot.exists:
-            data = snapshot.to_dict() or {}
-            keys.update(data.get("keys", []))
-            logger.info("Pamäť agenta: %d známych kľúčov", len(keys))
-        else:
-            logger.info("Pamäť agenta zatiaľ neexistuje — vytvorí sa po prvom zápise.")
     except Exception as e:
-        # Bez pamäte beh pokračuje, len hrozia duplicity — to je menšie
-        # zlo než spadnutý beh.
-        logger.warning("Pamäť agenta sa nepodarilo načítať: %s", e)
+        raise PamatNedostupna(str(e)) from e
+    if snapshot.exists:
+        data = snapshot.to_dict() or {}
+        stare = 0
+        for zaznam in data.get("keys", []):
+            kluc, den = _rozober(zaznam)
+            # Bez dátumu je to zápis spred tejto zmeny - lehota mu už dávno
+            # uplynula, takže blokovať neprestane nič, čo je ešte aktuálne
+            # (to podchytí kontrola nedávnych dealov nižšie).
+            if den is None or den < hranica:
+                stare += 1
+                continue
+            keys.add(kluc)
+        logger.info("Pamäť agenta: %d kľúčov v lehote, %d starších sa už neblokuje",
+                    len(keys), stare)
+    else:
+        logger.info("Pamäť agenta zatiaľ neexistuje — vytvorí sa po prvom zápise.")
 
     # 2) Nedávno pridané dealy (aj tie, ktoré agent nevytvoril).
     cutoff = datetime.now(timezone.utc) - timedelta(days=config.DEDUPE_LOOKBACK_DAYS)
@@ -84,16 +121,39 @@ def get_existing_keys(db: firestore.Client) -> tuple[set[str], set[str]]:
             .stream()
         )
         count = 0
+        blokovanych = 0
+        teraz = datetime.now(timezone.utc)
         for doc in recent:
             count += 1
             data = doc.to_dict() or {}
+            stav = data.get("status")
+            cas = data.get("timestamp")
+            try:
+                dni = (teraz - cas).days if cas else 0
+            except TypeError:
+                dni = 0
+            # Čakajúce a naplánované blokujeme vždy - sú stále "v hre".
+            # Zverejnené a zamietnuté len počas svojej lehoty.
+            if stav in ("pending", "planned", "scheduled"):
+                blokuj = True
+            elif stav == "approved":
+                blokuj = dni < config.DEDUPE_APPROVED_DAYS
+            elif stav == "rejected":
+                blokuj = dni < config.DEDUPE_REJECTED_DAYS
+            else:
+                blokuj = False
+            if not blokuj:
+                continue
+            blokovanych += 1
             if data.get("dedupeKey"):
                 keys.add(data["dedupeKey"])
             if data.get("url"):
                 urls.add(data["url"].rstrip("/"))
-        logger.info("Nedávnych dealov prečítaných: %d", count)
+        logger.info("Nedávnych dealov prečítaných: %d, z toho blokuje %d", count, blokovanych)
     except Exception as e:
-        logger.warning("Dotaz na nedávne dealy zlyhal: %s", e)
+        # Pamäť síce máme, ale bez tohto dotazu by sme nevideli, čo si
+        # medzitým schválil alebo zamietol. Radšej beh vynecháme.
+        raise PamatNedostupna(f"dotaz na nedávne dealy zlyhal: {e}") from e
 
     return keys, urls
 
@@ -134,6 +194,24 @@ def write_pending_deals(
     if not deals:
         return []
 
+    # Tvrdý denný strop - poistka proti slučke, ktorá by agenta spúšťala
+    # dookola. Počítadlo je v tom istom dokumente ako pamäť.
+    try:
+        stav = (_state_ref(db).get().to_dict() or {})
+    except Exception as e:
+        raise PamatNedostupna(str(e)) from e
+    dnes = _dnes_cislo()
+    uz_dnes = int(stav.get("pocetDnes") or 0) if stav.get("den") == dnes else 0
+    volne = max(0, config.MAX_DEALS_PER_DAY - uz_dnes)
+    if volne <= 0:
+        logger.warning("Denný strop %d návrhov je vyčerpaný (dnes už %d) — nezapisujem nič.",
+                       config.MAX_DEALS_PER_DAY, uz_dnes)
+        return []
+    if len(deals) > volne:
+        logger.info("Denný strop: z %d návrhov zapíšem %d (dnes už bolo %d z %d).",
+                    len(deals), volne, uz_dnes, config.MAX_DEALS_PER_DAY)
+        deals = deals[:volne]
+
     batch = db.batch()
     collection = db.collection(config.DEALS_COLLECTION)
 
@@ -155,37 +233,37 @@ def write_pending_deals(
         if document.get("dedupeKey"):
             new_keys.append(document["dedupeKey"])
 
-    _remember_keys(db, batch, new_keys)
+    _remember_keys(db, batch, new_keys, stav, uz_dnes + len(written))
 
     batch.commit()
     logger.info("Zapísaných %d návrhov do kolekcie '%s'", len(deals), config.DEALS_COLLECTION)
     return written
 
 
-def _remember_keys(db: firestore.Client, batch, new_keys: list[str]) -> None:
+def _remember_keys(db: firestore.Client, batch, new_keys: list[str],
+                   stav: dict, pocet_dnes: int) -> None:
     """
-    Pridá kľúče do pamäte agenta. Zoznam sa oreže na MAX_REMEMBERED_KEYS
-    (najstaršie idú preč), aby dokument nikdy nenarazil na 1 MiB limit.
+    Pridá kľúče do pamäte agenta aj s dnešným dátumom a zapíše denné
+    počítadlo. Zápisy staršie než lehota sa zahodia - pamäť tak nerastie
+    donekonečna a ten istý produkt sa po lehote smie navrhnúť znova.
     """
-    if not new_keys:
-        return
+    dnes = _dnes_cislo()
+    hranica = dnes - max(config.DEDUPE_APPROVED_DAYS, config.DEDUPE_REJECTED_DAYS)
 
-    existing: list[str] = []
-    try:
-        snapshot = _state_ref(db).get()
-        if snapshot.exists:
-            existing = (snapshot.to_dict() or {}).get("keys", [])
-    except Exception as e:
-        logger.warning("Pamäť agenta sa nepodarilo prečítať pred zápisom: %s", e)
+    ponechane: list[str] = []
+    for zaznam in stav.get("keys", []):
+        kluc, den = _rozober(zaznam)
+        if den is not None and den >= hranica:
+            ponechane.append(zaznam)
 
-    # Nové na koniec, duplicity preč, poradie zachované.
-    merged = list(dict.fromkeys(existing + new_keys))
+    merged = list(dict.fromkeys(ponechane + [_kluc_s_datumom(k, dnes) for k in new_keys]))
     if len(merged) > MAX_REMEMBERED_KEYS:
         merged = merged[-MAX_REMEMBERED_KEYS:]
 
     batch.set(
         _state_ref(db),
-        {"keys": merged, "updatedAt": firestore.SERVER_TIMESTAMP},
+        {"keys": merged, "den": dnes, "pocetDnes": pocet_dnes,
+         "updatedAt": firestore.SERVER_TIMESTAMP},
     )
 
 

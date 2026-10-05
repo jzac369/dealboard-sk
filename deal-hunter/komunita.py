@@ -177,24 +177,28 @@ def _dovera(db, n: dict, ludia: list[dict]) -> None:
 
 
 def nove_dealy_pre_strazcov(db, od: datetime) -> list[dict]:
-    """Dealy zverejnené po čase `od` - podklad pre strážcov a letenky."""
+    """
+    Dealy zverejnené po čase `od` - podklad pre strážcov.
+
+    PREČO SA PÝTAME NA "zverejnene" A NIE NA STATUS
+    Pôvodne sa tu načítali všetky schválené dealy a až potom sa triedili
+    podľa času. Pri kontrole každých päť minút to bolo zbytočných
+    niekoľko tisíc prečítaní denne a 5. 10. 2026 to pomohlo vyčerpať
+    dennú kvótu Firestore. Teraz sa pýtame len na dealy zverejnené po
+    danom čase - keď žiadne nepribudli, neprečíta sa nič.
+    """
     from google.cloud.firestore_v1.base_query import FieldFilter
 
     try:
-        docs = list(db.collection("deals").where(filter=FieldFilter("status", "==", "approved")).stream())
+        docs = list(db.collection("deals")
+                    .where(filter=FieldFilter("zverejnene", ">", od)).stream())
     except Exception as e:
         logger.warning("Dealy pre strážcov sa nepodarilo načítať: %s", e)
         return []
     nove = []
     for doc in docs:
         d = doc.to_dict() or {}
-        t = d.get("timestamp")
-        if not t or d.get("expired"):
-            continue
-        try:
-            if t < od:
-                continue
-        except TypeError:
+        if d.get("status") != "approved" or d.get("expired"):
             continue
         nove.append({**d, "id": doc.id})
     nove.sort(key=lambda d: d.get("timestamp") or datetime.now(timezone.utc), reverse=True)

@@ -1321,7 +1321,11 @@
   }
 
   async function setDealStatus(id, status, title) {
-    await updateDoc(doc(db, "deals", id), { status });
+    // Pri zverejnení si poznačíme čas - podľa neho vie strážca dealov,
+    // čo pribudlo od jeho poslednej kontroly, a nemusí čítať celú
+    // kolekciu.
+    await updateDoc(doc(db, "deals", id),
+      status === 'approved' ? { status, zverejnene: serverTimestamp() } : { status });
     await logChange(id, status, title || null);
   }
 
@@ -1401,7 +1405,8 @@
 
   window.publishNow = async function(id) {
     // Čas dealu = teraz, aby sa na stránke zaradil medzi najnovšie.
-    await updateDoc(doc(db, "deals", id), { status: 'approved', timestamp: serverTimestamp() });
+    await updateDoc(doc(db, "deals", id), { status: 'approved', timestamp: serverTimestamp(),
+      zverejnene: serverTimestamp() });
     await logChange(id, 'approved');
   };
   window.sendForApprovalNow = async function(id) {

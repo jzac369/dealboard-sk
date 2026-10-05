@@ -280,7 +280,13 @@ def _apply_decision(db, callback: dict) -> bool:
             # Medzitým si rozhodol v admin paneli — necháme to tak.
             answer = "O tomto deale už bolo rozhodnuté."
         else:
-            doc_ref.update({"status": status})
+            zmena = {"status": status}
+            if status == "approved":
+                # Čas zverejnenia potrebuje strážca dealov - podľa neho
+                # vie, čo pribudlo od jeho poslednej kontroly.
+                from google.cloud import firestore as _fs
+                zmena["zverejnene"] = _fs.SERVER_TIMESTAMP
+            doc_ref.update(zmena)
             answer = "Schválené ✅" if status == "approved" else "Zamietnuté ❌"
             logger.info("Deal %s -> %s", deal_id, status)
             # Do záznamu zmien. Doteraz sa tam zapisovali len rozhodnutia
