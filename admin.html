@@ -583,6 +583,11 @@
       document.getElementById('hk-hladanie').checked = d.hladanie !== false;
       const h = document.getElementById('hk-haff');
       if (document.activeElement !== h) h.value = d.haff || '';
+      document.getElementById('hk-box').checked = d.box !== false;
+      const bp = document.getElementById('hk-box-poz');
+      if (document.activeElement !== bp) bp.value = d.boxPozicia || '';
+      const bpr = document.getElementById('hk-box-prod');
+      if (document.activeElement !== bpr) bpr.value = d.boxProdukty || '';
       const u = document.getElementById('hk-ukazka');
       u.href = d.haff ? 'https://www.heureka.sk/?h%5Bfraze%5D=sl%C3%BAchadl%C3%A1&haff=' + d.haff + '&utm_medium=affiliate' : '#';
     }, (e) => console.warn('Nastavenia Heureky sa nepodarilo načítať:', e));
@@ -3329,6 +3334,23 @@
           <span>„Hľadať na Heureke", keď hľadanie nič nenájde</span>
           <label class="switch"><input type="checkbox" id="hk-hladanie" onchange="saveHeureka({ hladanie: this.checked })"><span class="slider"></span></label>
         </label>
+        <label class="switch-label" style="margin-top:14px;">
+          <span>Box s produktmi v pravom stĺpci</span>
+          <label class="switch"><input type="checkbox" id="hk-box" onchange="saveHeureka({ box: this.checked })"><span class="slider"></span></label>
+        </label>
+        <div class="aff-row">
+          <label for="hk-box-poz">Pozícia boxu</label>
+          <input id="hk-box-poz" type="text" inputmode="numeric" placeholder="napr. 74597" spellcheck="false" autocomplete="off"
+                 onchange="saveHeureka({ boxPozicia: this.value.replace(/\D/g, '') })">
+        </div>
+        <div class="aff-row">
+          <label for="hk-box-prod">Produkty (ID)</label>
+          <input id="hk-box-prod" type="text" placeholder="729427756,791356862,…" spellcheck="false" autocomplete="off"
+                 onchange="saveHeureka({ boxProdukty: this.value.replace(/[^0-9,]/g, '') })">
+        </div>
+        <p class="settings-hint">Box: Heureka Affiliate → Formáty → Výber produktov → HTML bez štýlu. Pozícia je
+          <code>data-trixam-positionid</code>, produkty <code>data-trixam-productselection</code> (najviac 6).
+          Box sa ukáže len návštevníkom, ktorí povolili reklamné cookies.</p>
         <p class="settings-hint">Heureka Affiliate → Formáty → Priamy odkaz → hodnota za <code>haff=</code>.
           Ak si v Heureke vytvoríš pre každé miesto vlastnú pozíciu, uvidíš v ich štatistikách, ktoré zarába viac.
           Ukážka: <a id="hk-ukazka" href="#" target="_blank" rel="noopener">hľadanie „slúchadlá"</a></p>

@@ -89,6 +89,16 @@
   // nie je; dve lišty vedľa seba by navyše návštevníka len mýlili.
   // Odpoveď čítame cez rozhranie __tcfapi, ktoré tá platforma vystavuje.
   window.hasAnalyticsConsent = function() { return analyticsAllowed === true; };
+
+  // Súhlas s reklamou (účely 1 a 7). Náhradná lišta o ňom nerozhoduje -
+  // pýta sa len na meranie návštevnosti - takže bez platformy Googlu
+  // zostáva false a reklamné skripty sa nenačítajú.
+  window.hkReklamaSuhlas = false;
+  function nastavSuhlasReklama(ano) {
+    if (window.hkReklamaSuhlas === ano) return;
+    window.hkReklamaSuhlas = ano;
+    document.dispatchEvent(new CustomEvent('hk:suhlas-reklama', { detail: ano }));
+  }
   let analyticsAllowed = null;      // null = ešte nevieme
 
   function applyConsent(allowed) {
@@ -172,7 +182,7 @@
         if (nasa) nasa.remove();
       }
       // Návštevník mimo pôsobnosti GDPR - meranie je v poriadku.
-      if (tcData.gdprApplies === false) { applyConsent(true); return; }
+      if (tcData.gdprApplies === false) { applyConsent(true); nastavSuhlasReklama(true); return; }
       if (tcData.eventStatus !== 'tcloaded' && tcData.eventStatus !== 'useractioncomplete') return;
 
       // Účel 1 = ukladanie a čítanie údajov v zariadení.
@@ -180,6 +190,10 @@
       // tieto dva; nič iné o návštevníkovi nezisťujeme.
       const p = (tcData.purpose && tcData.purpose.consents) || {};
       applyConsent(!!p[1] && !!p[8]);
+      // Účel 7 = meranie výkonnosti reklamy. Box Heureky načítava ich
+      // skript, ktorý počíta zobrazenia - bez týchto dvoch súhlasov sa
+      // nenačíta vôbec.
+      nastavSuhlasReklama(!!p[1] && !!p[7]);
     });
   })();
 
@@ -584,6 +598,7 @@
       window.HEUREKA = s.data();
       // Ak je detail práve otvorený alebo zoznam prázdny, doplníme odkaz hneď.
       if (window.renderDealsList) window.renderDealsList();
+      document.dispatchEvent(new CustomEvent('hk:heureka'));
     })
     .catch(() => {});
 
@@ -2241,6 +2256,26 @@
     text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
   .sponzor-box img { display: block; width: 100%; height: auto; border-radius: 8px; }
 
+  /* Box Heureky - vzhľadom ako "Najhorúcejšie dealy", aby nepôsobil
+     ako cudzí banner. Štítok "Reklama" ako pri ostatných reklamách. */
+  .hk-box { margin: 0 0 16px; }
+  .hk-box-in { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px 6px; }
+  .hk-box-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .hk-box-h img { height: 20px; width: auto; display: block; }
+  .hk-box-h span { font-size: .72rem; color: var(--muted); }
+  .hk-box-p { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .hk-box-p:last-child { border-bottom: none; }
+  .hk-box-p a { color: inherit; text-decoration: none; }
+  .hk-box-img { width: 48px; height: 48px; flex: none; border-radius: 6px; background: #fff; display: grid; place-items: center; overflow: hidden; }
+  .hk-box-img img { max-width: 48px; max-height: 48px; width: auto; height: auto; }
+  .hk-box-t { flex: 1; min-width: 0; }
+  .hk-box-n { font-size: .82rem; font-weight: 700; color: var(--ink); line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hk-box-n:hover { color: var(--orange-dk); }
+  .hk-box-c { font-size: .8rem; margin-top: 2px; color: var(--muted); }
+  .hk-box-c b { color: var(--green); font-weight: 800; }
+  .hk-box-r { margin-left: 6px; }
+
   /* Rovnaké medzery v pravom stĺpci: každý prvok má 16 px pod sebou a
      nič nad sebou. Reklama AdSense mala naopak okraj len hore, takže
      keď sa začne zobrazovať, banner pod ňou by sa k nej prilepil. */
@@ -3588,6 +3623,12 @@ body.food-page { background: #FAF8F5; }
     <!-- Reklama sa naplní až po rozhodnutí o cookies. Kým nie je
          nastavené vydavateľské ID, miesto sa vôbec nezobrazí. -->
     <div class="ad-slot ad-sidebar" data-slot="sidebar" data-format="rectangle"></div>
+
+    <!-- Heureka Affiliate - "Výber produktov", HTML bez štýlu. Obal
+         s atribútmi data-trixam-* je od Heureky a podľa ich návodu sa
+         nesmie meniť; vnútro je naše. Pozíciu a produkty dopĺňa skript
+         z settings/heureka, skript Heureky sa načíta až po súhlase. -->
+    <div class="hk-box" id="hk-box" hidden></div>
 
     <!-- Banner SledovanieTV cez Dognet (kanál henkukaj.sk). Kód je
          z Dognetu bez úprav okrem rel: "sponsored" hovorí vyhľadávačom,
@@ -6607,6 +6648,66 @@ body.food-page { background: #FAF8F5; }
   window.heurekaKlik = function(kde) {
     if (window.hkUdalost) window.hkUdalost('heureka_' + kde);
   };
+
+  // ── Box "Výber produktov" v pravom stĺpci ────────────────────────────
+  // Heureka dáva obal s atribútmi data-trixam-* (nesmie sa meniť) a ich
+  // skript doň doplní živé ceny cez väzby data-trixam-databind. Vnútro
+  // je naše, aby box vyzeral ako zvyšok stránky.
+  //
+  // Skript Heureky počíta zobrazenia, takže sa načíta až po súhlase s
+  // reklamou. Box je dovtedy skrytý - a skrytý zostane aj vtedy, keď
+  // skript nepríde alebo nič nevráti. Prázdny rámček by vyzeral ako chyba.
+  (function heurekaBox() {
+    let hotovo = false;
+
+    function riadok(i) {
+      const p = `ProductAdverts[${i}]`;
+      const odkaz = (trieda, vnutro) =>
+        `<a class="${trieda}" rel="nofollow sponsored noopener" data-trixam-databind="target: LinkTarget, href: ${p}.ClickUrl">${vnutro}</a>`;
+      return `<div class="hk-box-p" data-trixam-databind="ifdef: ${p}">
+          ${odkaz('hk-box-img', `<img alt="" data-trixam-databind="src: ${p}.Product.PreviewImage">`)}
+          <div class="hk-box-t">
+            ${odkaz('hk-box-n', `<span data-trixam-databind="text: ${p}.Product.Title"></span>`)}
+            <div class="hk-box-c">od <b><span data-trixam-databind="text: ${p}.Product.PriceMinString"></span>&nbsp;<span data-trixam-databind="text: Currency"></span></b><span class="hk-box-r" data-trixam-databind="ifdef: ${p}.Product.Rating"><span data-trixam-databind="text: ${p}.Product.Rating"></span>&nbsp;% spokojných</span></div>
+          </div>
+        </div>`;
+    }
+
+    function spusti() {
+      const h = window.HEUREKA || {};
+      const box = document.getElementById('hk-box');
+      const pozicia = String(h.boxPozicia || '').replace(/\D/g, '');
+      const produkty = String(h.boxProdukty || '').split(',').map(x => x.replace(/\D/g, '')).filter(Boolean).slice(0, 6);
+      if (hotovo || !box || !h.enabled || h.box === false || !pozicia || !produkty.length || !window.hkReklamaSuhlas) return;
+      hotovo = true;
+
+      box.innerHTML = `<span class="ad-label">Reklama</span>
+        <div class="heureka-affiliate-productselection hk-box-in" data-trixam-positionid="${pozicia}"
+             data-trixam-productselection="${produkty.join(',')}" data-trixam-codetype="plainhtml" data-trixam-linktarget="blank">
+          <div class="hk-box-h">
+            <a rel="nofollow sponsored noopener" data-trixam-databind="target: LinkTarget, href: HomepageAdvert.ClickUrl"><img alt="Heureka" data-trixam-databind="src: HeurekaLogoUrl"></a>
+            <span>Porovnanie cien</span>
+          </div>
+          ${produkty.map((_, i) => riadok(i)).join('')}
+        </div>`;
+      box.addEventListener('click', e => { if (e.target.closest('a')) heurekaKlik('box'); });
+
+      // Ukážeme ho, až keď skript doplní prvý názov produktu.
+      const nazvy = () => [...box.querySelectorAll('.hk-box-n span')].some(x => x.textContent.trim());
+      const sleduj = new MutationObserver(() => { if (nazvy()) { box.hidden = false; sleduj.disconnect(); } });
+      sleduj.observe(box, { subtree: true, childList: true, characterData: true, attributes: true });
+      setTimeout(() => sleduj.disconnect(), 20000);
+
+      const sk = document.createElement('script');
+      sk.async = true;
+      sk.src = 'https://serve.affiliate.heurekashopping.sk/js/trixam.min.js';
+      document.head.appendChild(sk);
+    }
+
+    document.addEventListener('hk:heureka', spusti);
+    document.addEventListener('hk:suhlas-reklama', spusti);
+    spusti();
+  })();
 
   // Odkaz "Hľadať na Heureke" pod prázdnym výsledkom hľadania.
   function heurekaPrazdne() {
