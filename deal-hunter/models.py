@@ -100,8 +100,12 @@ _SLABE_KLUCE: tuple[str, ...] = (
 # vyskytne. Zinok "tablety na cmúľanie" je doplnok stravy, nie tablet.
 _NIE_ELEKTRONIKA: tuple[str, ...] = (
     "cmulan", "doplnok stravy", "vitamin", "kapsul", "tablety na",
-    "gelove tablety", "vrecko na", "puzdro", "obal na",
+    "gelove tablety", "vrecko na", "puzdro", "obal na", "tabliet",
 )
+
+# Dávkovanie v názve ("99 mg, 100 tablet", "500 ml") je spoľahlivá značka
+# výživového doplnku alebo drogérie - elektronika sa takto neoznačuje.
+_DAVKOVANIE = re.compile(r"\d+\s*(mg|ml|mcg|iu|g)\b")
 
 
 def _strip_diacritics(text: str) -> str:
@@ -122,7 +126,7 @@ def guess_category(title: str, hint: Optional[str] = None) -> str:
                 return category
 
     # Slabé slová až nakoniec a len keď nič nenasvedčuje opaku.
-    if not any(z in haystack for z in _NIE_ELEKTRONIKA):
+    if not any(z in haystack for z in _NIE_ELEKTRONIKA) and not _DAVKOVANIE.search(haystack):
         for keyword in _SLABE_KLUCE:
             if _strip_diacritics(keyword) in haystack:
                 return "Elektronika"

@@ -196,14 +196,16 @@ def co_spustit(rozvrh: dict, teraz: datetime, lokalne: bool = False) -> list[tup
 
 def odosli_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
     """
-    Dealy pripravené dopredu (status "scheduled" a čas sendAt) pošle v
-    určený čas do Telegramu na schválenie. Dovtedy ich nevidí nikto -
-    ani stránka, ani zoznam na schválenie v admine.
+    Dealy pripravené dopredu (status "scheduled" a čas sendAt) v určený
+    čas rovno zverejní. Dovtedy ich nevidí nikto - ani stránka, ani
+    zoznam v admine.
 
-    Status sa mení na "pending" PRED odoslaním: keby správa neodišla,
-    deal aspoň čaká v admine, namiesto toho, aby ho každá ďalšia
-    kontrola posielala znova.
+    PREČO NEIDÚ NA SCHVÁLENIE
+    Naplánovať deal sa dá len z admin zóny alebo z Telegramu, takže ho
+    už raz niekto odobril - odsúhlasovať ho druhýkrát je zbytočný krok
+    a v Telegrame pribúdala správa, na ktorú stačilo nereagovať.
     """
+    from google.cloud import firestore
     from google.cloud.firestore_v1.base_query import FieldFilter
     import telegram_bot
 
@@ -220,13 +222,19 @@ def odosli_naplanovane(db, teraz: datetime, nasucho: bool) -> None:
         if nasucho:
             logger.info("Poslal by som naplánovaný deal %s: %s", d.id, deal.get("title"))
             continue
-        # Čas dealu = čas odoslania, nie prípravy - inak by sa po
-        # schválení na stránke ukázal ako niekoľko dní starý.
-        d.reference.update({"status": "pending", "timestamp": teraz})
-        if telegram_bot.send_deal_for_approval(d.id, deal):
-            logger.info("Naplánovaný deal poslaný na schválenie: %s", deal.get("title"))
-        else:
-            logger.warning("Telegram správu neprijal - deal %s čaká v admine.", d.id)
+        # Čas dealu = čas zverejnenia, nie prípravy - inak by sa na
+        # stránke ukázal ako niekoľko dní starý.
+        try:
+            d.reference.update({"status": "approved", "timestamp": teraz,
+                                "zverejnene": firestore.SERVER_TIMESTAMP})
+        except Exception as e:
+            logger.warning("Naplánovaný deal %s sa nepodarilo zverejniť: %s", d.id, e)
+            continue
+        logger.info("Naplánovaný deal zverejnený: %s", deal.get("title"))
+        # Len oznam, bez tlačidiel - nie je o čom rozhodovať.
+        telegram_bot.send_text(
+            f"📣 Zverejnený naplánovaný deal:\n"
+            f"<b>{telegram_bot._escape(deal.get('title') or '')}</b>")
 
 
 def kontrola(db, nasucho: bool) -> None:
