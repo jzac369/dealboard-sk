@@ -19,6 +19,37 @@ import config
 
 logger = logging.getLogger(__name__)
 
+# Adresy, ktoré sa nesmú objaviť v logu. Repozitár je verejný a logy
+# GitHub Actions s ním - adresa feedu z Dognetu alebo od obchodu v sebe
+# nesie partnerské ID a prístupové kľúče (token=, secret=, sig=, aj
+# náhodné reťazce v ceste). Do 5. 10. 2026 sa vypisovali celé.
+_TAJNE: set[str] = set()
+
+
+def tajne(url: str) -> None:
+    """Zaregistruje adresu, ktorá sa v logu ukáže len ako názov servera."""
+    if url:
+        _TAJNE.add(url)
+
+
+def ukaz(url: str) -> str:
+    """Bezpečná podoba adresy do logu."""
+    if url in _TAJNE:
+        return (urlparse(url).hostname or "?") + "/…"
+    return url
+
+
+def ukaz_chybu(e: object, url: str) -> str:
+    """Text výnimky bez tajnej adresy. requests ju doňho vkladá celú."""
+    text = str(e)
+    if url in _TAJNE:
+        p = urlparse(url)
+        for kus in (url, p.path + ("?" + p.query if p.query else ""), p.query, p.path):
+            if kus and len(kus) > 1:
+                text = text.replace(kus, "…")
+    return text
+
+
 # Čas posledného requestu na danú doménu — kvôli crawl-delay.
 _last_request_at: dict[str, float] = {}
 # Cache načítaných robots.txt, aby sme ich nesťahovali pri každej URL.
@@ -101,7 +132,7 @@ def get(url: str, *, check_robots: bool = True) -> str | None:
                 url, headers=headers, timeout=config.REQUEST_TIMEOUT_SECONDS
             )
         except requests.RequestException as e:
-            logger.warning("%s: pokus %d zlyhal (%s)", url, attempt, e)
+            logger.warning("%s: pokus %d zlyhal (%s)", ukaz(url), attempt, ukaz_chybu(e, url))
             time.sleep(attempt * 2)
             continue
 
@@ -112,14 +143,14 @@ def get(url: str, *, check_robots: bool = True) -> str | None:
         # 429/503 = "spomaľ" — počkáme dlhšie a skúsime znova.
         if response.status_code in (429, 503):
             wait = attempt * 10
-            logger.warning("%s: HTTP %d, čakám %ds", url, response.status_code, wait)
+            logger.warning("%s: HTTP %d, čakám %ds", ukaz(url), response.status_code, wait)
             time.sleep(wait)
             continue
 
-        logger.warning("%s: HTTP %d — končím s touto URL", url, response.status_code)
+        logger.warning("%s: HTTP %d — končím s touto URL", ukaz(url), response.status_code)
         return None
 
-    logger.error("%s: nepodarilo sa stiahnuť ani na %d. pokus", url, config.HTTP_MAX_RETRIES)
+    logger.error("%s: nepodarilo sa stiahnuť ani na %d. pokus", ukaz(url), config.HTTP_MAX_RETRIES)
     return None
 
 

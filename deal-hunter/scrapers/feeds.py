@@ -91,13 +91,18 @@ class FeedsScraper(BaseScraper):
 
         candidates: list[DealCandidate] = []
         for feed_url in config.FEED_URLS:
+            # Adresa feedu nesie partnerské ID a kľúče - do verejného logu
+            # z nej ide len názov servera.
+            http_client.tajne(feed_url)
             try:
                 found = self._fetch_one_feed(feed_url)
-                logger.info("feed %s -> %d kandidátov", feed_url, len(found))
+                logger.info("feed %s -> %d kandidátov", http_client.ukaz(feed_url), len(found))
                 candidates.extend(found)
             except Exception as e:
-                # Jeden rozbitý feed nesmie zhodiť ostatné.
-                logger.error("Feed %s zlyhal: %s", feed_url, e, exc_info=True)
+                # Jeden rozbitý feed nesmie zhodiť ostatné. Bez výpisu
+                # zásobníka - v ňom by bola adresa znova, celá.
+                logger.error("Feed %s zlyhal: %s", http_client.ukaz(feed_url),
+                             http_client.ukaz_chybu(e, feed_url))
 
         return candidates
 
@@ -117,7 +122,7 @@ class FeedsScraper(BaseScraper):
         try:
             root = ET.fromstring(xml_text)
         except ET.ParseError as e:
-            logger.error("Feed %s nie je platné XML: %s", feed_url, e)
+            logger.error("Feed %s nie je platné XML: %s", http_client.ukaz(feed_url), e)
             return []
 
         shop_items = root.findall(".//SHOPITEM")
@@ -139,7 +144,7 @@ class FeedsScraper(BaseScraper):
             try:
                 candidate = parser(item)
             except Exception as e:
-                logger.warning("Feed %s: preskakujem položku (%s)", feed_url, e)
+                logger.warning("Feed %s: preskakujem položku (%s)", http_client.ukaz(feed_url), e)
                 continue
             if candidate:
                 candidates.append(candidate)

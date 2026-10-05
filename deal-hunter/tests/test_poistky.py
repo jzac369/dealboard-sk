@@ -95,3 +95,19 @@ def test_ziar_obide_stare_dealy():
     assert not denny_ziar.je_stary({"timestamp": teraz - timedelta(days=1)}, hranica)
     # Bez času radšej nepridávame nič.
     assert denny_ziar.je_stary({}, hranica)
+
+
+# ── adresy feedov sa nesmú dostať do verejného logu ──────────────────
+
+def test_tajna_adresa_v_logu():
+    import http_client
+    url = "https://feeds.example.sk/export/dognet654abc.xml?token=TAJNE123&secret=XYZ"
+    http_client.tajne(url)
+    assert http_client.ukaz(url) == "feeds.example.sk/…"
+    # requests vkladá adresu do textu výnimky - aj odtiaľ musí zmiznúť.
+    chyba = ("HTTPSConnectionPool(host='feeds.example.sk', port=443): Max retries "
+             "exceeded with url: /export/dognet654abc.xml?token=TAJNE123&secret=XYZ")
+    vystup = http_client.ukaz_chybu(chyba, url)
+    assert "TAJNE123" not in vystup and "dognet654abc" not in vystup
+    # Bežné adresy produktov sa vypisujú celé, kvôli ladeniu.
+    assert http_client.ukaz("https://www.alza.sk/produkt") == "https://www.alza.sk/produkt"

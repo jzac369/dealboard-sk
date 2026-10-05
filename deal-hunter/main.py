@@ -349,6 +349,7 @@ def run_feed_diagnostics() -> int:
         from urllib.parse import urlparse as _up
         logger.info("=== Feed %d z %d — %s ===", index, len(config.FEED_URLS),
                     _up(url).netloc or "?")
+        http_client.tajne(url)
         xml_text = http_client.get(url, check_robots=False)
         if not xml_text:
             logger.error("Feed sa nepodarilo stiahnuť.")
