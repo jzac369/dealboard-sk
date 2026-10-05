@@ -77,3 +77,21 @@ def test_telegram_neposle_viac_nez_strop(monkeypatch):
     poslanych = sum(telegram_bot.send_deal_for_approval(f"d{i}", deal)
                     for i in range(telegram_bot.MAX_NAVRHOV_ZA_BEH + 10))
     assert poslanych == telegram_bot.MAX_NAVRHOV_ZA_BEH
+
+
+# ── denný žiar: starým dealom sa hlasy nepridávajú ───────────────────
+
+def test_ziar_obide_stare_dealy():
+    from datetime import datetime, timedelta, timezone
+    import denny_ziar
+
+    teraz = datetime.now(timezone.utc)
+    hranica = teraz - timedelta(days=30)
+
+    assert denny_ziar.je_stary({"zverejnene": teraz - timedelta(days=31)}, hranica)
+    assert not denny_ziar.je_stary({"zverejnene": teraz - timedelta(days=29)}, hranica)
+    # Staršie dealy "zverejnene" nemajú, rozhoduje čas schválenia.
+    assert denny_ziar.je_stary({"timestamp": teraz - timedelta(days=40)}, hranica)
+    assert not denny_ziar.je_stary({"timestamp": teraz - timedelta(days=1)}, hranica)
+    # Bez času radšej nepridávame nič.
+    assert denny_ziar.je_stary({}, hranica)

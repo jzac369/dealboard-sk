@@ -11,6 +11,9 @@ BUĎME SI ÚPRIMNÍ, ČO TO JE
 Sú to vymyslené hlasy, nie názor návštevníkov. Preto:
 - Dotýka sa len dealov so stavom "approved". Čakajúce ani zamietnuté
   na stránke nie sú a žiar by im bol na nič.
+- Starým dealom sa žiar nepridáva. Mesiac stará ponuka, ktorej hlasy
+  rastú ďalej, pôsobí falošne - a zároveň by postupne vytlačila nové
+  dealy z popredia, lebo náskok by jej rástol každým dňom.
 - Pripočítava sa k doterajšej hodnote, takže skutočné hlasy sa
   neprepíšu a poradie medzi nimi sa nezmení.
 - Dá sa vypnúť jedným prepínačom v admin zóne, bez zásahu do kódu.
@@ -23,6 +26,7 @@ Nastavenia v settings/moderation:
   dailyHeatBoost       true/false  (predvolene vypnuté)
   dailyHeatMin         predvolene 1
   dailyHeatMax         predvolene 5
+  dailyHeatMaxAgeDays  predvolene 30 (0 = bez obmedzenia)
 
 Spúšťa to GitHub Actions (.github/workflows/denny-ziar.yml), raz denne.
 """
@@ -31,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import random
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -55,6 +59,24 @@ def nastavenia(db) -> dict:
         return {}
 
 
+def je_stary(data: dict, hranica: datetime) -> bool:
+    """
+    Je deal zverejnený pred hranicou?
+
+    Čas zverejnenia je v "zverejnene", staršie dealy ho ešte nemajú a
+    vtedy berieme "timestamp" - ten sa pri schválení prepisuje na čas
+    zverejnenia. Keď nie je ani jeden, deal radšej vynecháme: pridávať
+    hlasy niečomu, čoho vek nepoznáme, je presne to, čomu sa vyhýbame.
+    """
+    cas = data.get("zverejnene") or data.get("timestamp")
+    if cas is None:
+        return True
+    try:
+        return cas < hranica
+    except TypeError:
+        return True
+
+
 def pridaj_ziar(db) -> int:
     nast = nastavenia(db)
 
@@ -64,6 +86,11 @@ def pridaj_ziar(db) -> int:
     if nast.get("dailyHeatBoost") is not True:
         logger.info("Denný žiar je vypnutý (settings/moderation → dailyHeatBoost). Končím.")
         return 0
+
+    # Vek dealu rátame od zverejnenia. Nula vypne obmedzenie úplne.
+    max_dni = nast.get("dailyHeatMaxAgeDays")
+    max_dni = 30 if max_dni is None else max(0, int(max_dni))
+    hranica = (datetime.now(timezone.utc) - timedelta(days=max_dni)) if max_dni else None
 
     najmenej = int(nast.get("dailyHeatMin") or 1)
     najviac = int(nast.get("dailyHeatMax") or 5)
@@ -91,8 +118,12 @@ def pridaj_ziar(db) -> int:
     upravene = 0
     pridane_spolu = 0
 
+    stare = 0
     for doc in dokumenty:
         data = doc.to_dict() or {}
+        if hranica is not None and je_stary(data, hranica):
+            stare += 1
+            continue
         teraz = data.get("votes") or 0
         pridok = random.randint(najmenej, najviac)
         if pridok == 0:
@@ -111,8 +142,8 @@ def pridaj_ziar(db) -> int:
     if v_davke:
         davka.commit()
 
-    logger.info("Žiar pridaný %d dealom, spolu %d hlasov (rozsah %d-%d).",
-                upravene, pridane_spolu, najmenej, najviac)
+    logger.info("Žiar pridaný %d dealom, spolu %d hlasov (rozsah %d-%d). "
+                "Vynechaných pre vek: %d.", upravene, pridane_spolu, najmenej, najviac, stare)
 
     # Zápis do denníka zmien. Bez neho by sa po mesiaci nedalo povedať,
     # ktorá časť žiaru je od ľudí a ktorá od nás.
@@ -121,7 +152,7 @@ def pridaj_ziar(db) -> int:
             "dealId": None,
             "action": "denny-ziar",
             "detail": (f"{upravene} dealov, +{pridane_spolu} hlasov "
-                       f"(rozsah {najmenej}-{najviac})"),
+                       f"(rozsah {najmenej}-{najviac}, vynechaných pre vek: {stare})"),
             "by": "agent",
             "timestamp": firestore.SERVER_TIMESTAMP,
         })
