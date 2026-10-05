@@ -285,6 +285,10 @@ def pouzi_feedy(data: dict) -> int:
         url = str(f.get("url") or "").strip()
         if not url.startswith(("http://", "https://")):
             continue
+        # Ten istý feed môže byť aj v tajomstve FEED_URLS - dvakrát
+        # načítaný by dal každý produkt dvakrát.
+        if url in FEED_URLS or url in pridane:
+            continue
         pridane.append(url)
         nazov = str(f.get("nazov") or "").strip()
         domena = str(f.get("domena") or "").strip().lower().replace("www.", "")
