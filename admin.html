@@ -1700,7 +1700,7 @@
           <div><label>E-shop</label><input id="cp-store-${c.id}" value="${escapeAttr(c.store)}"></div>
           <div><label>Zľava</label><input id="cp-discount-${c.id}" value="${escapeAttr(c.discount)}"></div>
           <div><label>Platí do</label><input id="cp-expiry-${c.id}" value="${escapeAttr(c.expiryDate)}"></div>
-          <div class="full"><label>URL (affiliate link)</label><input id="cp-url-${c.id}" value="${escapeAttr(c.url)}"></div>
+          <div class="full"><label>URL obchodu (affiliate sa pridá automaticky)</label><input id="cp-url-${c.id}" value="${escapeAttr(c.url)}"></div>
           <div class="full"><label>Popis</label><textarea id="cp-desc-${c.id}" rows="2">${escapeHtml(c.description||'')}</textarea></div>
         </div>
         <button class="btn btn-save" onclick="saveCouponEdit('${c.id}')"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť zmeny</button>
@@ -2061,7 +2061,7 @@
           <div><label>Kategória</label><input id="e-cat-${d.id}" value="${escapeAttr(d.category)}"></div>
           <div><label>Cena teraz (€)</label><input id="e-deal-${d.id}" type="number" value="${d.dealPrice||''}"></div>
           <div><label>Pôvodná cena (€)</label><input id="e-orig-${d.id}" type="number" value="${d.originalPrice||''}"></div>
-          <div class="full"><label>URL (affiliate link)</label><input id="e-url-${d.id}" value="${escapeAttr(d.url)}"></div>
+          <div class="full"><label>URL obchodu (affiliate sa pridá automaticky)</label><input id="e-url-${d.id}" value="${escapeAttr(d.url)}"></div>
           <div class="full">
             <label>Obrázok</label>
             <div class="edit-img-row">
