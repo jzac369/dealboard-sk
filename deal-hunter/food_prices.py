@@ -149,7 +149,12 @@ def _cheapest_per_vendor(type_id: str, vendors: dict[str, str]) -> list[dict]:
         if price is None:
             continue
 
-        name = vendors.get(item["companyId"], item["companyId"])
+        # Meno reťazca berieme z riadku s cenou, nie z obalu položky.
+        # Obe čísla sú totiž rôzne: v surových dátach má každý riadok
+        # vlastné IČO a pri inom nastavení dotazu by sme k cene jedného
+        # obchodu pripísali názov iného.
+        company = vendor_rows[0].get("companyId") or item["companyId"]
+        name = vendors.get(company, company)
         details = item.get("productDetails") or {}
         row = {
             "vendor": name,
@@ -161,7 +166,7 @@ def _cheapest_per_vendor(type_id: str, vendors: dict[str, str]) -> list[dict]:
             "onPromo": bool(vendor_rows[0].get("promoTo")),
             "reportDate": (item.get("reportDate") or "")[:10],
             "_picture": details.get("picture"),
-            "_companyId": item.get("companyId"),
+            "_companyId": company,
         }
         if name not in by_name or row["price"] < by_name[name]["price"]:
             by_name[name] = row
