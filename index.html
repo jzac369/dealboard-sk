@@ -77,6 +77,30 @@
 
   let currentUid = null;
 
+  // ── Cache nastavení v localStorage ──────────────────────────────────
+  // settings/{ucty,letenky,affiliate,heureka,reklamy} a verejne/rebricek
+  // sa menia len keď admin niečo prepne - nie pri každej návšteve. Bez
+  // cache ich ale číta ÚPLNE KAŽDÝ návštevník pri KAŽDOM otvorení
+  // stránky, čo je zbytočná spotreba kvóty Firestore (5.10.2026 nás to
+  // kvôli hlasovaniu nechalo bez kvóty - pozri poplach.py). S cache sa
+  // reálne číta len raz za HK_CACHE_TTL, zvyšok obslúži localStorage.
+  const HK_CACHE_TTL = 10 * 60 * 1000;
+  function cachedSettingsDoc(col, id, ttlMs = HK_CACHE_TTL) {
+    const key = `hk_cache:${col}/${id}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Date.now() - parsed.t < ttlMs) return Promise.resolve(parsed.d);
+      }
+    } catch (e) { /* localStorage nedostupný alebo poškodený záznam - čítame z Firestore */ }
+    return getDoc(doc(db, col, id)).then(s => {
+      const d = s.exists() ? s.data() : null;
+      try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d })); } catch (e) {}
+      return d;
+    });
+  }
+
   // ── Anonymous auth – each visitor gets a stable anonymous UID ──────────────
   // ── Súhlas s meraním návštevnosti ───────────────────────────────────
   // Prihlásenie a uložené dealy sú na fungovanie stránky nevyhnutné a
@@ -383,8 +407,8 @@
     if (window.hkUcetZmena) window.hkUcetZmena();
   }
   // Rebríček a odznaky autorov - jeden dokument pre celú stránku.
-  getDoc(doc(db, "verejne", "rebricek"))
-    .then(s => { window.HK_REBRICEK = s.exists() ? s.data() : null; if (window.renderDealsList) window.renderDealsList(); })
+  cachedSettingsDoc("verejne", "rebricek")
+    .then(d => { window.HK_REBRICEK = d; if (window.renderDealsList) window.renderDealsList(); })
     .catch(() => {});
 
   // História: čo si otvoril a čo si hľadal. Len pre prihlásených a len
@@ -595,24 +619,24 @@
   // affiliateUrl v klasickom bloku).
   window.AFFILIATE = { enabled: false };
   // Účty návštevníkov: zapínajú sa v admine (settings/ucty).
-  getDoc(doc(db, "settings", "ucty"))
-    .then(s => window.nastavUcty && window.nastavUcty(s.exists() ? s.data() : {}))
+  cachedSettingsDoc("settings", "ucty")
+    .then(d => window.nastavUcty && window.nastavUcty(d || {}))
     .catch(() => window.nastavUcty && window.nastavUcty({}));
   // Letenková záložka: zapína sa v admine (settings/letenky).
-  getDoc(doc(db, "settings", "letenky"))
-    .then(s => window.nastavLetenky && window.nastavLetenky(s.exists() ? s.data() : {}))
+  cachedSettingsDoc("settings", "letenky")
+    .then(d => window.nastavLetenky && window.nastavLetenky(d || {}))
     .catch(() => window.nastavLetenky && window.nastavLetenky({}));
-  getDoc(doc(db, "settings", "affiliate"))
-    .then(s => { if (s.exists()) window.AFFILIATE = s.data(); })
+  cachedSettingsDoc("settings", "affiliate")
+    .then(d => { if (d) window.AFFILIATE = d; })
     .catch(() => { /* bez nastavení zostanú odkazy čisté - stránka funguje */ });
   // Heureka: porovnanie cien pri deale a hľadanie, keď u nás nič nie je.
   // Vypína sa v admine (settings/heureka). Kým sa nenačíta, odkazy sa
   // jednoducho neukážu - nič nechýba, len nepribudne.
   window.HEUREKA = { enabled: false };
-  getDoc(doc(db, "settings", "heureka"))
-    .then(s => {
-      if (!s.exists()) return;
-      window.HEUREKA = s.data();
+  cachedSettingsDoc("settings", "heureka")
+    .then(d => {
+      if (!d) return;
+      window.HEUREKA = d;
       // Ak je detail práve otvorený alebo zoznam prázdny, doplníme odkaz hneď.
       if (window.renderDealsList) window.renderDealsList();
       document.dispatchEvent(new CustomEvent('hk:heureka'));
@@ -1056,21 +1080,25 @@
     setDoc(doc(db, 'deal_clicks', 'reklama-' + id), { count: increment(1), lastClick: serverTimestamp() }, { merge: true }).catch(() => {});
     setDoc(doc(db, 'kliky_den', _hkDnes()), { ['reklama-' + id]: increment(1) }, { merge: true }).catch(() => {});
   };
-  getDoc(doc(db, 'settings', 'reklamy'))
-    .then(sn => { if (sn.exists() && window.hkReklamy) window.hkReklamy(sn.data()); })
+  cachedSettingsDoc('settings', 'reklamy')
+    .then(d => { if (d && window.hkReklamy) window.hkReklamy(d); })
     .catch(() => {});
 
   // Topované dealy (settings/topovane: { dealy: { id: čas do } }).
-  getDoc(doc(db, 'settings', 'topovane')).then(async sn => {
-    const m = (sn.exists() && sn.data().dealy) || {};
+  // Samotnú mapu cachujeme len krátko (sú to promo termíny, majú byť
+  // čerstvé), ale aspoň sa neopakuje čítanie tohto dokumentu pri každom
+  // F5 tej istej návštevy. Dokumenty topovaných dealov sa čítajú vždy
+  // nanovo - je ich málo (max 5) a majú ukazovať aktuálnu cenu/status.
+  cachedSettingsDoc('settings', 'topovane', 2 * 60 * 1000).then(async d => {
+    const m = (d && d.dealy) || {};
     const teraz = Date.now();
-    const ids = Object.entries(m).filter(([, t]) => t && t.toMillis && t.toMillis() > teraz).map(([id]) => id).slice(0, 5);
+    const ids = Object.entries(m).filter(([, t]) => toMillis(t) > teraz).map(([id]) => id).slice(0, 5);
     const dealy = [];
     for (const id of ids) {
-      try { const d = await getDoc(doc(db, 'deals', id)); if (d.exists()) dealy.push({ ...d.data(), id: d.id, _top: true }); }
+      try { const sn = await getDoc(doc(db, 'deals', id)); if (sn.exists()) dealy.push({ ...sn.data(), id: sn.id, _top: true }); }
       catch (e) { /* deal už nie je schválený */ }
     }
-    window.topDeals = dealy.filter(d => d.status === 'approved' && !d.expired);
+    window.topDeals = dealy.filter(x => x.status === 'approved' && !x.expired);
     if (window.topDeals.length && window.renderDealsList) window.renderDealsList();
   }).catch(() => {});
 
