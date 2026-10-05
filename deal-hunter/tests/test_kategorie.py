@@ -40,3 +40,13 @@ def test_nohavice_su_moda():
 def test_pokyn_z_feedu_ma_prednost():
     # Keď zdroj kategóriu uvedie, hádať ju nemusíme.
     assert guess_category("Čokoľvek", hint="Elektronika") == "Elektronika"
+
+
+@pytest.mark.parametrize("nazov,ocakavane", [
+    ("GARDENA Záhradnícke a pôdne rukavice, vhodné pre smartfóny", "Dom & Záhrada"),
+    ("Now Potassium Gluconate, 99 mg, 100 tablet", "Iné"),
+    ("Ubiquiti UISP Router 8x1000Mbps PoE", "Elektronika"),
+])
+def test_zaludne_nazvy(nazov, ocakavane):
+    # Všetky tri agent 5. 10. 2026 navrhol ako elektroniku.
+    assert guess_category(nazov) == ocakavane

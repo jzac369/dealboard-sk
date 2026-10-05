@@ -70,7 +70,7 @@ _CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
         "lampa", "koberec", "zaclon", "vankus", "perina", "uterak", "nabytok",
     )),
     ("Móda", (
-        "tricko", "nohavice", "bunda", "kabat", "mikina", "kosela", "saty",
+        "rukavic", "salka", "sal ", "tricko", "nohavice", "bunda", "kabat", "mikina", "kosela", "saty",
         "sukna", "topanky", "tenisky", "obuv", "kabelka", "batoh", "opasok",
         "ponozky", "bielizen", "sperk", "okuliare", "cepic",
     )),
@@ -101,6 +101,8 @@ _SLABE_KLUCE: tuple[str, ...] = (
 _NIE_ELEKTRONIKA: tuple[str, ...] = (
     "cmulan", "doplnok stravy", "vitamin", "kapsul", "tablety na",
     "gelove tablety", "vrecko na", "puzdro", "obal na", "tabliet",
+    # "rukavice vhodné pre smartfóny" je odev, nie elektronika.
+    "pre smartfon", "pre mobil", "pre dotykov", "rukavic",
 )
 
 # Dávkovanie v názve ("99 mg, 100 tablet", "500 ml") je spoľahlivá značka
@@ -120,13 +122,19 @@ def guess_category(title: str, hint: Optional[str] = None) -> str:
         return hint
 
     haystack = _strip_diacritics(title)
+    # Platí aj pre jednoznačné slová: "rukavice vhodné pre smartfóny"
+    # obsahuje "smartfon", a predsa je to odev.
+    elektronika_mozna = (not any(z in haystack for z in _NIE_ELEKTRONIKA)
+                         and not _DAVKOVANIE.search(haystack))
     for category, keywords in _CATEGORY_KEYWORDS:
+        if category == "Elektronika" and not elektronika_mozna:
+            continue
         for keyword in keywords:
             if _strip_diacritics(keyword) in haystack:
                 return category
 
     # Slabé slová až nakoniec a len keď nič nenasvedčuje opaku.
-    if not any(z in haystack for z in _NIE_ELEKTRONIKA) and not _DAVKOVANIE.search(haystack):
+    if elektronika_mozna:
         for keyword in _SLABE_KLUCE:
             if _strip_diacritics(keyword) in haystack:
                 return "Elektronika"
