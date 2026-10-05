@@ -12,8 +12,10 @@ name: Plánovač
 # casta kontrola nic nestoji.
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
+  # Zaloha docasne vypnuta (5. 10. 2026) - planovac sa restartoval kazdych
+  # 5 minut a spustal agenta dookola. Po oprave vratit.
+  # schedule:
+  #   - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       nasucho:
