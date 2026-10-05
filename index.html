@@ -749,6 +749,28 @@
   window.allDeals   = [];
   window.activeSort = 'new';
   window.activeCat  = 'Všetky';
+
+  // Filtre z URL (?kat=...&sort=...&platne=1) - musí bežať tu, pred
+  // prvým loadDealsPage nižšie, nie v klasickom <script> bloku pod
+  // kartami: ten vykonáva prehliadač až neskôr, po tomto module.
+  window.applyFiltersFromUrl = function() {
+    const p = new URLSearchParams(location.search);
+    const kat = p.get('kat');
+    if (kat && document.querySelector(`#cat-list button[data-cat="${CSS.escape(kat)}"]`)) {
+      window.activeCat = kat;
+      document.querySelectorAll('#cat-list button').forEach(b => b.classList.toggle('active', b.dataset.cat === kat));
+    }
+    const sort = p.get('sort');
+    if (['new', 'votes', 'discount'].includes(sort)) {
+      window.activeSort = sort;
+      document.querySelectorAll('.sort-btn[data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === sort));
+    }
+    if (p.get('platne') === '1') {
+      window.validOnly = true;
+      document.getElementById('btn-valid-only')?.classList.add('active');
+    }
+  };
+
   const DEALS_PAGE_SIZE = 20;
   const DEALS_SEARCH_CAP = 200;
   window.dealsLastDoc   = null;
@@ -904,6 +926,7 @@
   // Prvotné načítanie + globálna kontrola Firebase chyby (zobrazí demo dáta, ak Firebase nie je nastavený)
   (async () => {
     try {
+      window.applyFiltersFromUrl();
       await window.loadDealsPage(true);
     } catch (e) {
       console.error("Firebase error:", e);
@@ -1128,6 +1151,17 @@
     }
   };
 
+  // Krátka spätná väzba po úspešnom hlasovaní - bez nej na mobile vyzeralo
+  // zmenené číslo ako náhodná zmena, nie reakcia na klik. Vibrácia beží
+  // len tam, kde to prehliadač podporuje (desktop ju jednoducho ignoruje).
+  function pulseVote(el) {
+    if (!el) return;
+    el.classList.remove('vote-pulse');
+    void el.offsetWidth; // reštart animácie, keby bežala ešte z predošlého kliku
+    el.classList.add('vote-pulse');
+    try { navigator.vibrate && navigator.vibrate(15); } catch (e) {}
+  }
+
   window.vote = async (id, delta) => {
     if (id.startsWith("demo-")) return;
     if (!currentUid) { window.hkToast('Načítavam… Skús o sekundu znova.', 'error'); return; }
@@ -1164,7 +1198,7 @@
         // karty už neexistuje, takže sa hlas zapísal, ale na obrazovke
         // sa nič nezmenilo.
         document.querySelectorAll(`[data-vote-for="${id}"] .vs-num`)
-          .forEach(el => { el.textContent = item.votes + '°'; });
+          .forEach(el => { el.textContent = item.votes + '°'; pulseVote(el); });
       }
       window.refreshHottestSidebar();
     } catch(e) {
@@ -1527,6 +1561,7 @@
         document.querySelectorAll(`[data-hlas-pre="${id}"]`).forEach(el => {
           el.outerHTML = window.kdHlasHtml(item);
         });
+        document.querySelectorAll(`[data-hlas-pre="${id}"]`).forEach(pulseVote);
       }
     } catch(e) {
       console.error('Coupon vote error:', e);
@@ -1536,8 +1571,10 @@
 
   window.submitCoupon = async (data) => {
     const status = await getInitialStatus('coupons');
+    const uc = window.HK_UCET || {};
     await addDoc(collection(db, "coupons"), {
       ...data,
+      ...(uc.user && !uc.user.isAnonymous ? { authorUid: uc.user.uid } : {}),
       votes: 0,
       status,
       timestamp: serverTimestamp()
@@ -1569,6 +1606,128 @@
     localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify([...recentSubmitTimes(), Date.now()]));
     localStorage.removeItem('db_lastSubmit');
     return status;
+  };
+
+  // ── Úprava vlastného dealu ──────────────────────────────────────────
+  // Len autor smie opraviť vlastný preklep/zastaralú cenu - pravidlá
+  // databázy to vynucujú aj nezávisle od tohto formulára (firestore.rules,
+  // "Autor smie neskôr opraviť..."). Hlasy, komentáre a stav sa nedajú
+  // meniť - ani odtiaľto, ani v databáze.
+  window.openEditDeal = function(id) {
+    const d = (window.allDeals || []).find(x => x.id === id);
+    if (!d) return;
+    document.getElementById('ed-id').value = id;
+    document.getElementById('ed-url').value = d.url || '';
+    document.getElementById('ed-store').value = d.store || '';
+    document.getElementById('ed-title').value = d.title || '';
+    document.getElementById('ed-orig').value = d.originalPrice || '';
+    document.getElementById('ed-deal').value = d.dealPrice || '';
+    document.getElementById('ed-cat').value = d.category || 'Iné';
+    document.getElementById('ed-desc').value = d.description || '';
+    document.getElementById('edit-deal-err').textContent = '';
+    document.getElementById('edit-deal-modal').classList.add('open');
+  };
+  window.closeEditDeal = function() {
+    document.getElementById('edit-deal-modal').classList.remove('open');
+  };
+  document.getElementById('edit-deal-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) window.closeEditDeal();
+  });
+
+  window.handleEditDealSubmit = async function(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('edit-deal-err');
+    errEl.textContent = '';
+    const id = document.getElementById('ed-id').value;
+    const url = window.normalizeUrl(document.getElementById('ed-url').value.trim());
+    const store = document.getElementById('ed-store').value.trim();
+    const title = document.getElementById('ed-title').value.trim();
+    const dealPrice = parseFloat(document.getElementById('ed-deal').value);
+    const originalPrice = parseFloat(document.getElementById('ed-orig').value) || null;
+    const category = document.getElementById('ed-cat').value;
+    const description = document.getElementById('ed-desc').value.trim().slice(0, 2000);
+    if (!/^https?:\/\//i.test(url)) { errEl.textContent = 'Zadaj platný odkaz (https://...).'; return; }
+    if (!store) { errEl.textContent = 'Zadaj e-shop.'; return; }
+    if (!title) { errEl.textContent = 'Zadaj názov produktu.'; return; }
+    if (isNaN(dealPrice) || dealPrice < 0) { errEl.textContent = 'Zadaj platnú akciovú cenu.'; return; }
+    if (originalPrice && originalPrice <= dealPrice) { errEl.textContent = 'Bežná cena má byť vyššia ako akciová.'; return; }
+    const discountPercent = (originalPrice && dealPrice && originalPrice > dealPrice)
+      ? Math.round((1 - dealPrice / originalPrice) * 100) : 0;
+    const btn = document.getElementById('edit-deal-submit');
+    btn.disabled = true;
+    btn.textContent = 'Ukladám…';
+    try {
+      await updateDoc(doc(db, "deals", id), { url, store, title, dealPrice, originalPrice, category, description, discountPercent });
+      const item = (window.allDeals || []).find(x => x.id === id);
+      if (item) Object.assign(item, { url, store, title, dealPrice, originalPrice, category, description, discountPercent });
+      window.closeEditDeal();
+      if (window.renderDealsList) window.renderDealsList();
+      if (window.hkToast) window.hkToast('Zmeny boli uložené.');
+    } catch (err) {
+      console.error('Edit deal error:', err);
+      errEl.textContent = 'Zmeny sa nepodarilo uložiť. Skontroluj pripojenie a skús to znova.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Uložiť zmeny';
+    }
+  };
+
+  // ── Úprava vlastného kódu ────────────────────────────────────────────
+  window.openEditCoupon = function(id) {
+    const c = (window.allCoupons || []).find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('ec-id').value = id;
+    document.getElementById('ec-code').value = c.code || '';
+    document.getElementById('ec-store').value = c.store || '';
+    document.getElementById('ec-discount').value = c.discount || '';
+    document.getElementById('ec-url').value = c.url || '';
+    document.getElementById('ec-expiry').value = c.expiryISO || '';
+    document.getElementById('ec-desc').value = c.description || '';
+    document.getElementById('edit-coupon-err').textContent = '';
+    document.getElementById('edit-coupon-modal').classList.add('open');
+  };
+  window.closeEditCoupon = function() {
+    document.getElementById('edit-coupon-modal').classList.remove('open');
+  };
+  document.getElementById('edit-coupon-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) window.closeEditCoupon();
+  });
+
+  window.handleEditCouponSubmit = async function(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('edit-coupon-err');
+    errEl.textContent = '';
+    const id = document.getElementById('ec-id').value;
+    const code = document.getElementById('ec-code').value.trim().toUpperCase();
+    const store = document.getElementById('ec-store').value.trim();
+    const discount = document.getElementById('ec-discount').value.trim();
+    const url = window.normalizeUrl(document.getElementById('ec-url').value.trim());
+    const expiry = document.getElementById('ec-expiry').value;
+    const description = document.getElementById('ec-desc').value.trim().slice(0, 500);
+    if (!code) { errEl.textContent = 'Zadaj kód.'; return; }
+    if (!store) { errEl.textContent = 'Zadaj e-shop.'; return; }
+    if (!discount) { errEl.textContent = 'Zadaj výšku zľavy.'; return; }
+    if (!/^https?:\/\//i.test(url)) { errEl.textContent = 'Zadaj platný odkaz (https://...).'; return; }
+    const data = { code, store, discount, url, description };
+    data.expiryISO = expiry || null;
+    data.expiryDate = expiry ? new Date(expiry + 'T00:00:00').toLocaleDateString('sk-SK') : null;
+    const btn = document.getElementById('edit-coupon-submit');
+    btn.disabled = true;
+    btn.textContent = 'Ukladám…';
+    try {
+      await updateDoc(doc(db, "coupons", id), data);
+      const item = (window.allCoupons || []).find(x => x.id === id);
+      if (item) Object.assign(item, data);
+      window.closeEditCoupon();
+      if (window.renderCouponsList) window.renderCouponsList();
+      if (window.hkToast) window.hkToast('Zmeny boli uložené.');
+    } catch (err) {
+      console.error('Edit coupon error:', err);
+      errEl.textContent = 'Zmeny sa nepodarilo uložiť. Skontroluj pripojenie a skús to znova.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Uložiť zmeny';
+    }
   };
 </script>
 
@@ -1683,6 +1842,8 @@
   background: linear-gradient(180deg, #F06A1D, var(--orange-dk)); color: #fff; font-weight: 800; font-size: .86rem;
   text-decoration: none; }
 .kd-go:hover { filter: brightness(1.05); }
+.kd-edit { font-size: .78rem; color: var(--muted); text-decoration: none; white-space: nowrap; }
+.kd-edit:hover { color: var(--orange-dk); }
 .kd-card.is-expired { border-left-color: #C9C9C9; opacity: .6; }
 .kd-card.is-expired .kd-title .num { color: inherit; }
 .kd-card.is-expired .kd-code { border-color: #ccc; background: #f5f5f5; color: #777; cursor: default; }
@@ -2366,6 +2527,30 @@
   /* ── Loading ─────────────────────────────────────────────────────────── */
   .loading { text-align: center; padding: 40px; color: var(--muted); font-size: .9rem; }
 
+  /* ── Skeleton (kostra kariet, kým sa prvý raz načítavajú dáta) ───────── */
+  /* Rozmery kopírujú .deal-card, nech sa pri nahradení obsahom nič */
+  /* neposunie. Shimmer je jeden posúvajúci sa gradient na pozadí. */
+  .skel-wrap { display: flex; flex-direction: column; gap: 14px; }
+  .skel-card {
+    background: var(--card); border-radius: var(--r); border: 1px solid var(--line);
+    padding: 14px 16px; display: flex; gap: 14px; align-items: flex-start;
+  }
+  .skel-block {
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--line) 25%, var(--bg) 50%, var(--line) 75%);
+    background-size: 400% 100%;
+    animation: skel-shimmer 1.4s ease-in-out infinite;
+  }
+  .skel-img { width: 100px; min-width: 100px; height: 100px; border-radius: 8px; }
+  .skel-lines { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 2px; }
+  .skel-line { height: 14px; }
+  .skel-line.w40 { width: 40%; }
+  .skel-line.w80 { width: 80%; }
+  .skel-line.w60 { width: 60%; }
+  .skel-line.w30 { height: 22px; width: 30%; margin-top: 4px; }
+  @keyframes skel-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+  @media (prefers-reduced-motion: reduce) { .skel-block { animation: none; } }
+
 /* Lišta "pribudol nový deal" - ukáže sa len keď je návštevník rozčítaný nižšie */
 #new-deals-bar{
   position:fixed; top:14px; left:50%; transform:translateX(-50%);
@@ -2494,6 +2679,11 @@
   min-width: 48px; font-size: .9rem; font-weight: 800; color: var(--orange-dk);
   border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
 .is-expired .vote-seg { opacity: .55; }
+
+/* Krátky "pulz" po hlasovaní - potvrdí, že klik prebehol (vote funkcie v <script>). */
+.vote-pulse { animation: vote-pulse .35s ease-out; }
+@keyframes vote-pulse { 0% { transform: scale(1.35); color: var(--orange); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .vote-pulse { animation: none; } }
 
 /* Stlmenie obsahu skončenej akcie. */
 .is-expired .deal-img, .is-expired .deal-title, .is-expired .deal-price-row { opacity: .55; }
@@ -3055,6 +3245,11 @@
 .lt-btn { display: block; text-align: center; margin-top: 11px; white-space: nowrap; background: var(--orange); color: #fff !important;
   font-weight: 800; font-size: .9rem; padding: 10px 12px; border-radius: 10px; text-decoration: none; }
 .lt-btn:hover { background: var(--orange-dk); }
+.lt-share { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 8px;
+  background: none; border: 1.5px solid var(--line); color: #33445A; font-weight: 700; font-size: .8rem;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer; font-family: inherit; }
+.lt-share:hover { border-color: var(--orange); color: var(--orange-dk); }
+.lt-share svg { width: 15px; height: 15px; }
 .lt-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
 .lt-more-lab { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
   color: var(--muted); margin-bottom: 4px; }
@@ -3496,9 +3691,9 @@ body.food-page { background: #FAF8F5; }
            a dlhší výraz sa doň nezmestil; vlastný riadok zasa zaberal
            miesto nad zoznamom. -->
       <div class="sort-bar">
-        <button class="sort-btn active" onclick="setSort('new', this)"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> Najnovšie</button>
-        <button class="sort-btn" onclick="setSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie</button>
-        <button class="sort-btn" onclick="setSort('discount', this)"><svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg> Najväčšia zľava</button>
+        <button class="sort-btn active" data-sort="new" onclick="setSort('new', this)"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> Najnovšie</button>
+        <button class="sort-btn" data-sort="votes" onclick="setSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie</button>
+        <button class="sort-btn" data-sort="discount" onclick="setSort('discount', this)"><svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg> Najväčšia zľava</button>
         <button class="sort-btn filter-btn" id="btn-valid-only" onclick="toggleValidOnly(this)" title="Skryť akcie, ktorým vypršala platnosť"><svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg> Len platné</button>
         <button class="sort-btn filter-btn" id="btn-saved-only" onclick="toggleSavedOnly(this)" title="Zobraziť len dealy, ktoré si si uložil"><svg class="ic" aria-hidden="true"><use href="#i-bookmark"></use></svg> Uložené</button>
       </div>
@@ -3591,7 +3786,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
       <div class="kd-chips" id="kd-chips"></div>
     </div>
     <div class="coupons-list" id="coupons-list">
-      <div class="loading">Načítavam zľavové kódy…</div>
+      <div class="skel-wrap" aria-hidden="true"><div class="skel-card"><div class="skel-block skel-img"></div><div class="skel-lines"><div class="skel-block skel-line w40"></div><div class="skel-block skel-line w80"></div><div class="skel-block skel-line w60"></div></div></div><div class="skel-card"><div class="skel-block skel-img"></div><div class="skel-lines"><div class="skel-block skel-line w40"></div><div class="skel-block skel-line w80"></div><div class="skel-block skel-line w60"></div></div></div><div class="skel-card"><div class="skel-block skel-img"></div><div class="skel-lines"><div class="skel-block skel-line w40"></div><div class="skel-block skel-line w80"></div><div class="skel-block skel-line w60"></div></div></div></div>
     </div>
   </main>
 
@@ -3872,6 +4067,110 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   </div>
 </div>
 
+<!-- Úprava vlastného dealu - len pre autora, pozri window.openEditDeal -->
+<div class="modal-overlay" id="edit-deal-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-deal-modal-title">
+    <div class="modal-header">
+      <div><h2 id="edit-deal-modal-title">Upraviť deal</h2><p>Opravíš len vlastný príspevok - hlasy, komentáre ani stav sa nemenia.</p></div>
+      <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeEditDeal()">✕</button>
+    </div>
+    <form class="modal-body" id="edit-deal-form" novalidate onsubmit="handleEditDealSubmit(event)">
+      <input type="hidden" id="ed-id">
+      <div>
+        <label for="ed-url">Odkaz na deal <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="ed-url" required maxlength="1500" inputmode="url" autocomplete="off"
+               autocapitalize="off" spellcheck="false" aria-describedby="ed-url-err">
+        <div class="field-err" id="ed-url-err"></div>
+      </div>
+      <div>
+        <label for="ed-store">E-shop <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="ed-store" required maxlength="60" aria-describedby="ed-store-err">
+        <div class="field-err" id="ed-store-err"></div>
+      </div>
+      <div>
+        <label for="ed-title">Názov produktu <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="ed-title" required maxlength="190" aria-describedby="ed-title-err">
+        <div class="field-err" id="ed-title-err"></div>
+      </div>
+      <div class="row2">
+        <div>
+          <label for="ed-orig">Bežná cena (€)</label>
+          <input type="number" id="ed-orig" step="0.01" min="0" max="1000000" inputmode="decimal" aria-describedby="ed-orig-err">
+          <div class="field-err" id="ed-orig-err"></div>
+        </div>
+        <div>
+          <label for="ed-deal">Akciová cena (€) <span class="req" aria-hidden="true">*</span></label>
+          <input type="number" id="ed-deal" required step="0.01" min="0" max="1000000" inputmode="decimal" aria-describedby="ed-deal-err">
+          <div class="field-err" id="ed-deal-err"></div>
+        </div>
+      </div>
+      <div>
+        <label for="ed-cat">Kategória</label>
+        <select id="ed-cat">
+          <option>Iné</option>
+          <option>Elektronika</option>
+          <option>Dom &amp; Záhrada</option>
+          <option>Móda</option>
+          <option>Hračky</option>
+          <option>Šport</option>
+          <option>Jedlo &amp; Nápoje</option>
+          <option>Cestovanie</option>
+        </select>
+      </div>
+      <div>
+        <label for="ed-desc">Popis / poznámka</label>
+        <textarea id="ed-desc" rows="3" maxlength="2000"></textarea>
+      </div>
+      <div class="form-err" id="edit-deal-err" role="alert"></div>
+      <button class="btn-submit" type="submit" id="edit-deal-submit">Uložiť zmeny</button>
+    </form>
+  </div>
+</div>
+
+<!-- Úprava vlastného kódu - len pre autora, pozri window.openEditCoupon -->
+<div class="modal-overlay" id="edit-coupon-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-coupon-modal-title">
+    <div class="modal-header">
+      <div><h2 id="edit-coupon-modal-title">Upraviť kód</h2><p>Opravíš len vlastný príspevok - hlasy a stav sa nemenia.</p></div>
+      <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeEditCoupon()">✕</button>
+    </div>
+    <form class="modal-body" id="edit-coupon-form" novalidate onsubmit="handleEditCouponSubmit(event)">
+      <input type="hidden" id="ec-id">
+      <div>
+        <label for="ec-code">Kód <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="ec-code" required maxlength="39" aria-describedby="ec-code-err">
+        <div class="field-err" id="ec-code-err"></div>
+      </div>
+      <div>
+        <label for="ec-store">E-shop <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="ec-store" required maxlength="60" aria-describedby="ec-store-err">
+        <div class="field-err" id="ec-store-err"></div>
+      </div>
+      <div>
+        <label for="ec-discount">Zľava (napr. "10% na celý nákup") <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="ec-discount" required maxlength="120" aria-describedby="ec-discount-err">
+        <div class="field-err" id="ec-discount-err"></div>
+      </div>
+      <div>
+        <label for="ec-url">Odkaz na obchod <span class="req" aria-hidden="true">*</span></label>
+        <input type="text" id="ec-url" required maxlength="1500" inputmode="url" autocomplete="off"
+               autocapitalize="off" spellcheck="false" aria-describedby="ec-url-err">
+        <div class="field-err" id="ec-url-err"></div>
+      </div>
+      <div>
+        <label for="ec-expiry">Platí do</label>
+        <input type="date" id="ec-expiry">
+      </div>
+      <div>
+        <label for="ec-desc">Popis / poznámka</label>
+        <textarea id="ec-desc" rows="3" maxlength="500"></textarea>
+      </div>
+      <div class="form-err" id="edit-coupon-err" role="alert"></div>
+      <button class="btn-submit" type="submit" id="edit-coupon-submit">Uložiť zmeny</button>
+    </form>
+  </div>
+</div>
+
 <!-- Deal Detail Modal -->
 <div class="modal-overlay" id="detail-modal">
   <div class="modal" style="max-width:600px;" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
@@ -4050,12 +4349,15 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     if (window.hkUlozZalozky) window.hkUlozZalozky();
   }
 
-  window.validOnly = false;
+  // Nie "= false" natvrdo - applyFiltersFromUrl (beží skôr, v modulovom
+  // <script> vyššie) mohol validOnly už nastaviť z URL (?platne=1).
+  window.validOnly = window.validOnly || false;
   window.savedOnly = false;
 
   window.toggleValidOnly = function(btn) {
     window.validOnly = !window.validOnly;
     btn.classList.toggle('active', window.validOnly);
+    syncFiltersToUrl();
     renderDealsList();
   };
 
@@ -4108,7 +4410,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     }
     if (!window.allDeals.length) {
       if (window.dealsLoading) {
-        el.innerHTML = `<div class="loading">Načítavam dealy…</div>`;
+        el.innerHTML = skeletonCards();
       } else {
         // Slepá ulička - kto hľadal a nič nenašiel, dostane aspoň
         // možnosť pozrieť ceny inde.
@@ -4319,6 +4621,21 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     return `${day}. ${month}.` + (sameYear ? '' : ` ${year}`);
   }
 
+  // Kostra kariet namiesto prázdna/textu, kým sa prvý raz načítavajú
+  // dáta - menej sa pri objavení obsahu "poskočí" a pôsobí to rýchlejšie.
+  function skeletonCards(pocet = 5) {
+    const karta = `<div class="skel-card">
+      <div class="skel-block skel-img"></div>
+      <div class="skel-lines">
+        <div class="skel-block skel-line w40"></div>
+        <div class="skel-block skel-line w80"></div>
+        <div class="skel-block skel-line w60"></div>
+        <div class="skel-block skel-line w30"></div>
+      </div>
+    </div>`;
+    return `<div class="skel-wrap" aria-hidden="true">${karta.repeat(pocet)}</div>`;
+  }
+
   function dealCard(d) {
     const pct   = discount(d);
     const badge = pct > 0 ? `<span class="price-pct">-${pct}%</span>` : '';
@@ -4369,6 +4686,8 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
         <a href="#" onclick="openComments('${d.id}'); return false;">${icon('message-circle')} ${d.comments||0}</a>
         <a href="#" onclick="shareDeal(${jsArg(d.id)}, ${jsArg(d.title||'')}, ${Number(d.dealPrice)||0}, ${jsArg(d.currency||'€')}); return false;">${icon('share')} <span class="footer-label">Zdieľať</span></a>
         <a href="#" class="save-btn" title="${window.savedDeals.has(d.id) ? 'Uložené - klikni na odstránenie' : 'Uložiť na neskôr'}" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')}</a>
+        ${window.HK_UCET && window.HK_UCET.user && window.HK_UCET.user.uid === d.authorUid
+          ? `<a href="#" onclick="openEditDeal('${d.id}'); return false;">Upraviť</a>` : ''}
         <span class="deal-age">${ageSentence(d)}</span>
         ${authorBadge(d.author)}
       </div>
@@ -4477,6 +4796,22 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     }
   };
 
+  // ── Filtre v URL ──────────────────────────────────────────────────
+  // Kategória, triedenie a "len platné" sa zapisujú do odkazu stránky
+  // (?kat=...&sort=...&platne=1), nie len do pamäte. Vďaka tomu sa dá
+  // presne tá istá kombinácia filtrov poslať ďalej alebo uložiť ako
+  // záložku - bez toho sa pri každej návšteve nastavovala odznova.
+  // "Uložené" (savedOnly) zámerne vynechávame - je to vždy vlastný
+  // výber konkrétneho návštevníka, zdieľaním by dával prázdny zoznam.
+  function syncFiltersToUrl() {
+    const url = new URL(location.href);
+    const p = url.searchParams;
+    if (window.activeCat && window.activeCat !== 'Všetky') p.set('kat', window.activeCat); else p.delete('kat');
+    if (window.activeSort && window.activeSort !== 'new') p.set('sort', window.activeSort); else p.delete('sort');
+    if (window.validOnly) p.set('platne', '1'); else p.delete('platne');
+    history.replaceState(null, '', url.pathname + (p.toString() ? '?' + p.toString() : '') + url.hash);
+  }
+
   window.setCategory = function(cat) {
     window.activeCat = cat;
     if (window.hkUdalost) window.hkUdalost('kategoria');
@@ -4485,6 +4820,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
       // odstrihnutie prveho slova by z "Dom & Záhrada" spravilo "& Záhrada".
       b.classList.toggle('active', b.dataset.cat === cat);
     });
+    syncFiltersToUrl();
     const searchVal = document.getElementById('search-input').value.trim();
     if (searchVal) window.performDealsSearch(); else window.loadDealsPage(true);
   };
@@ -4494,6 +4830,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     if (window.hkUdalost) window.hkUdalost('triedenie_' + sort);
     document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    syncFiltersToUrl();
     const searchVal = document.getElementById('search-input').value.trim();
     if (searchVal) window.performDealsSearch(); else window.loadDealsPage(true);
   };
@@ -5312,6 +5649,58 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   }
   window.ltKlik = (z, kam) => { if (window.trackClick) window.trackClick(`letenky-${z}-${kam}`); };
 
+  // ── Zdieľanie nájdenej letenky ──
+  // Odkaz nesie trasu a presné dátumy (nie index do poľa cien - to sa
+  // mení pri každej aktualizácii dát). Mapa sa pri otvorení odkazu sama
+  // prepne na Letenky a otvorí správnu destináciu. Cena sa môže medzitým
+  // zmeniť - Ryanair ju aktualizuje denne - preto to text zdieľania
+  // zdôrazňuje namiesto toho, aby pôsobil ako záväzná ponuka.
+  window.ltShare = async function(kod, nazov, z, i, j, p) {
+    const url = new URL(location.origin + location.pathname);
+    url.hash = 'letenky';
+    url.searchParams.set('let', `${z}-${kod}`);
+    url.searchParams.set('tam', ltIso(i));
+    if (j != null) url.searchParams.set('spat', ltIso(j));
+    const text = `${LT_ODKIAL[z][1]} → ${nazov} za ${ltCena(p)} (${ltKedyText({ i, j })}) – HenKukaj.sk`;
+    if (navigator.share) {
+      try { await navigator.share({ title: text, url: url.toString() }); } catch (e) { /* zrušené, nič nerobiť */ }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${text}\n${url.toString()}`);
+        showShareToast('Link skopírovaný ✓');
+      } catch (e) {
+        showShareToast('Nepodarilo sa skopírovať link.');
+      }
+    }
+  };
+
+  // Keď niekto otvorí zdieľaný odkaz (?let=Z-KOD&tam=ISO[&spat=ISO]).
+  // Presný termín skúsime nájsť v aktuálnych dátach; ak už nie je
+  // k dispozícii (ceny sa menia denne), otvoríme aspoň tú destináciu
+  // s dnešnou najlacnejšou ponukou a upozorníme, že sa to zmenilo.
+  function ltOtvorZoZdielania() {
+    const p = new URLSearchParams(location.search);
+    const let_ = p.get('let');
+    if (!let_ || !let_.includes('-')) return;
+    const [z, kod] = let_.split('-');
+    const v = ltVysledky.find(x => x.kod === kod && x.moznosti.some(m => m.z === z));
+    if (!v) return;
+    const tamIso = p.get('tam'), spatIso = p.get('spat');
+    let zhoda = null;
+    if (tamIso) {
+      const zaciatok = new Date(ltData.zaciatok + 'T00:00:00Z');
+      const i = Math.round((new Date(tamIso + 'T00:00:00Z') - zaciatok) / 86400000);
+      const j = spatIso ? Math.round((new Date(spatIso + 'T00:00:00Z') - zaciatok) / 86400000) : null;
+      zhoda = v.moznosti.find(m => m.z === z && m.i === i && (j == null ? m.j == null : m.j === j));
+    }
+    if (zhoda) {
+      ltVyber(kod, 'zoznam', zhoda);
+    } else {
+      ltVyber(kod, 'zoznam');
+      showShareToast('Pôvodný termín z odkazu už nie je dostupný - toto je aktuálna najlacnejšia ponuka do tejto destinácie.');
+    }
+  }
+
   function ltKedyText(o) {
     return o.j == null
       ? `${ltDenText(o.i)} · jednosmerne`
@@ -5596,6 +5985,8 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
             ${ltCena(o.p)}<small>${o.j == null ? 'jedným smerom' : 'tam aj späť'}</small></div>
         </div>
         ${ltTlacidlo(o, v.kod)}
+        <button type="button" class="lt-share" onclick="ltShare('${v.kod}', ${jsArg(L_.n)}, '${o.z}', ${o.i}, ${o.j == null ? 'null' : o.j}, ${o.p})">
+          ${icon('share')} Zdieľať túto letenku</button>
         ${dalsie.length ? `<div class="lt-more"><div class="lt-more-lab">Ďalšie termíny</div>${dalsie.map(m =>
           `<a href="${escapeAttr(ltOdkaz(m, v.kod))}" target="_blank" rel="nofollow sponsored noopener" onclick="ltKlik('${m.z}','${v.kod}')">
             <span>${ltKedyText(m)}${viacLetisk ? ` · ${m.z}` : ''}</span><b>${ltCena(m.p)}</b></a>`).join('')}</div>` : ''}
@@ -5603,7 +5994,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     </div>`;
   }
 
-  function ltVyber(kod, odkial) {
+  function ltVyber(kod, odkial, volitelnaPonuka) {
     const v = ltVysledky.find(x => x.kod === kod);
     if (!v) return;
     ltVybrana = kod;
@@ -5616,8 +6007,11 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
       for (const z of new Set(v.moznosti.map(m => m.z))) {
         L.polyline(ltObluk(ltBod(z), ciel), { className: 'lt-arc-sel', interactive: false }).addTo(ltVrstvy.vybrane);
       }
+      // Pri otvorení zo zdieľaného odkazu ukážeme presne ten termín, čo
+      // poslal odosielateľ - nie automaticky najlacnejší zo "v.naj".
+      const naPopup = volitelnaPonuka ? { ...v, naj: volitelnaPonuka } : v;
       const otvor = () => L.popup({ className: 'lt-popup', maxWidth: 300, minWidth: 280, autoPanPadding: [24, 24], offset: [0, -8] })
-        .setLatLng(ciel).setContent(ltPopup(v)).openOn(ltMapa);
+        .setLatLng(ciel).setContent(ltPopup(naPopup)).openOn(ltMapa);
       if (odkial === 'zoznam') {
         ltMapa.flyTo(ciel, Math.max(ltMapa.getZoom(), 4.5), { duration: 0.5 });
         ltMapa.once('moveend', otvor);
@@ -5684,10 +6078,16 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
       `Wizz Air a ďalších dopravcov pripravujeme.`;
   }
 
+  let ltZdielanieVybavene = false;
   window.ltOtvor = async function() {
     const msg = document.getElementById('lt-map-msg');
     try {
       if (!ltData) {
+        // Zdieľaný odkaz môže viesť z letiska, ktoré nie je v predvolenom
+        // filtri (napr. Košice) - bez neho by sa destinácia medzi
+        // výsledkami vôbec neobjavila.
+        const zOdkazu = (new URLSearchParams(location.search).get('let') || '').split('-')[0];
+        if (zOdkazu && LT_ODKIAL[zOdkazu] && !ltF.z.includes(zOdkazu)) ltF.z.push(zOdkazu);
         // no-cache: prehliadač si overí, či nie sú novšie ceny (mení sa denne).
         ltData = await fetch('assets/letenky/ceny.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
         const n = ltData.dni;
@@ -5700,6 +6100,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
       }
       await ltPripravMapu();
       ltKresliMapu(true);
+      if (!ltZdielanieVybavene) { ltZdielanieVybavene = true; ltOtvorZoZdielania(); }
     } catch (e) {
       msg.hidden = false;
       msg.textContent = 'Mapu sa nepodarilo načítať. Skús obnoviť stránku.';
@@ -6632,6 +7033,8 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
            target="_blank" rel="nofollow sponsored noopener"
            onclick="navigator.clipboard && navigator.clipboard.writeText(${jsArg(kod)})"
            title="Skopíruje kód a otvorí obchod">${expired ? 'Do obchodu →' : 'Kopírovať a prejsť →'}</a>
+        ${window.HK_UCET && window.HK_UCET.user && window.HK_UCET.user.uid === c.authorUid
+          ? `<a href="#" class="kd-edit" onclick="openEditCoupon('${c.id}'); return false;">Upraviť</a>` : ''}
       </div>
     </div>`;
   }
@@ -6652,7 +7055,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     };
     document.getElementById('kd-chips').innerHTML = FILTRE.map(([k, t]) =>
       `<button class="kd-chip${filter === k ? ' on' : ''}" onclick="kdFilter('${k}')" ${pocty[k] ? '' : 'disabled'}>${t}${k !== 'top' ? ` <small>${pocty[k]}</small>` : ''}</button>`).join('');
-    if (!vsetky.length) { el.innerHTML = window.couponsLoading ? '<div class="loading">Načítavam zľavové kódy…</div>' : '<div class="empty">Žiadne kódy.</div>'; return; }
+    if (!vsetky.length) { el.innerHTML = window.couponsLoading ? skeletonCards() : '<div class="empty">Žiadne kódy.</div>'; return; }
     const q = (document.getElementById('kd-hladaj').value || '').trim().toLowerCase();
     let zoz = vsetky.filter(c => !q || `${c.code} ${c.store} ${c.discount} ${c.description}`.toLowerCase().includes(q));
     if (filter === 'nove') zoz = zoz.filter(c => cas(c) && (Date.now() - cas(c)) < 7 * 86400000);

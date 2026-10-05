@@ -122,6 +122,28 @@ service cloud.firestore {
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments'])
                         && request.resource.data.comments == resource.data.comments + 1);
 
+      // Autor smie neskôr opraviť vlastný preklep alebo zastaralú cenu -
+      // nie však stav, hlasy, komentáre ani cudzie authorUid. Funguje len
+      // pre dealy, ktoré majú authorUid (anonymné príspevky sa takto
+      // upraviť nedajú - nemajú sa s kým stotožniť).
+      allow update: if request.auth != null
+                    && 'authorUid' in resource.data
+                    && resource.data.authorUid == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['title', 'store', 'category', 'dealPrice', 'originalPrice', 'url', 'description', 'discountPercent'])
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() > 0
+                    && request.resource.data.title.size() < 200
+                    && request.resource.data.store is string
+                    && request.resource.data.store.size() <= 60
+                    && request.resource.data.dealPrice is number
+                    && request.resource.data.dealPrice >= 0
+                    && request.resource.data.url is string
+                    && request.resource.data.url.matches('^https?://[^ ]+$')
+                    && request.resource.data.url.size() <= 1500
+                    && (!('description' in request.resource.data)
+                        || (request.resource.data.description is string && request.resource.data.description.size() <= 2000));
+
       allow delete: if isAdmin();
 
       // Kto už hlasoval a ako. Návštevník smie čítať len svoj vlastný
@@ -172,13 +194,28 @@ service cloud.firestore {
                     && request.resource.data.store is string
                     && request.resource.data.discount is string
                     && request.resource.data.url is string
-                    && request.resource.data.votes == 0;
+                    && request.resource.data.votes == 0
+                    && (!('authorUid' in request.resource.data)
+                        || (request.auth != null && request.resource.data.authorUid == request.auth.uid));
 
       allow update: if isModerator()
                     || (request.auth != null
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
                         && request.resource.data.votes >= resource.data.votes - 2
-                        && request.resource.data.votes <= resource.data.votes + 2);
+                        && request.resource.data.votes <= resource.data.votes + 2)
+                    // Autor smie neskôr opraviť vlastný kód/odkaz - funguje len
+                    // pre kódy pridané po zavedení authorUid (staršie ho nemajú).
+                    || (request.auth != null
+                        && 'authorUid' in resource.data
+                        && resource.data.authorUid == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['code', 'store', 'discount', 'url', 'expiryDate', 'expiryISO', 'description'])
+                        && request.resource.data.code is string
+                        && request.resource.data.code.size() > 0
+                        && request.resource.data.code.size() < 40
+                        && request.resource.data.store is string
+                        && request.resource.data.discount is string
+                        && request.resource.data.url is string);
 
       allow delete: if isAdmin();
 
