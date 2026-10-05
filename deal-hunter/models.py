@@ -35,12 +35,20 @@ VALID_CATEGORIES = [
 
 # Kľúčové slová -> kategória. Poradie rozhoduje: prvá zhoda vyhráva,
 # preto sú špecifickejšie kategórie hore.
+#
+# POZOR NA KRÁTKE A VIACVÝZNAMOVÉ SLOVÁ
+# "tablet" je aj tableta do umývačky aj liek na cmúľanie, "mobil" býva vo
+# vrecku na nohaviciach. Kým boli tieto slová medzi elektronikou hore,
+# dostával sa do nej zinok, prací gél aj dámske nohavice - a skutočná
+# elektronika sa v tom stratila. Preto sú nižšie v _SLABE_KLUCE, ktoré
+# sa skúšajú až keď nesedí nič iné.
 _CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     ("Elektronika", (
-        "notebook", "laptop", "mobil", "smartfon", "telefon", "televizor",
-        "monitor", "sluchadl", "reproduktor", "tablet", "fotoaparat",
-        "smartwatch", "konzola", "playstation", "xbox", "ssd", "usb",
-        "router", "tlaciaren", "klavesnic", "powerbank", "nabijac", "herna",
+        "notebook", "laptop", "smartfon", "televizor", "smartwatch",
+        "sluchadl", "reproduktor", "fotoaparat", "playstation", "xbox",
+        "konzola", "powerbank", "tlaciaren", "klavesnic", "router",
+        "iphone", "ipad", "macbook", "airpods", "projektor", "mikrofon",
+        "pevny disk", "graficka karta", "procesor",
     )),
     ("Jedlo & Nápoje", (
         "cokolad", "kava", "pivo", "vino", "syr", "maso", "bravcov",
@@ -54,6 +62,8 @@ _CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
         "ryba", "losos", "tuniak", "saláma", "parky", "spekacky", "tvaroh",
     )),
     ("Dom & Záhrada", (
+        "praci gel", "pracie", "praci prasok", "aviváz", "avivaz",
+        "cistiac", "do umyvacky", "tablety do umyvacky", "saponat",
         "sedacia", "gauc", "postel", "matrac", "stolicka", "skrin",
         "kuchyn", "hrniec", "panvic", "vysavac", "prack", "chladnick", "rura",
         "mikrovln", "kosacka", "gril", "zahrad", "naradie", "vrtacka",
@@ -79,6 +89,20 @@ _CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     )),
 ]
 
+# Slová, ktoré elektroniku označujú spoľahlivo len vtedy, keď na produkt
+# nesedí žiadna iná kategória. Skúšajú sa až úplne nakoniec.
+_SLABE_KLUCE: tuple[str, ...] = (
+    "mobil", "telefon", "tablet", "monitor", "nabijac", "nabijacka",
+    "ssd", "usb", "hdmi", "bluetooth", "wifi", "herna",
+)
+
+# Čo medzi elektroniku nepatrí, aj keď sa tam niektoré zo slabých slov
+# vyskytne. Zinok "tablety na cmúľanie" je doplnok stravy, nie tablet.
+_NIE_ELEKTRONIKA: tuple[str, ...] = (
+    "cmulan", "doplnok stravy", "vitamin", "kapsul", "tablety na",
+    "gelove tablety", "vrecko na", "puzdro", "obal na",
+)
+
 
 def _strip_diacritics(text: str) -> str:
     """'Bravčové karé' -> 'bravcove kare' — aby kľúčové slová sedeli bez ohľadu na diakritiku."""
@@ -96,6 +120,12 @@ def guess_category(title: str, hint: Optional[str] = None) -> str:
         for keyword in keywords:
             if _strip_diacritics(keyword) in haystack:
                 return category
+
+    # Slabé slová až nakoniec a len keď nič nenasvedčuje opaku.
+    if not any(z in haystack for z in _NIE_ELEKTRONIKA):
+        for keyword in _SLABE_KLUCE:
+            if _strip_diacritics(keyword) in haystack:
+                return "Elektronika"
     return "Iné"
 
 
