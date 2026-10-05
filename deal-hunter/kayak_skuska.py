@@ -80,7 +80,10 @@ def main() -> int:
 
     logger.info("--- Calendar: Bratislava -> London, %s ---", mesiac)
     try:
-        data = kayak.calendar(odkial, kam, mesiac, mesiac, currency="EUR")
+        # Mena nie je pole v tele - "Unrecognized field currency". Sandbox
+        # beží na sandbox-en-us, takže vracia doláre; mena sa zrejme
+        # odvodzuje od domény. Treba overiť pred ostrou prevádzkou.
+        data = kayak.calendar(odkial, kam, mesiac, mesiac)
         vysledky = (data or {}).get("results") or []
         logger.info("Výsledkov: %d", len(vysledky))
         if vysledky:
