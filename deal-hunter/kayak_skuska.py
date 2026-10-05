@@ -1,116 +1,101 @@
 """
-Overí, že sandboxový kľúč Kayaku funguje, a ohmatá cesty k ďalším API.
+Overí sandbox Kayaku: kľúč, vyhľadanie miesta a obe Price Insights volania.
 
-Dokumentácia je za prihlásením, takže cesty okrem autocomplete nepoznáme
-a skúšame tie najpravdepodobnejšie. Je to sandbox - testovacie prostredie
-presne na toto - ale aj tak voláme striedmo, s pauzou medzi pokusmi.
+Sandbox vracia vymyslené ceny - ide len o to, či integrácia drží tvar.
+Na stránku sa z neho nesmie dostať nič.
 
 Spustenie: python kayak_skuska.py
 """
 import json
 import logging
-import os
 import sys
-import time
 import urllib.error
+from datetime import date
 
 import kayak
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("kayak")
 
-# Čo chceme nájsť: "najlacnejšie ceny, aké naposledy videli cestujúci".
-# Tvar ciest odhadujeme podľa jedinej známej (autocomplete/v1/flights).
-KANDIDATI = [
-    "/api/affiliate/price-insights/v1/flights",
-    "/api/affiliate/priceinsights/v1/flights",
-    "/api/affiliate/insights/v1/flights",
-    "/api/affiliate/prices/v1/flights",
-    "/api/affiliate/flights/v1/price-insights",
-    "/api/affiliate/flights/v1/priceinsights",
-    "/api/affiliate/flights/v1/prices",
-    "/api/affiliate/flights/v1/search",
-    "/api/affiliate/hotels/v1/search",
-]
 
-PARAMETRE = {"origin": "BTS", "destination": "LON", "currency": "EUR"}
-
-
-def ukazka(data, znakov=600):
-    return json.dumps(data, ensure_ascii=False)[:znakov]
-
-
-def telo_chyby(e) -> str:
-    """Text chybovej odpovede. Server v ňom býva povie, čo mu chýba."""
+def chyba(e) -> str:
     try:
         t = e.read().decode("utf-8", "replace")[:300]
     except Exception:
         return ""
-    # Kľúč by sa v odpovedi objaviť nemal, ale radšej ho zamažeme.
     return t.replace(kayak.KLUC, "***") if kayak.KLUC else t
 
 
-def ohmataj() -> int:
-    """Vypíše, čo server odpovedá na rôzne názvy parametra s kľúčom."""
-    import urllib.parse, urllib.request
-    nazvy = ["apikey", "apiKey", "api_key", "key", "affiliateKey", "affiliate_key"]
-    hladane = ["searchTerm", "term", "query", "search"]
-    logger.info("--- Názov parametra s kľúčom ---")
-    for n in nazvy:
-        for h in hladane[:1]:
-            url = (kayak.ZAKLAD + kayak.AUTOCOMPLETE + "?" +
-                   urllib.parse.urlencode({n: kayak.KLUC, h: "Bratislava"}))
-            try:
-                with urllib.request.urlopen(urllib.request.Request(
-                        url, headers={"Accept": "application/json",
-                                      "User-Agent": "henkukaj.sk/1.0"}), timeout=20) as o:
-                    logger.info("%-14s OK — %s", n, o.read().decode("utf-8")[:400])
-                    return 0
-            except urllib.error.HTTPError as e:
-                logger.info("%-14s HTTP %s — %s", n, e.code, telo_chyby(e))
-            except Exception as e:
-                logger.info("%-14s %s", n, type(e).__name__)
-            time.sleep(1)
-    return 1
-
-
 def main() -> int:
-    logger.info("=== Kayak sandbox — skúška kľúča ===")
-    if os.environ.get("OHMATAJ"):
-        return ohmataj()
+    logger.info("=== Kayak sandbox ===")
     try:
-        hlavicky, parametre = kayak.najdi_sposob()
+        kayak.najdi_sposob()
     except kayak.KayakChyba as e:
         logger.error("%s", e)
         return 1
-    logger.info("Kľúč prijatý. Posiela sa cez: %s",
-                ", ".join(list(hlavicky) + list(parametre)) or "nič?")
 
-    logger.info("--- Autocomplete (jediná istá cesta) ---")
-    try:
-        data = kayak.zavolaj(kayak.AUTOCOMPLETE, searchTerm="Bratislava")
-        logger.info("Odpoveď: %s", ukazka(data))
-    except Exception as e:
-        logger.warning("Autocomplete zlyhalo: %s", e)
-
-    logger.info("--- Hľadám Price Insights ---")
-    for cesta in KANDIDATI:
+    logger.info("--- Miesta ---")
+    miesta = {}
+    for nazov in ("Bratislava", "London", "Barcelona"):
         try:
-            data = kayak.zavolaj(cesta, **PARAMETRE)
-        except urllib.error.HTTPError as e:
-            logger.info("%-46s HTTP %s %s", cesta, e.code, telo_chyby(e)[:160])
-            time.sleep(1)
-            continue
+            m = kayak.miesto(nazov)
         except Exception as e:
-            logger.info("%-46s %s", cesta, type(e).__name__)
-            time.sleep(1)
+            logger.warning("%s: %s", nazov, e)
             continue
-        logger.info("%-46s OK", cesta)
-        logger.info("Odpoveď: %s", ukazka(data, 1500))
-        return 0
+        if not m:
+            logger.warning("%s: nič sa nenašlo", nazov)
+            continue
+        miesta[nazov] = m
+        logger.info("%-12s placeId %-8s %s (%s)", nazov, m.get("placeId"),
+                    m.get("name"), m.get("iataCode"))
 
-    logger.info("Ani jedna z odhadovaných ciest nesedela — presnú cestu")
-    logger.info("treba odpísať z dokumentácie po prihlásení.")
+    if "Bratislava" not in miesta or "London" not in miesta:
+        logger.error("Bez placeId sa ďalej nedá.")
+        return 1
+    odkial, kam = miesta["Bratislava"]["placeId"], miesta["London"]["placeId"]
+
+    buduci = date.today().replace(day=1)
+    buduci = buduci.replace(year=buduci.year + (buduci.month == 12),
+                            month=buduci.month % 12 + 1)
+    mesiac = buduci.strftime("%Y-%m")
+
+    logger.info("--- Routes: Bratislava -> London, %s ---", mesiac)
+    try:
+        data = kayak.routes(odkial, kam, dates={"departureDate": buduci.isoformat()})
+        vysledky = (data or {}).get("results") or []
+        logger.info("Výsledkov: %d", len(vysledky))
+        for r in vysledky[:3]:
+            noha = r.get("outboundLeg") or {}
+            cena = r.get("price") or {}
+            logger.info("  %s-%s  %s  %s %s  %s prestup(ov)",
+                        noha.get("origin"), noha.get("destination"),
+                        (noha.get("departureDateTime") or "")[:10],
+                        cena.get("price"), cena.get("currency"), noha.get("stops"))
+        if vysledky:
+            logger.info("  odkaz: %s", (vysledky[0].get("deeplinkUrl") or "")[:120])
+    except urllib.error.HTTPError as e:
+        logger.error("routes: HTTP %s %s", e.code, chyba(e))
+    except Exception as e:
+        logger.error("routes: %s", e)
+
+    logger.info("--- Calendar: Bratislava -> London, %s ---", mesiac)
+    try:
+        data = kayak.calendar(odkial, kam, mesiac, mesiac)
+        vysledky = (data or {}).get("results") or []
+        logger.info("Výsledkov: %d", len(vysledky))
+        for r in vysledky[:5]:
+            noha = r.get("outboundLeg") or {}
+            spat = (r.get("inboundLegs") or [{}])[0]
+            cena = spat.get("price") or r.get("price") or {}
+            logger.info("  %s  %s-%s  %s %s%s", noha.get("departureDate"),
+                        noha.get("origin"), noha.get("destination"),
+                        cena.get("price"), cena.get("currency"),
+                        "  (predpoveď)" if r.get("predicted") else "")
+    except urllib.error.HTTPError as e:
+        logger.error("calendar: HTTP %s %s", e.code, chyba(e))
+    except Exception as e:
+        logger.error("calendar: %s", e)
+
     return 0
 
 

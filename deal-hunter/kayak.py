@@ -22,9 +22,11 @@ dokumentácia je za prihlásením.
 """
 from __future__ import annotations
 
+import http.cookiejar
 import json
 import logging
 import os
+import uuid
 import time
 import urllib.error
 import urllib.parse
@@ -35,8 +37,10 @@ logger = logging.getLogger(__name__)
 ZAKLAD = os.environ.get("KAYAK_API_BASE", "https://sandbox-en-us.kayakaffiliates.com")
 KLUC = os.environ.get("KAYAK_API_KEY", "")
 
-# Jediná cesta, ktorú poznáme isto - je vo verejnom kóde ich stránky.
 AUTOCOMPLETE = "/api/affiliate/autocomplete/v1/flights"
+# Pozor na predponu "/i/" - autocomplete ju nemá, Price Insights áno.
+ROUTES = "/i/api/affiliate/priceInsights/flights/v1/routes"
+CALENDAR = "/i/api/affiliate/priceInsights/flights/v1/calendar"
 
 # Kľúč sa posiela ako parameter "apiKey" - overené na sandboxe 5. 10.
 # 2026. Pozor na veľké K: "apikey" malým vráti INVALID_API_KEY, čo zvádza
@@ -49,21 +53,60 @@ SPOSOBY = [
 
 _FUNKCNY: tuple[dict, dict] | None = None
 
+# Server vracia "cluster cookie" - ktoré dátové centrum má ďalšie volania
+# obslúžiť. Bez jej vrátenia by nás pri každej žiadosti presmerovával inam.
+_SUSIENKY = http.cookiejar.CookieJar()
+_OTVARAC = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(_SUSIENKY))
+
+# Kayak chce vedieť, za koho sa pýtame. U nás sa ceny sťahujú raz denne
+# dávkovo, nie pri návšteve človeka, takže žiadny návštevník neexistuje -
+# posielame identifikátor behu. Pred ostrou prevádzkou to treba s nimi
+# vyjasniť: ich dokumentácia s týmto použitím zjavne nepočíta.
+USER_TRACK_ID = os.environ.get("KAYAK_USER_TRACK_ID") or ("henkukaj-" + uuid.uuid4().hex[:16])
+
+
+def _moja_ip() -> str:
+    """
+    Verejná adresa, z ktorej voláme.
+
+    Kayak chce hlavičku x-original-client-ip a upozorňuje, že nesprávne
+    údaje skresľujú ich merania. Vymýšľať si adresu návštevníka by bolo
+    nepoctivé, tak posielame tú svoju - žiadosť naozaj ide odtiaľto.
+    """
+    global _IP
+    if _IP:
+        return _IP
+    try:
+        with urllib.request.urlopen("https://api.ipify.org", timeout=10) as o:
+            _IP = o.read().decode().strip()
+    except Exception:
+        _IP = "0.0.0.0"
+    return _IP
+
+
+_IP = ""
+
 
 class KayakChyba(Exception):
     pass
 
 
-def _volaj(cesta: str, parametre: dict, hlavicky: dict, timeout: int = 20):
+def _volaj(cesta: str, parametre: dict, hlavicky: dict, telo: dict | None = None,
+           timeout: int = 30):
     url = ZAKLAD + cesta
     if parametre:
         url += "?" + urllib.parse.urlencode(parametre)
-    ziadost = urllib.request.Request(url, headers={
+    data = json.dumps(telo).encode("utf-8") if telo is not None else None
+    vsetky = {
         "Accept": "application/json",
         "User-Agent": "henkukaj.sk/1.0 (+https://henkukaj.sk)",
+        "x-original-client-ip": _moja_ip(),
         **hlavicky,
-    })
-    with urllib.request.urlopen(ziadost, timeout=timeout) as odpoved:
+    }
+    if data is not None:
+        vsetky["Content-Type"] = "application/json"
+    ziadost = urllib.request.Request(url, data=data, headers=vsetky)
+    with _OTVARAC.open(ziadost, timeout=timeout) as odpoved:
         return json.loads(odpoved.read().decode("utf-8"))
 
 
@@ -104,3 +147,40 @@ def najdi_sposob(logovat: bool = True) -> tuple[dict, dict]:
 def zavolaj(cesta: str, **parametre):
     hlavicky, zakladne = najdi_sposob(logovat=False)
     return _volaj(cesta, {**zakladne, **parametre}, hlavicky)
+
+
+def _posli(cesta: str, telo: dict):
+    hlavicky, zakladne = najdi_sposob(logovat=False)
+    return _volaj(cesta, {**zakladne, "userTrackId": USER_TRACK_ID}, hlavicky, telo=telo)
+
+
+def miesto(nazov: str) -> dict | None:
+    """Názov mesta alebo letiska -> záznam s placeId. Prvý letiskový výsledok."""
+    data = zavolaj(AUTOCOMPLETE, searchTerm=nazov)
+    vysledky = (data or {}).get("results") or []
+    for r in vysledky:
+        if r.get("primaryPlaceType") == "airport":
+            return r
+    return vysledky[0] if vysledky else None
+
+
+def routes(origin_id: int, destination_id: int | None = None, **dalsie):
+    """Najlacnejšia cena na každú trasu v danom období."""
+    telo: dict = {"origin": {"placeId": origin_id}}
+    if destination_id:
+        telo["destination"] = {"placeId": destination_id}
+    telo.update(dalsie)
+    return _posli(ROUTES, telo)
+
+
+def calendar(origin_id: int, destination_id: int, od: str, do: str, **dalsie):
+    """
+    Najlacnejšia cena na každý deň v období. `od`/`do` sú "RRRR-MM".
+
+    Toto je to, čo potrebuje naša letenková mapa - na rozdiel od `routes`
+    vráti cenu na každý deň, nie jednu najnižšiu za celé obdobie.
+    """
+    telo = {"origin": {"placeId": origin_id}, "destination": {"placeId": destination_id},
+            "dateFrom": od, "dateTo": do}
+    telo.update(dalsie)
+    return _posli(CALENDAR, telo)
