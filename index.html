@@ -1778,20 +1778,17 @@
   .cat-nav button.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 700; }
 
   /* ── Sidebar (now used for promo/info) ─────────────────────────────────── */
-  /* Hľadanie drží vrch pravého stĺpca a pod ním dorovnáva medzera
-     prvú kartu so zoznamom vľavo.
-     PREČO JE POĽE NIŽŠIE A VYŠŠIE NEŽ RIADOK TRIEDENIA
-     Medzi spodkom hlavičky a prvou kartou je asi 40 px. Pole vysoké
-     44 px aj s medzerou sa tam nezmestí, medzera by vyšla záporná a
-     karta "Najhorúcejšie dealy" končila o 20 px nižšie než prvý deal.
-     Nižšie pole (36 px) a posun o 8 px nahor uvoľnia presne toľko,
-     aby stĺpce sedeli a pod poľom ostalo 12 px. */
-  .deals-search.sidebar-search { width: 100%; flex: none; height: 36px; margin: -8px 0 0; }
-  .sidebar-spacer { margin: 0 0 6px; height: 33px; }
-  /* Na užšej obrazovke je stĺpec pod zoznamom - tam niet čo zarovnávať
-     a posun nahor by pole prilepil k poslednému dealu. */
+  /* Hľadanie stojí v jednom riadku s triedením: rovnaká výška a vrch
+     ako tlačidlo "Uložené" (34 px). Medzera pod ním dorovnáva kartu
+     "Najhorúcejšie dealy" s prvým dealom vľavo - medzi riadkom triedenia
+     a prvou kartou je len ~6 px, preto spacer nemá vlastné okraje a
+     celú medzeru dopočítava skript (zarovnajStlpce). */
+  .deals-search.sidebar-search { width: 100%; flex: none; height: 34px; margin: 0; }
+  .sidebar-spacer { margin: 0; height: 6px; }
+  /* Na užšej obrazovke skript presunie pole nad zoznam (hkUmiestni) -
+     tam je samo v riadku a pre prst ho necháme vyššie. */
   @media (max-width: 1000px) {
-    .deals-search.sidebar-search { height: 44px; margin: 0 0 14px; }
+    .deals-search.sidebar-search { height: 44px; margin: 0; }
   }
   @media (max-width: 720px) { .sidebar-spacer { display: none; } }
   .sidebar h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em;
