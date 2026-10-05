@@ -5,6 +5,11 @@ name: Kayak sandbox - skuska
 
 on:
   workflow_dispatch:
+    inputs:
+      ohmataj:
+        description: "Skusat nazvy parametra s klucom"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,3 +30,4 @@ jobs:
         run: python kayak_skuska.py
         env:
           KAYAK_API_KEY: ${{ secrets.KAYAK_API_KEY }}
+          OHMATAJ: ${{ inputs.ohmataj && '1' || '' }}
