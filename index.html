@@ -90,9 +90,9 @@
   // Odpoveď čítame cez rozhranie __tcfapi, ktoré tá platforma vystavuje.
   window.hasAnalyticsConsent = function() { return analyticsAllowed === true; };
 
-  // Súhlas s reklamou (účely 1 a 7). Náhradná lišta o ňom nerozhoduje -
-  // pýta sa len na meranie návštevnosti - takže bez platformy Googlu
-  // zostáva false a reklamné skripty sa nenačítajú.
+  // Súhlas s ponukami partnerov (box Heureky). Dáva ho platforma Googlu
+  // (účely 1 a 7), a kým web nie je v AdSense schválený a jej lišta sa
+  // neukazuje, naša náhradná lišta. AdSense sa ním neriadi.
   window.hkReklamaSuhlas = false;
   function nastavSuhlasReklama(ano) {
     if (window.hkReklamaSuhlas === ano) return;
@@ -119,19 +119,32 @@
   // odpoveď má prednosť a táto lišta sa neukáže. Dve naraz nebudú nikdy.
   let cmpOdpovedal = false;
 
+  // Lišta sa pýta na dve veci naraz: naše meranie návštevnosti a ponuky
+  // partnerov (box Heureky, ktorého skript počíta zobrazenia). AdSense
+  // sem nepatrí - ten si súhlas pýta výhradne cez platformu Googlu.
+  //
+  // Voľba je pod kľúčom "hk_suhlas". Starší kľúč "hk_meranie" platil len
+  // pre meranie: tú časť použijeme, ale na partnerov sa ešte spýtame -
+  // súhlas s niečím, na čo sa lišta vtedy nepýtala, by nebol súhlasom.
   function nahradnaLista() {
     if (cmpOdpovedal || document.getElementById('hk-meranie')) return;
-    let volba = null;
-    try { volba = localStorage.getItem('hk_meranie'); } catch (e) {}
-    if (volba === 'ano' || volba === 'nie') { applyConsent(volba === 'ano'); return; }
+    let volba = null, stara = null;
+    try { volba = localStorage.getItem('hk_suhlas'); stara = localStorage.getItem('hk_meranie'); } catch (e) {}
+    if (volba === 'ano' || volba === 'nie') {
+      applyConsent(volba === 'ano');
+      nastavSuhlasReklama(volba === 'ano');
+      return;
+    }
+    if (stara === 'ano' || stara === 'nie') applyConsent(stara === 'ano');
 
     const l = document.createElement('div');
     l.id = 'hk-meranie';
     l.setAttribute('role', 'dialog');
-    l.setAttribute('aria-label', 'Súhlas s meraním návštevnosti');
+    l.setAttribute('aria-label', 'Súhlas s meraním návštevnosti a ponukami partnerov');
     l.innerHTML = `
-      <p>Smieme merať návštevnosť? Pomôže nám zistiť, čo ľudí zaujíma.
-         <a href="/ochrana-udajov.html">Podrobnosti</a></p>
+      <p>Smieme merať návštevnosť a ukazovať ponuky partnerov (napr. Heureka)?
+         Pomôže nám to udržať stránku zadarmo.
+         <a href="/ochrana-udajov.html#suhlas">Podrobnosti</a></p>
       <div class="hk-meranie-tl">
         <button type="button" data-v="nie">Odmietnuť</button>
         <button type="button" data-v="ano">Povoliť</button>
@@ -139,9 +152,10 @@
     l.addEventListener('click', e => {
       const v = e.target.dataset && e.target.dataset.v;
       if (!v) return;
-      try { localStorage.setItem('hk_meranie', v); } catch (err) {}
+      try { localStorage.setItem('hk_suhlas', v); localStorage.setItem('hk_meranie', v); } catch (err) {}
       l.remove();
       applyConsent(v === 'ano');
+      nastavSuhlasReklama(v === 'ano');
     });
     document.body.appendChild(l);
   }
@@ -150,11 +164,14 @@
   // zverejnení správy v AdSense), otvorí jej okno na zmenu súhlasu;
   // inak znova ukáže našu lištu o meraní návštevnosti.
   window.zmenitSuhlas = function() {
-    if (window.googlefc && window.googlefc.callbackQueue && typeof window.googlefc.showRevocationMessage === 'function') {
+    // Lištu Googlu len keď naozaj beží. Jej skript je na stránke aj vtedy,
+    // keď je správa neaktívna (web ešte nie je v AdSense schválený) - a
+    // vtedy by klik neurobil nič.
+    if (cmpOdpovedal && window.googlefc && window.googlefc.callbackQueue && typeof window.googlefc.showRevocationMessage === 'function') {
       window.googlefc.callbackQueue.push(window.googlefc.showRevocationMessage);
       return;
     }
-    try { localStorage.removeItem('hk_meranie'); } catch (e) {}
+    try { localStorage.removeItem('hk_suhlas'); localStorage.removeItem('hk_meranie'); } catch (e) {}
     cmpOdpovedal = false;
     nahradnaLista();
   };
