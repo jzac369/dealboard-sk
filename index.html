@@ -2272,6 +2272,18 @@
 
   /* Box Heureky - vzhľadom ako "Najhorúcejšie dealy", aby nepôsobil
      ako cudzí banner. Štítok "Reklama" ako pri ostatných reklamách. */
+  /* Zoznam dealov vpísaný do HTML pre vyhľadávače. Návštevník ho vidí
+     len kým sa nenačítajú živé dealy, preto strohý, ale čitateľný. */
+  #seo-dealy h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  .seo-deal { background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+    padding: 12px 14px; margin-bottom: 8px; }
+  .seo-deal h3 { font-size: .95rem; margin: 0 0 3px; }
+  .seo-deal h3 a { color: var(--ink); text-decoration: none; }
+  .seo-deal h3 a:hover { color: var(--orange-dk); }
+  .seo-deal-m { font-size: .85rem; color: var(--muted); margin: 0; }
+  .seo-deal-m strong { color: var(--green); }
+  .seo-deal p { font-size: .82rem; color: var(--muted); margin: 4px 0 0; }
+
   .hk-box { margin: 0 0 16px; }
   /* Miesto v zozname dealov - používa sa len na mobile, inak je box
      v pravom stĺpci. Kým je prázdne, nezaberá nič. */
@@ -3470,7 +3482,42 @@ body.food-page { background: #FAF8F5; }
       aby sa dealy ukladali a synchronizovali v reálnom čase.
     </div>
     <div class="deals-list" id="deals-list">
-      <div class="loading">Načítavam dealy…</div>
+      <!-- Sem generate_deal_pages.py vpíše najnovšie dealy ako obyčajný
+           HTML text. Robot Googlu nečaká na dáta z databázy - bez toho
+           videl len "Načítavam dealy…" a žiadny produkt ani cenu.
+           Návštevníkovi sa tento blok ukáže ako prvý a vzápätí ho
+           renderDealsList() nahradí živou verziou s hlasovaním.
+           Značky nemazať, skript podľa nich blok vymieňa. -->
+      <!-- SEO-DEALY-ZACIATOK -->
+<div id="seo-dealy">
+<h2>Najnovšie zľavy a akcie</h2>
+<article class="seo-deal"><h3><a href="/deal/bratislava-bari-8-dni-v-oktobri-2026-spiatocne-za-32-98-1r7u57G60KhM72it4wRd/">Bratislava → Bari, 8 dní v októbri 2026 — spiatočne za 32,98 €</a></h3><p class="seo-deal-m">Ryanair · <strong>32,98 €</strong> <s>86,98 €</s> <b>−62 %</b></p><p>Spiatočná letenka Bratislava → Bari (Italy). Odlet 13.10.2026, návrat 21.10.2026 — 8 dní na mieste. Cena je za oba smery (16.99 € tam, 15.99 € späť), batožina p</p></article>
+<article class="seo-deal"><h3><a href="/deal/parkside-led-reflektor-s-powerbankou-3Vr8RDiBQ7aOILgQVit8/">PARKSIDE® LED reflektor s powerbankou</a></h3><p class="seo-deal-m">Lidl · <strong>12,99 €</strong> <s>21,99 €</s> <b>−41 %</b></p><p>Kompaktný dizajn so sklápacím systémom na úsporu miesta Integrovaný Li-Ion akumulátor s funkciou powerbanky 1 400 mAh 2 USB porty, vrátane USB-C nabíjacieho káb</p></article>
+<article class="seo-deal"><h3><a href="/deal/old-spice-whitewater-50ml-dezodorant-VXlpxjIIlbDdSdBzPAy8/">Old Spice Whitewater 50ml dezodorant</a></h3><p class="seo-deal-m">Allegro · <strong>2,40 €</strong></p><p>Cena tohto dezodorantu sa bezne pohybuje v maloobchodnej sieti 3-4 eur.</p></article>
+<article class="seo-deal"><h3><a href="/deal/acer-lcd-ek241yp0bi-23-8-9uzvzH7vDFhj7YZd3kBi/">ACER LCD EK241YP0BI,23.8</a></h3><p class="seo-deal-m">EKO TONER s.r.o · <strong>69,48 €</strong></p><p>ACER LCD EK241YP0BI,23.8</p></article>
+<article class="seo-deal"><h3><a href="/deal/discovereu-bezplatny-vlakovy-pas-po-europe-pre-18-rocnych-pr-UhfyKR2XT9SBPrF8xoI7/">DiscoverEU: bezplatný vlakový pas po Európe pre 18-ročných – prihlášky do 15. 10.</a></h3><p class="seo-deal-m">Európska komisia<strong></strong></p><p>Európska únia opäť rozdáva bezplatné cestovné pasy DiscoverEU. Ak máš 18 rokov (narodil si sa v roku 2008), môžeš získať pas na cestovanie po Európe – hlavne vl</p></article>
+<article class="seo-deal"><h3><a href="/deal/bratislava-gdansk-2-dni-v-oktobri-2026-spiatocne-za-29-98-17zx8E2wRMcoLZM9nwZ5/">Bratislava → Gdansk, 2 dni v októbri 2026 — spiatočne za 29,98 €</a></h3><p class="seo-deal-m">Ryanair · <strong>29,98 €</strong> <s>33,98 €</s> <b>−12 %</b></p><p>Spiatočná letenka Bratislava → Gdansk (Poland). Odlet 20.10.2026, návrat 22.10.2026 — 2 dni na mieste. Cena je za oba smery (14.99 € tam, 14.99 € späť), batožin</p></article>
+<article class="seo-deal"><h3><a href="/deal/silvercrest-stroj-na-vyrobu-cestovin-whMUAT5KPhCcUVYMujNl/">SILVERCREST® Stroj na výrobu cestovín</a></h3><p class="seo-deal-m">Lidl · <strong>19,99 €</strong> <s>29,99 €</s> <b>−33 %</b></p><p>Materiál Nehrdzavejúca oceľ, hliník; plast Rozmery bez kľuky a skrutkovej svorky cca d 21 x š 20 x v 15,5 cm cca 1,79 kg Valce 3 valce na špagety; uccine, lasag</p></article>
+<article class="seo-deal"><h3><a href="/deal/bratislava-praha-vlakom-od-4-50-jednosmerne-4-6-12-2026-wr9hzCB6M1bv5mgCpReV/">Bratislava → Praha vlakom od 4,50 € jednosmerne (4.–6.12.2026)</a></h3><p class="seo-deal-m">Leo Express · <strong>4,50 €</strong></p><p>Víkend v Prahe s Leo Expressom. Piatok 4. 12. alebo sobota 5. 12. 2026: Bratislava hl. st. 13:05 → Praha hl. n. 18:55 za 4,50 € na osobu a jeden smer (Economy P</p></article>
+<article class="seo-deal"><h3><a href="/deal/tambu-tunelovy-stan-2-osoby-natuna-2-0-zx7aVhu0yeloKUkLUlNz/">TAMBU Tunelový stan, 2 osoby. (natuna 2.0)</a></h3><p class="seo-deal-m">Lidl · <strong>99,99 €</strong> <s>149,00 €</s> <b>−33 %</b></p><p>Počet osôb 2 Vodný stĺpec vonkajšieho stanu 3000 mm Vodný stĺpec podlahy 5000 mm Materiál vonkajšieho stanu Ripstop polyester so silikónovým záterom Materiál vn</p></article>
+<article class="seo-deal"><h3><a href="/deal/lipo-6-black-120-kaps-nutrex-bez-prichute-61JLJOpNpd51QQuYHFjA/">Lipo 6 Black 120 kaps - Nutrex bez príchute</a></h3><p class="seo-deal-m">GymBeam · <strong>18,95 €</strong> <s>49,95 €</s> <b>−62 %</b></p><p>Lipo 6 Black je nabitý spaľovač tuku, v ktorom nájdete veľké množstvo funkčných látok. Medzi ne patrí napríklad extrakt zo zeleného čaju, kakaovník pravý či N-A</p></article>
+<article class="seo-deal"><h3><a href="/deal/strix-damska-mikina-so-zipsom-nova-moon-grey-ss-NAMweqPvc4j5TcUowTL6/">STRIX Dámska mikina so zipsom Nova Moon Grey  SS</a></h3><p class="seo-deal-m">GymBeam · <strong>16,40 €</strong> <s>45,95 €</s> <b>−64 %</b></p><p>Dámska mikina so zipsom Nova vyniká prepracovaným prevedením, ktoré si zamilujú aj tí najnáročnejší z vás. Je vyrobená pomocou najmodernejších technológií z kom</p></article>
+<article class="seo-deal"><h3><a href="/deal/crivit-detske-makke-kolieskove-korcule-tmavosiva-oranzova-29-1cmgHrDkZUQqvpSUZH6s/">CRIVIT Detské mäkké kolieskové korčule (tmavosivá/oranžová, 29/33)</a></h3><p class="seo-deal-m">Lidl · <strong>16,99 €</strong> <s>29,99 €</s> <b>−43 %</b></p><p>Vhodné pre Deti Druh korčúľ Softboot Guľôčkové ložiská ABEC 7 Veľkosť koliesok Ø cca 70 mm Zapínanie Powerstrap systém s dvojitým zaistením, systém rýchleho šnu</p></article>
+<article class="seo-deal"><h3><a href="/deal/bratislava-rim-3-dni-v-oktobri-2026-spiatocne-za-29-98-3RG3OFD7dbZTJmuzTMZA/">Bratislava → Rím, 3 dni v októbri 2026 — spiatočne za 29,98 €</a></h3><p class="seo-deal-m">Ryanair · <strong>29,98 €</strong> <s>96,98 €</s> <b>−69 %</b></p><p>Spiatočná letenka Bratislava → Rím (Italy). Odlet 5.10.2026, návrat 8.10.2026 — 3 dni na mieste. Cena je za oba smery (14.99 € tam, 14.99 € späť), batožina podľ</p></article>
+<article class="seo-deal"><h3><a href="/deal/vlaky-zssk-o-50-lacnejsie-cely-oktober-2026-jMP8nrxBI17oIvUTAugY/">Vlaky ZSSK o 50 % lacnejšie — celý október 2026</a></h3><p class="seo-deal-m">ZSSK<strong></strong> <b>−50 %</b></p><p>Od 1. do 31. októbra 2026 je vnútroštátne cestovné ZSSK v 2. triede o polovicu lacnejšie. Platí pre jednorazové aj týždenné a mesačné traťové lístky, pre základ</p></article>
+<article class="seo-deal"><h3><a href="/deal/balea-tekute-kremove-mydlo-malina-magnolia-napln-850-ml-za-0-xlpRxx51GrUlPHXENYaZ/">Balea tekuté krémové mydlo Malina &amp; Magnólia, náplň 850 ml za 0,95 €</a></h3><p class="seo-deal-m">dm drogerie markt · <strong>0,95 €</strong></p><p>Veľká náhradná náplň krémového mydla na ruky Balea s vôňou malín a magnólie – 850 ml za 0,95 €, teda len 0,11 € za 100 ml. Vegánska receptúra bez mikroplastov, </p></article>
+<article class="seo-deal"><h3><a href="/deal/tcl-55t69c-55t69c-YBOrgD4ESh36YkbYjNRG/">TCL 55T69C 55T69C</a></h3><p class="seo-deal-m">TPD · <strong>409,00 €</strong> <s>569,00 €</s> <b>−28 %</b></p><p>Typ podsvietenia: DIRECT LED • Rozlíšenie: 4K UHD (3840x2160) • Uhlopriečka: 55&quot;/139 cm • Obnovovacia frekvencia: 60 Hz • Zdokonalenie obrazu: Dolby Vision, HDR</p></article>
+<article class="seo-deal"><h3><a href="/deal/bratislava-gdansk-2-dni-v-oktobri-2026-spiatocne-za-29-98-meYyGGZLbTVZrLYD3e5S/">Bratislava → Gdansk, 2 dni v októbri 2026 — spiatočne za 29,98 €</a></h3><p class="seo-deal-m">Ryanair · <strong>29,98 €</strong></p><p>Spiatočná letenka Bratislava → Gdansk (Poland). Odlet 6.10.2026, návrat 8.10.2026 — 2 dni na mieste. Cena je za oba smery (14.99 € tam, 14.99 € späť), batožina </p></article>
+<article class="seo-deal"><h3><a href="/deal/asus-vivobook-14-x1404va-eb2278wz-x1404va-eb2278wz-hXQ6Npe9PxHfubYUJvAt/">Asus VivoBook 14 X1404VA-EB2278WZ X1404VA-EB2278WZ</a></h3><p class="seo-deal-m">TPD · <strong>440,00 €</strong> <s>703,00 €</s> <b>−37 %</b></p><p>Displej: 14&quot; FHD (1920x1080) 60 Hz • Procesor: Intel® Core 5 120U až 5 GHz • Grafická karta: Intel • Pamäť RAM: DDR5 8 GB • Úložný priestor: SSD: 512 GB • Opera</p></article>
+<article class="seo-deal"><h3><a href="/deal/bratislava-barcelona-2-dni-v-oktobri-2026-spiatocne-za-41-98-Aoc38Tjx9ASeqOw8xwz4/">Bratislava → Barcelona, 2 dni v októbri 2026 — spiatočne za 41,98 €</a></h3><p class="seo-deal-m">Ryanair · <strong>41,98 €</strong> <s>100,98 €</s> <b>−58 %</b></p><p>Spiatočná letenka Bratislava → Barcelona (Spain). Odlet 5.10.2026, návrat 7.10.2026 — 2 dni na mieste. Cena je za oba smery (16.99 € tam, 24.99 € späť), batožin</p></article>
+<article class="seo-deal"><h3><a href="/deal/bratislava-rim-2-dni-v-oktobri-2026-spiatocne-za-29-98-t0GxkDgvUfMFDyFdkAyE/">Bratislava → Rím, 2 dni v októbri 2026 — spiatočne za 29,98 €</a></h3><p class="seo-deal-m">Ryanair · <strong>29,98 €</strong> <s>98,53 €</s> <b>−70 %</b></p><p>Spiatočná letenka Bratislava → Rím (Italy). Odlet 6.10.2026, návrat 8.10.2026 — 2 dni na mieste. Cena je za oba smery (14.99 € tam, 14.99 € späť), batožina podľ</p></article>
+<article class="seo-deal"><h3><a href="/deal/roborock-q7-bf-black-z5fl41X2hSziBlwmmrsj/">Roborock Q7 BF Black</a></h3><p class="seo-deal-m">TPD · <strong>189,90 €</strong> <s>294,90 €</s> <b>−36 %</b></p><p>Vysoký sací výkon na dôkladné čistenie
+Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstránenie prachu, vlasov a nečistôt zo štrbín podlahy a </p></article>
+<article class="seo-deal"><h3><a href="/deal/zemiaky-konzumne-neskore-volny-predaj-1-kg-LM0qLUDPaJwm6gf8X7tL/">Zemiaky konzumné neskoré voľný predaj, 1 kg</a></h3><p class="seo-deal-m">Tesco · <strong>0,53 €</strong> <s>1,18 €</s> <b>−55 %</b></p><p>Platí do: 22.9.2026</p></article>
+<article class="seo-deal"><h3><a href="/deal/bape-maslo-200-g-ZX1CsxFYadmMKdypp0Tl/">Bape maslo 200 g</a></h3><p class="seo-deal-m">Tesco · <strong>1,19 €</strong> <s>3,31 €</s> <b>−64 %</b></p><p>Platí do: 22.9.2026</p></article>
+<article class="seo-deal"><h3><a href="/deal/big-soft-toaletny-papier-3-vrstvovy-8-ks-1-bal-auHZfhKBKDxwgFAiAAS6/">Big Soft toaletný papier 3-vrstvový, 8 ks/1 bal.</a></h3><p class="seo-deal-m">BILLA · <strong>1,99 €</strong> <s>4,63 €</s> <b>−57 %</b></p><p>Platí do: 22.9.2026</p></article>
+</div>
+<!-- SEO-DEALY-KONIEC -->
     </div>
   </main>
 

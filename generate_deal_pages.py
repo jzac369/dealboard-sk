@@ -259,8 +259,76 @@ def render_deal_page(deal_id: str, d: dict) -> str:
 """
 
 
-def build_sitemap(deal_urls: list) -> str:
+# ── Dealy priamo v HTML úvodnej stránky ──────────────────────────────
+# Robot Googlu nečaká, kým sa zoznam dotiahne z databázy - 5. 10. 2026
+# videl na úvodnej stránke len "Načítavam dealy…" a žiadny produkt ani
+# cenu. Preto sem vpíšeme najnovšie dealy ako obyčajný text s odkazmi.
+# Návštevník ich uvidí tiež, len ich hneď nahradí JavaScript živou
+# verziou s hlasovaním - preto je blok označený id="seo-dealy" a
+# renderDealsList() ho prepíše.
+POCET_V_HTML = 24
+
+ZNACKA_OD = "<!-- SEO-DEALY-ZACIATOK -->"
+ZNACKA_PO = "<!-- SEO-DEALY-KONIEC -->"
+
+
+def _cena(d: dict) -> str:
+    c, mena = d.get("dealPrice"), (d.get("currency") or "€")
+    try:
+        return f"{float(c):.2f} {mena}".replace(".", ",")
+    except (TypeError, ValueError):
+        return ""
+
+
+def render_seo_dealy(dealy: list) -> str:
+    """Zoznam dealov ako čitateľný HTML - pre vyhľadávače a prvé vykreslenie."""
+    riadky = []
+    for slug_id, d in dealy:
+        nazov = escape(d.get("title") or "")
+        obchod = escape(d.get("store") or "")
+        cena = _cena(d)
+        povodna = ""
+        try:
+            if d.get("originalPrice"):
+                povodna = f' <s>{float(d["originalPrice"]):.2f} {escape(d.get("currency") or "€")}</s>'.replace(".", ",")
+        except (TypeError, ValueError):
+            pass
+        zlava = d.get("discountPercent")
+        zlava_txt = f" <b>−{int(zlava)} %</b>" if isinstance(zlava, (int, float)) and zlava else ""
+        popis = escape((d.get("description") or "")[:160])
+        riadky.append(
+            f'<article class="seo-deal">'
+            f'<h3><a href="/{OUTPUT_ROOT}/{slug_id}/">{nazov}</a></h3>'
+            f'<p class="seo-deal-m">{obchod}{" · " if obchod and cena else ""}'
+            f'<strong>{cena}</strong>{povodna}{zlava_txt}</p>'
+            f'{f"<p>{popis}</p>" if popis else ""}'
+            f'</article>'
+        )
+    if not riadky:
+        return ""
+    return (f'{ZNACKA_OD}\n<div id="seo-dealy">\n<h2>Najnovšie zľavy a akcie</h2>\n'
+            + "\n".join(riadky) + f'\n</div>\n{ZNACKA_PO}')
+
+
+def zapis_seo_dealy(html_blok: str) -> bool:
+    """Vymení blok medzi značkami v index.html. Vráti, či sa niečo zmenilo."""
+    with open("index.html", encoding="utf-8") as f:
+        s = f.read()
+    i, j = s.find(ZNACKA_OD), s.find(ZNACKA_PO)
+    if i < 0 or j < 0:
+        logger.warning("V index.html chýbajú značky pre SEO dealy - preskakujem.")
+        return False
+    novy = s[:i] + html_blok + s[j + len(ZNACKA_PO):]
+    if novy == s:
+        return False
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(novy)
+    return True
+
+
+def build_sitemap(deal_urls: list, kod_urls: list | None = None) -> str:
     """deal_urls: zoznam (url, dátum dealu alebo None, expirovaný?)."""
+    N = chr(10)
     dnes = date.today().isoformat()
     urls = [f"  <url>\n    <loc>{SITE_URL}/</loc>\n    <lastmod>{dnes}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>"]
     # Statické stránky - menia sa zriedka, ale patria do sitemap.
@@ -276,6 +344,13 @@ def build_sitemap(deal_urls: list) -> str:
         frekvencia = "monthly" if expirovany else "weekly"
         urls.append(
             f"  <url>\n    <loc>{u}</loc>{lastmod}\n    <changefreq>{frekvencia}</changefreq>\n    <priority>{priorita}</priority>\n  </url>"
+        )
+    # Stránky kódov sa menia pri každom novom kupóne a sú to naše
+    # najlepšie ciele na vyhľadávanie - preto vysoká priorita.
+    for u in (kod_urls or []):
+        urls.append(
+            f"  <url>" + N + f"    <loc>{u}</loc>" + N + f"    <lastmod>{dnes}</lastmod>" + N
+            + "    <changefreq>daily</changefreq>" + N + "    <priority>0.8</priority>" + N + "  </url>"
         )
     body = "\n".join(urls)
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{body}\n</urlset>\n'
@@ -296,6 +371,8 @@ def main():
 
     deal_urls = []
     vygenerovane = []
+    pre_uvod = []
+    podla_obchodu = {}
     generated = 0
     for doc in docs:
         deal_id = doc.id
@@ -328,6 +405,9 @@ def main():
         # Dlho expirované do sitemap nepatria (stránka má noindex).
         if not dlho_expirovany(d):
             deal_urls.append((f"{SITE_URL}/{OUTPUT_ROOT}/{slug}-{deal_id}/", _datum_dealu(d), je_expirovany(d)))
+        if not je_expirovany(d):
+            pre_uvod.append((f"{slug}-{deal_id}", d))
+            podla_obchodu.setdefault((d.get("store") or "").strip().lower(), []).append((f"{slug}-{deal_id}", d))
         generated += 1
 
     logger.info("Vygenerovaných %d stránok dealov", generated)
@@ -348,7 +428,17 @@ def main():
     if zmazane:
         logger.info("Zmazaných %d stránok dealov, ktoré už nie sú zverejnené", zmazane)
 
-    sitemap_xml = build_sitemap(deal_urls)
+    # Najnovšie platné dealy do úvodnej stránky.
+    pre_uvod.sort(key=lambda x: _datum_dealu(x[1]) or date.min, reverse=True)
+    if zapis_seo_dealy(render_seo_dealy(pre_uvod[:POCET_V_HTML])):
+        logger.info("index.html: %d dealov vpísaných do HTML pre vyhľadávače",
+                    min(len(pre_uvod), POCET_V_HTML))
+
+    # Stranky zlavovych kodov podla obchodu.
+    import generate_kody
+    kod_urls = generate_kody.generuj(db, podla_obchodu)
+
+    sitemap_xml = build_sitemap(deal_urls, kod_urls)
     with open("sitemap.xml", "w", encoding="utf-8") as f:
         f.write(sitemap_xml)
     logger.info("sitemap.xml aktualizovaný (%d URL spolu)", len(deal_urls) + 1)
