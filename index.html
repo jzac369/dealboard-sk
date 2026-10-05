@@ -2259,6 +2259,12 @@
   /* Box Heureky - vzhľadom ako "Najhorúcejšie dealy", aby nepôsobil
      ako cudzí banner. Štítok "Reklama" ako pri ostatných reklamách. */
   .hk-box { margin: 0 0 16px; }
+  /* Miesto v zozname dealov - používa sa len na mobile, inak je box
+     v pravom stĺpci. Kým je prázdne, nezaberá nič. */
+  .hk-box-slot:empty { display: none; }
+  .hk-box-slot .hk-box { margin: 0 0 14px; }
+  /* Hľadanie presunuté nad zoznam (mobil) - cez celý riadok. */
+  .tabs-bar > .sidebar-search { flex: 1 1 100%; }
   .hk-box-in { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px 6px; }
   .hk-box-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
   .hk-box-h img { height: 20px; width: auto; display: block; }
@@ -3628,6 +3634,7 @@ body.food-page { background: #FAF8F5; }
          s atribútmi data-trixam-* je od Heureky a podľa ich návodu sa
          nesmie meniť; vnútro je naše. Pozíciu a produkty dopĺňa skript
          z settings/heureka, skript Heureky sa načíta až po súhlase. -->
+    <div id="hk-box-domov" hidden></div>
     <div class="hk-box" id="hk-box" hidden></div>
 
     <!-- Banner SledovanieTV cez Dognet (kanál henkukaj.sk). Kód je
@@ -4032,13 +4039,21 @@ body.food-page { background: #FAF8F5; }
         karty.splice(AD_PO, 0,
           '<div class="ad-slot ad-feed" data-slot="feed" data-format="fluid"></div>');
       }
+      // Miesto pre box Heureky na mobile. Pravý stĺpec je tam až pod
+      // zoznamom, ktorý sa donačítava donekonečna - box by nik nevidel.
+      const HK_PO = 3;
+      if (karty.length > HK_PO) karty.splice(HK_PO, 0, '<div class="hk-box-slot"></div>');
       let html = karty.join('');
       if (!window.dealsSearchMode && window.dealsHasMore) {
         html += `<div id="deals-load-sentinel" class="loading" style="padding:24px 0;">${window.dealsLoading ? 'Načítavam ďalšie dealy…' : ''}</div>`;
       } else if (window.dealsSearchMode && window.allDeals.length >= window.DEALS_SEARCH_CAP) {
         html += `<div class="empty" style="padding:14px 0; font-size:.85rem;">Zobrazených je prvých ${window.DEALS_SEARCH_CAP} výsledkov – skús vyhľadávanie zúžiť.</div>`;
       }
+      // Box Heureky mohol byť v zozname - pred prepísaním ho odložíme,
+      // inak by sa zmazal aj s cenami, ktoré doňho doplnil skript.
+      if (window.hkZaparkujBox) window.hkZaparkujBox();
       el.innerHTML = html;
+      if (window.hkUmiestni) window.hkUmiestni();
       if (window.refreshAdSlots) window.refreshAdSlots();
       if (!window.dealsSearchMode && window.dealsHasMore) {
         window.ensureDealsSentinelObserver();
@@ -6648,6 +6663,40 @@ body.food-page { background: #FAF8F5; }
   window.heurekaKlik = function(kde) {
     if (window.hkUdalost) window.hkUdalost('heureka_' + kde);
   };
+
+  // ── Mobil: hľadanie nad zoznam, box Heureky medzi dealy ──────────────
+  // Na úzkej obrazovke je pravý stĺpec až pod zoznamom dealov, ktorý sa
+  // donačítava pri posúvaní - čo je v stĺpci, k tomu sa nik nedostane.
+  // Prvky preto presúvame (nie kopírujeme): pole hľadania zostáva to isté,
+  // takže filtrovanie funguje, a box si nechá ceny, ktoré doňho doplnil
+  // skript Heureky.
+  (function () {
+    const uzky = window.matchMedia('(max-width: 1000px)');
+
+    window.hkZaparkujBox = function () {
+      const box = document.getElementById('hk-box');
+      const domov = document.getElementById('hk-box-domov');
+      if (box && domov && box.previousElementSibling !== domov) domov.after(box);
+    };
+
+    window.hkUmiestni = function () {
+      const hl = document.getElementById('sidebar-search');
+      const aside = document.querySelector('aside.sidebar');
+      const lista = document.querySelector('#deals-main .tabs-bar');
+      if (hl && aside && lista) {
+        if (uzky.matches && hl.parentElement !== lista) lista.prepend(hl);
+        if (!uzky.matches && hl.parentElement !== aside) aside.prepend(hl);
+      }
+      const box = document.getElementById('hk-box');
+      const slot = document.querySelector('#deals-list .hk-box-slot');
+      if (!box) return;
+      if (uzky.matches && slot) { if (box.parentElement !== slot) slot.appendChild(box); }
+      else window.hkZaparkujBox();
+    };
+
+    uzky.addEventListener('change', window.hkUmiestni);
+    window.hkUmiestni();
+  })();
 
   // ── Box "Výber produktov" v pravom stĺpci ────────────────────────────
   // Heureka dáva obal s atribútmi data-trixam-* (nesmie sa meniť) a ich
