@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://henkukaj.sk/</loc>
-    <lastmod>2026-10-04</lastmod>
+    <lastmod>2026-10-05</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -81,6 +81,12 @@
     <lastmod>2026-09-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://henkukaj.sk/deal/acer-lcd-ek241yp0bi-23-8-9uzvzH7vDFhj7YZd3kBi/</loc>
+    <lastmod>2026-10-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://henkukaj.sk/deal/bratislava-barcelona-2-dni-v-oktobri-2026-spiatocne-za-41-98-Aoc38Tjx9ASeqOw8xwz4/</loc>
