@@ -80,7 +80,7 @@ def main() -> int:
 
     logger.info("--- Calendar: Bratislava -> London, %s ---", mesiac)
     try:
-        data = kayak.calendar(odkial, kam, mesiac, mesiac)
+        data = kayak.calendar(odkial, kam, mesiac, mesiac, currency="EUR")
         vysledky = (data or {}).get("results") or []
         logger.info("Výsledkov: %d", len(vysledky))
         if vysledky:
@@ -90,8 +90,10 @@ def main() -> int:
                         json.dumps(vysledky[0], ensure_ascii=False)[:900])
         for r in vysledky[:5]:
             noha = r.get("outboundLeg") or {}
+            # Pri jednosmernej je cena na odletovej nohe, pri spiatočnej
+            # na tej návratovej. Príklad v dokumentácii ukazuje len druhý prípad.
             spat = (r.get("inboundLegs") or [{}])[0]
-            cena = spat.get("price") or r.get("price") or {}
+            cena = spat.get("price") or noha.get("price") or {}
             logger.info("  %s  %s-%s  %s %s%s", noha.get("departureDate"),
                         noha.get("origin"), noha.get("destination"),
                         cena.get("price"), cena.get("currency"),
