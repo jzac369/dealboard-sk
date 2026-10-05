@@ -180,6 +180,7 @@
       loadAuditLog();
       if (rola === 'admin') {
         startListeningAffiliate();
+        startListeningHeureka();
         startListeningUcty();
         startListeningVisits();
         loadMerchants();
@@ -567,6 +568,33 @@
       renderAffiliateStats();
     }, (e) => console.warn('Affiliate nastavenia sa nepodarilo načítať:', e));
   }
+
+  // ── Heureka ─────────────────────────────────────────────────────────
+  // settings/heureka číta stránka. "haff" je číslo pozície z Heureka
+  // Affiliate a pridáva sa k odkazom na hľadanie na Heureke.
+  const heurekaRef = doc(db, "settings", "heureka");
+
+  function startListeningHeureka() {
+    onSnapshot(heurekaRef, (snap) => {
+      const d = snap.exists() ? snap.data() : {};
+      document.getElementById('hk-enabled').checked = d.enabled === true;
+      // Predvolene zapnuté - vypína sa vedome.
+      document.getElementById('hk-detail').checked = d.detail !== false;
+      document.getElementById('hk-hladanie').checked = d.hladanie !== false;
+      const h = document.getElementById('hk-haff');
+      if (document.activeElement !== h) h.value = d.haff || '';
+      const u = document.getElementById('hk-ukazka');
+      u.href = d.haff ? 'https://www.heureka.sk/?h%5Bfraze%5D=sl%C3%BAchadl%C3%A1&haff=' + d.haff + '&utm_medium=affiliate' : '#';
+    }, (e) => console.warn('Nastavenia Heureky sa nepodarilo načítať:', e));
+  }
+
+  window.saveHeureka = async function(zmena) {
+    try {
+      await setDoc(heurekaRef, zmena, { merge: true });
+    } catch (e) {
+      alert('Nepodarilo sa uložiť: ' + e.message);
+    }
+  };
 
   // ── Letenky (záložka s mapou) ────────────────────────────────────────
   // settings/letenky číta stránka: enabled zapína záložku, odkazy a
@@ -3280,6 +3308,30 @@
           <p class="settings-hint">Kupóny idú cez <b>samostatný kanál</b> (inzerenti za ne platia inú províziu). Kým nie je vyplnený,
             kódy sa nebalia vôbec.</p>
         </div>
+      </div>
+
+      <div class="af-card">
+        <h3>Heureka</h3>
+        <label class="switch-label">
+          <span>Odkazy na Heureku</span>
+          <label class="switch"><input type="checkbox" id="hk-enabled" onchange="saveHeureka({ enabled: this.checked })"><span class="slider"></span></label>
+        </label>
+        <div class="aff-row">
+          <label for="hk-haff">Číslo pozície (haff)</label>
+          <input id="hk-haff" type="text" inputmode="numeric" placeholder="napr. 74596" spellcheck="false" autocomplete="off"
+                 onchange="saveHeureka({ haff: this.value.replace(/\D/g, '') })">
+        </div>
+        <label class="switch-label" style="margin-top:10px;">
+          <span>„Porovnať ceny na Heureke" v detaile dealu</span>
+          <label class="switch"><input type="checkbox" id="hk-detail" onchange="saveHeureka({ detail: this.checked })"><span class="slider"></span></label>
+        </label>
+        <label class="switch-label">
+          <span>„Hľadať na Heureke", keď hľadanie nič nenájde</span>
+          <label class="switch"><input type="checkbox" id="hk-hladanie" onchange="saveHeureka({ hladanie: this.checked })"><span class="slider"></span></label>
+        </label>
+        <p class="settings-hint">Heureka Affiliate → Formáty → Priamy odkaz → hodnota za <code>haff=</code>.
+          Ak si v Heureke vytvoríš pre každé miesto vlastnú pozíciu, uvidíš v ich štatistikách, ktoré zarába viac.
+          Ukážka: <a id="hk-ukazka" href="#" target="_blank" rel="noopener">hľadanie „slúchadlá"</a></p>
       </div>
 
       <div class="af-card">

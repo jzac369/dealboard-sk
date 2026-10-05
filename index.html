@@ -574,6 +574,18 @@
   getDoc(doc(db, "settings", "affiliate"))
     .then(s => { if (s.exists()) window.AFFILIATE = s.data(); })
     .catch(() => { /* bez nastavení zostanú odkazy čisté - stránka funguje */ });
+  // Heureka: porovnanie cien pri deale a hľadanie, keď u nás nič nie je.
+  // Vypína sa v admine (settings/heureka). Kým sa nenačíta, odkazy sa
+  // jednoducho neukážu - nič nechýba, len nepribudne.
+  window.HEUREKA = { enabled: false };
+  getDoc(doc(db, "settings", "heureka"))
+    .then(s => {
+      if (!s.exists()) return;
+      window.HEUREKA = s.data();
+      // Ak je detail práve otvorený alebo zoznam prázdny, doplníme odkaz hneď.
+      if (window.renderDealsList) window.renderDealsList();
+    })
+    .catch(() => {});
 
   // ── Nastavenia moderácie (čítané pri každom novom príspevku) ────────────────
   async function getInitialStatus(type) {
@@ -1802,6 +1814,14 @@
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
     clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .sort-bar { display: flex; gap: 22px; flex-wrap: wrap; }
+  /* Pod prázdnym výsledkom hľadania - nenápadné, ale klikateľné. */
+  .hk-heureka { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+    padding: 10px 18px; border: 1.5px solid var(--orange); border-radius: 22px;
+    color: var(--orange-dk); background: #FFF6EF; font-weight: 700; font-size: .9rem;
+    text-decoration: none; }
+  .hk-heureka:hover { background: var(--orange); color: #fff; }
+  .hk-heureka .ic { width: 16px; height: 16px; }
+  .hk-heureka-pozn { font-size: .78rem; color: var(--muted); margin-top: 6px; }
   @media (max-width: 720px) {
     .tabs-bar .header-search { width: 100%; max-width: 100% !important; flex: none; order: 10; }
     .sort-bar { gap: 14px; }
@@ -3946,14 +3966,16 @@ body.food-page { background: #FAF8F5; }
     if (!shown.length && window.allDeals.length && !window.dealsLoading) {
       el.innerHTML = window.savedOnly
         ? `<div class="empty"><div class="icon">🔖</div>Zatiaľ nemáš uložený žiadny deal. Ulož si ho ikonkou na karte.</div>`
-        : `<div class="empty"><div class="icon">✅</div>Žiadne platné dealy v tomto výbere.</div>`;
+        : `<div class="empty"><div class="icon">✅</div>Žiadne platné dealy v tomto výbere.${heurekaPrazdne()}</div>`;
       return;
     }
     if (!window.allDeals.length) {
       if (window.dealsLoading) {
         el.innerHTML = `<div class="loading">Načítavam dealy…</div>`;
       } else {
-        el.innerHTML = `<div class="empty"><div class="icon">🔍</div>Žiadne dealy nenájdené.</div>`;
+        // Slepá ulička - kto hľadal a nič nenašiel, dostane aspoň
+        // možnosť pozrieť ceny inde.
+        el.innerHTML = `<div class="empty"><div class="icon">🔍</div>Žiadne dealy nenájdené.${heurekaPrazdne()}</div>`;
       }
       return;
     }
@@ -6558,6 +6580,47 @@ body.food-page { background: #FAF8F5; }
 
   function outUrl(raw, kind) { return safeUrl(affiliateUrl(raw, kind)); }
 
+  // ── Heureka ───────────────────────────────────────────────────────────
+  // Partnerský parameter "haff" sa dá pridať k hocijakej adrese na
+  // Heureke. Skladáme z neho odkaz na vyhľadávanie: pri deale podľa
+  // názvu produktu, pri prázdnom hľadaní podľa toho, čo človek zadal.
+  function heurekaOdkaz(hladane) {
+    const h = window.HEUREKA || {};
+    const haff = String(h.haff || '').replace(/\D/g, '');
+    const q = String(hladane || '').trim();
+    if (!h.enabled || !haff || !q) return '';
+    return 'https://www.heureka.sk/?h%5Bfraze%5D=' + encodeURIComponent(q) +
+      '&haff=' + haff + '&utm_medium=affiliate';
+  }
+
+  // Z názvu dealu urobí rozumný hľadaný výraz. "ESMARA® Dámsky kabát
+  // (bordová, 36)" -> "ESMARA Dámsky kabát": veľkosť a farba v zátvorke
+  // by na Heureke našli len presne tú jednu variantu, alebo nič.
+  function heurekaVyraz(nazov) {
+    return String(nazov || '')
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/[®™©]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim().split(' ').slice(0, 7).join(' ');
+  }
+
+  window.heurekaKlik = function(kde) {
+    if (window.hkUdalost) window.hkUdalost('heureka_' + kde);
+  };
+
+  // Odkaz "Hľadať na Heureke" pod prázdnym výsledkom hľadania.
+  function heurekaPrazdne() {
+    const h = window.HEUREKA || {};
+    if (h.hladanie === false) return '';
+    const q = (document.getElementById('search-input') || {}).value || '';
+    const url = heurekaOdkaz(q);
+    if (!url) return '';
+    return `<a class="hk-heureka" href="${escapeAttr(url)}" target="_blank" rel="nofollow sponsored noopener"
+              onclick="heurekaKlik('hladanie')">
+        ${icon('search')} Hľadať „${escapeHtml(q.trim())}" na Heureke <span aria-hidden="true">→</span></a>
+      <div class="hk-heureka-pozn">Porovnanie cien vo vyše 10 000 obchodoch</div>`;
+  }
+
   // Karty sa môžu vykresliť skôr, než sa načítajú nastavenia. Preto sa
   // adresa zostaví znova tesne pred odchodom - pri kliknutí aj pri
   // otvorení stredným tlačidlom myši do novej karty.
@@ -6811,6 +6874,13 @@ body.food-page { background: #FAF8F5; }
         <a class="btn-go${d.expired ? ' btn-off' : ''}" href="${outUrl(d.url, 'deal')}" data-raw="${escapeAttr(d.url || '')}" data-kind="deal" target="_blank" rel="nofollow sponsored noopener" onclick="trackClick('${d.id}')">${d.expired ? 'Pozrieť u predajcu' : 'Zobraziť deal →'}</a>
         <a href="#" class="detail-link" onclick="shareDeal(${jsArg(d.id)}, ${jsArg(d.title||'')}, ${Number(d.dealPrice)||0}, ${jsArg(cur)}); return false;">${icon('share')} Zdieľať</a>
         <a href="#" class="detail-link save-btn" onclick="toggleSaveDeal('${d.id}', this); return false;">${icon('bookmark')} Uložiť</a>
+        ${(() => {
+          // Porovnanie cien na Heureke. Nie pri letenkách - tie Heureka nemá.
+          const h = window.HEUREKA || {};
+          const url = h.detail === false || d.category === 'Cestovanie' ? '' : heurekaOdkaz(heurekaVyraz(d.title));
+          return url ? `<a class="detail-link" href="${escapeAttr(url)}" target="_blank" rel="nofollow sponsored noopener"
+              onclick="heurekaKlik('detail')">${icon('trending-down')} Porovnať ceny na Heureke</a>` : '';
+        })()}
         <a class="detail-link" href="${nahlasOdkaz(d)}">${icon('bell')} Nahlásiť neplatný deal</a>
       </div>
 
