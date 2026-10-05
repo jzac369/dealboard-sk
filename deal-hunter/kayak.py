@@ -38,14 +38,13 @@ KLUC = os.environ.get("KAYAK_API_KEY", "")
 # Jediná cesta, ktorú poznáme isto - je vo verejnom kóde ich stránky.
 AUTOCOMPLETE = "/api/affiliate/autocomplete/v1/flights"
 
-# Ako sa kľúč posiela, dokumentácia nehovorí. Skúsime bežné spôsoby a
-# zapamätáme si ten, ktorý prejde - ďalšie volania už idú rovno ním.
+# Kľúč sa posiela ako parameter "apiKey" - overené na sandboxe 5. 10.
+# 2026. Pozor na veľké K: "apikey" malým vráti INVALID_API_KEY, čo zvádza
+# myslieť si, že je zlý kľúč.
 SPOSOBY = [
+    ("parameter apiKey", {}, {"apiKey": "{k}"}),
     ("hlavicka X-Api-Key", {"X-Api-Key": "{k}"}, {}),
     ("hlavicka Authorization Bearer", {"Authorization": "Bearer {k}"}, {}),
-    ("hlavicka apikey", {"apikey": "{k}"}, {}),
-    ("parameter apikey", {}, {"apikey": "{k}"}),
-    ("parameter token", {}, {"token": "{k}"}),
 ]
 
 _FUNKCNY: tuple[dict, dict] | None = None

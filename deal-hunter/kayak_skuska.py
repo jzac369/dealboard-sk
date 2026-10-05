@@ -22,11 +22,15 @@ logger = logging.getLogger("kayak")
 # Čo chceme nájsť: "najlacnejšie ceny, aké naposledy videli cestujúci".
 # Tvar ciest odhadujeme podľa jedinej známej (autocomplete/v1/flights).
 KANDIDATI = [
-    "/api/affiliate/flights/v1/price-insights",
     "/api/affiliate/price-insights/v1/flights",
-    "/api/affiliate/flights/v1/priceinsights",
+    "/api/affiliate/priceinsights/v1/flights",
     "/api/affiliate/insights/v1/flights",
+    "/api/affiliate/prices/v1/flights",
+    "/api/affiliate/flights/v1/price-insights",
+    "/api/affiliate/flights/v1/priceinsights",
     "/api/affiliate/flights/v1/prices",
+    "/api/affiliate/flights/v1/search",
+    "/api/affiliate/hotels/v1/search",
 ]
 
 PARAMETRE = {"origin": "BTS", "destination": "LON", "currency": "EUR"}
@@ -94,7 +98,7 @@ def main() -> int:
         try:
             data = kayak.zavolaj(cesta, **PARAMETRE)
         except urllib.error.HTTPError as e:
-            logger.info("%-46s HTTP %s", cesta, e.code)
+            logger.info("%-46s HTTP %s %s", cesta, e.code, telo_chyby(e)[:160])
             time.sleep(1)
             continue
         except Exception as e:
