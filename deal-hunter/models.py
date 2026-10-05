@@ -107,7 +107,10 @@ _NIE_ELEKTRONIKA: tuple[str, ...] = (
 
 # Dávkovanie v názve ("99 mg, 100 tablet", "500 ml") je spoľahlivá značka
 # výživového doplnku alebo drogérie - elektronika sa takto neoznačuje.
-_DAVKOVANIE = re.compile(r"\d+\s*(mg|ml|mcg|iu|g)\b")
+# Samotné gramy ("g") vyžadujú aspoň dvojciferné číslo - jednociferné by
+# chytalo aj "5G"/"4G" v názve telefónu či routera (sieťová generácia je
+# vždy jednociferná, dávkovanie v gramoch sa takto neoznačuje).
+_DAVKOVANIE = re.compile(r"\d+\s*(mg|ml|mcg|iu)\b|\d{2,}\s*g\b")
 
 
 def _strip_diacritics(text: str) -> str:
