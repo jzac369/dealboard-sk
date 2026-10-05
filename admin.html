@@ -1194,6 +1194,15 @@
     return `<span class="kpi-d ${pct === 0 ? '' : (dobre ? 'nahor' : 'nadol')}">${pct > 0 ? '▲' : (pct < 0 ? '▼' : '')} ${Math.abs(pct)} %</span>`;
   }
 
+  // Prepínač Všetky / Unikátni v Posledných návštevách. Pamätá sa.
+  let _visUnik = false;
+  try { _visUnik = localStorage.getItem('hk_vis_unik') === '1'; } catch (e) {}
+  window.visUnikatne = function(ano) {
+    _visUnik = !!ano;
+    try { localStorage.setItem('hk_vis_unik', ano ? '1' : '0'); } catch (e) {}
+    if (vsetkyNavstevy) renderVisitsStats(vsetkyNavstevy);
+  };
+
   function renderVisitsStats(vsetky) {
     vsetkyNavstevy = vsetky;
     hkUdalost('hk:visits');
@@ -1273,15 +1282,31 @@
         </div>`).join('') + `</div>
       <div class="vis-cols-legend"><span>0:00</span><span>12:00</span><span>23:00</span></div>`;
 
-    // Posledné návštevy
+    // Posledné návštevy. "Unikátni" = jeden riadok na návštevníka
+    // (anonymné uid prehliadača) - jeho posledná návšteva v zvolenom
+    // období a koľkokrát prišiel. Bez uid (staršie záznamy) ho poznáme
+    // aspoň podľa siete a zariadenia.
     const telo = document.getElementById('visits-recent');
-    const posledne = visits.slice(0, 40);
+    const pocty = {};
+    const kluc = v => v.uid || `${v.ipPrefix || ''}|${v.device || ''}|${v.city || ''}`;
+    visits.forEach(v => { const k = kluc(v); pocty[k] = (pocty[k] || 0) + 1; });
+    let zoznam = visits;
+    if (_visUnik) {
+      const videne = new Set();
+      zoznam = visits.filter(v => { const k = kluc(v); if (videne.has(k)) return false; videne.add(k); return true; });
+    }
+    document.querySelectorAll('.vis-prep button').forEach(b => b.classList.toggle('on', (b.dataset.unik === '1') === _visUnik));
+    const pozn = document.getElementById('vis-unik-pozn');
+    if (pozn) pozn.textContent = `V zvolenom období ${visits.length} návštev od ${Object.keys(pocty).length} unikátnych návštevníkov.` +
+      (_visUnik ? ' Každý je raz, s jeho poslednou návštevou.' : '');
+    const posledne = zoznam.slice(0, 40);
     if (!dni.length) dni.push(['', 0]);
     telo.innerHTML = posledne.length ? posledne.map(v => {
       const t = v.timestamp && v.timestamp.toDate ? v.timestamp.toDate() : null;
       const kedy = t ? `${String(t.getDate()).padStart(2,'0')}.${String(t.getMonth()+1).padStart(2,'0')}. ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}` : '–';
+      const n = pocty[kluc(v)] || 1;
       return `<tr>
-        <td>${kedy}</td>
+        <td>${kedy}${_visUnik && n > 1 ? `<span class="vis-pocet" title="${n} návštev v zvolenom období">${n}×</span>` : ''}</td>
         <td>${escapeHtml(v.city || '–')}</td>
         <td>${escapeHtml(v.region || '–')}</td>
         <td>${escapeHtml(v.country || '–')}</td>
@@ -2727,6 +2752,13 @@
 
   .vis-table-wrap { overflow-x: auto; }
   .vis-table { width: 100%; border-collapse: collapse; font-size: .75rem; }
+  .vis-prep { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .vis-prep button { font: inherit; font-size: .78rem; padding: 5px 12px; border: none; background: var(--card);
+    color: var(--muted); cursor: pointer; }
+  .vis-prep button + button { border-left: 1px solid var(--line); }
+  .vis-prep button.on { background: var(--orange); color: #fff; font-weight: 700; }
+  .vis-pocet { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 9px; background: #FFF1E6;
+    color: var(--orange-dk, #B8460A); font-weight: 700; font-size: .7rem; }
   .vis-table th { text-align: left; font-weight: 700; color: var(--muted);
     padding: 7px 9px; border-bottom: 1.5px solid var(--line); white-space: nowrap; }
   .vis-table td { padding: 7px 9px; border-bottom: 1px solid var(--line);
@@ -3557,7 +3589,14 @@
       </div>
 
       <div class="converter-box" style="margin-top:16px;">
-        <h3>Posledné návštevy</h3>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <h3 style="margin:0;">Posledné návštevy</h3>
+          <div class="vis-prep" role="group" aria-label="Zobraziť návštevy">
+            <button type="button" data-unik="0" onclick="visUnikatne(false)">Všetky</button>
+            <button type="button" data-unik="1" onclick="visUnikatne(true)">Unikátni návštevníci</button>
+          </div>
+        </div>
+        <p class="vis-empty" id="vis-unik-pozn" style="margin:6px 0 8px;"></p>
         <p class="vis-empty" style="margin-bottom:8px;">
           IP adresa sa neukladá celá — posledná časť je nahradená nulou, aby sa
           z nej nedal určiť konkrétny človek.
