@@ -769,6 +769,10 @@
       window.validOnly = true;
       document.getElementById('btn-valid-only')?.classList.add('active');
     }
+    if (p.get('zadarmo') === '1') {
+      window.zadarmoOnly = true;
+      document.getElementById('btn-zadarmo-only')?.classList.add('active');
+    }
   };
 
   const DEALS_PAGE_SIZE = 20;
@@ -3049,6 +3053,8 @@
 
 #btn-valid-only.active { background: rgba(46,139,61,.12); color: var(--green);
   border-color: rgba(46,139,61,.45); }
+#btn-zadarmo-only.active { background: rgba(232,89,12,.12); color: var(--orange-dk);
+  border-color: rgba(232,89,12,.45); }
 #btn-saved-only.active { background: var(--badge); color: var(--badge-t);
   border-color: rgba(232,89,12,.45); }
 
@@ -3778,6 +3784,7 @@ body.food-page { background: #FAF8F5; }
         <button class="sort-btn" data-sort="votes" onclick="setSort('votes', this)"><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie</button>
         <button class="sort-btn" data-sort="discount" onclick="setSort('discount', this)"><svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg> Najväčšia zľava</button>
         <button class="sort-btn filter-btn" id="btn-valid-only" onclick="toggleValidOnly(this)" title="Skryť akcie, ktorým vypršala platnosť"><svg class="ic" aria-hidden="true"><use href="#i-circle-check"></use></svg> Len platné</button>
+        <button class="sort-btn filter-btn" id="btn-zadarmo-only" onclick="toggleZadarmoOnly(this)" title="Zobraziť len dealy, ktoré sú úplne zadarmo"><svg class="ic" aria-hidden="true"><use href="#i-tag"></use></svg> Zadarmo</button>
         <button class="sort-btn filter-btn" id="btn-saved-only" onclick="toggleSavedOnly(this)" title="Zobraziť len dealy, ktoré si si uložil"><svg class="ic" aria-hidden="true"><use href="#i-bookmark"></use></svg> Uložené</button>
       </div>
     </div>
@@ -4463,13 +4470,22 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   }
 
   // Nie "= false" natvrdo - applyFiltersFromUrl (beží skôr, v modulovom
-  // <script> vyššie) mohol validOnly už nastaviť z URL (?platne=1).
+  // <script> vyššie) mohol validOnly/zadarmoOnly už nastaviť z URL
+  // (?platne=1, ?zadarmo=1).
   window.validOnly = window.validOnly || false;
+  window.zadarmoOnly = window.zadarmoOnly || false;
   window.savedOnly = false;
 
   window.toggleValidOnly = function(btn) {
     window.validOnly = !window.validOnly;
     btn.classList.toggle('active', window.validOnly);
+    syncFiltersToUrl();
+    renderDealsList();
+  };
+
+  window.toggleZadarmoOnly = function(btn) {
+    window.zadarmoOnly = !window.zadarmoOnly;
+    btn.classList.toggle('active', window.zadarmoOnly);
     syncFiltersToUrl();
     renderDealsList();
   };
@@ -4499,6 +4515,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   function visibleDeals() {
     let list = window.allDeals;
     if (window.validOnly) list = list.filter(d => !d.expired);
+    if (window.zadarmoOnly) list = list.filter(d => d.zadarmo === true);
     if (window.savedOnly) list = list.filter(d => window.savedDeals.has(d.id));
     // Topované dealy (nastavuje admin na pár hodín) idú navrch - len v
     // bežnom zozname, nie vo výsledkoch hľadania ani v uložených.
@@ -4921,6 +4938,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     if (window.activeCat && window.activeCat !== 'Všetky') p.set('kat', window.activeCat); else p.delete('kat');
     if (window.activeSort && window.activeSort !== 'new') p.set('sort', window.activeSort); else p.delete('sort');
     if (window.validOnly) p.set('platne', '1'); else p.delete('platne');
+    if (window.zadarmoOnly) p.set('zadarmo', '1'); else p.delete('zadarmo');
     history.replaceState(null, '', url.pathname + (p.toString() ? '?' + p.toString() : '') + url.hash);
   }
 
