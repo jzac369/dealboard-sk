@@ -783,7 +783,7 @@ U.stranka('emaily', {
     }));
     fs.onSnapshot(fs.query(U.kol('email_log'), fs.orderBy('kedy', 'desc'), fs.limit(50)), sn => {
       const TYP = { test: 'Skúšobný', uvitanie: 'Uvítanie', 'nova-registracia': 'Nová registrácia',
-        strazca: 'Strážca dealov', letenky: 'Lacné letenky' };
+        strazca: 'Strážca dealov', letenky: 'Lacné letenky', overenie: 'Potvrdenie e-mailu', heslo: 'Zabudnuté heslo' };
       const t = el.querySelector('#em-log');
       if (t) t.innerHTML = sn.size ? `<div class="tab-wrap"><table class="tab"><tbody>${sn.docs.map(d => {
         const x = d.data();
