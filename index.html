@@ -5042,8 +5042,10 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     if (!section) return false;
     const btn = [...document.querySelectorAll('.main-section-btn')]
       .find(b => (b.getAttribute('onclick') || '').includes(`'${section}'`));
-    // Skrytá záložka (letenky pred spustením) sa z adresy otvoriť nesmie.
-    if (!btn || btn.style.display === 'none') return false;
+    // Letenky sú skryté, kým nepríde settings/letenky. Z adresy ich ale
+    // otvárame hneď - inak by pri obnovení záložka na chvíľu zmizla.
+    // Ak sú v admine vypnuté, nastavLetenky() vráti návštevníka na dealy.
+    if (!btn || (btn.style.display === 'none' && section !== 'flights')) return false;
     applyingHash = true;
     try { setMainSection(section, btn); } finally { applyingHash = false; }
     return true;
