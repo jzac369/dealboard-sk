@@ -1750,11 +1750,11 @@
     const lab = document.getElementById('fb-text-label');
     const textEl = document.getElementById('fb-text');
     if (typ === 'neplatny_deal') {
-      sub.textContent = 'Čo presne s dealom nie je v poriadku? Napíšeme si to a skontrolujeme.';
+      sub.textContent = 'Akcia už skončila alebo nesedí cena? Napíšeme si to a skontrolujeme.';
       ctx.style.display = 'block';
       ctx.textContent = 'Deal: ' + (dealTitle || '');
-      lab.firstChild.textContent = 'Čo nie je v poriadku? ';
-      textEl.placeholder = 'Napríklad: cena už nesedí, odkaz nefunguje, akcia skončila…';
+      lab.firstChild.textContent = 'Čo presne nesedí? ';
+      textEl.placeholder = 'Napríklad: akcia skončila, cena už nesedí, odkaz nefunguje…';
     } else {
       sub.textContent = 'Napíš nám, čo si našiel/našla - pozrieme sa na to.';
       ctx.style.display = 'none';
@@ -1763,6 +1763,8 @@
     }
     textEl.value = '';
     document.getElementById('feedback-err').textContent = '';
+    document.getElementById('feedback-form').style.display = '';
+    document.getElementById('feedback-success').style.display = 'none';
     document.getElementById('feedback-modal').classList.add('open');
   };
   window.closeFeedback = function() {
@@ -1793,8 +1795,12 @@
         stav: 'nove',
         timestamp: serverTimestamp()
       });
-      window.closeFeedback();
-      if (window.hkToast) window.hkToast('Ďakujeme, pozrieme sa na to!');
+      // Potvrdenie priamo v okne, nie len prchavý toast - človek má
+      // istotu, že to naozaj odišlo, aj keď si toast nevšimne.
+      document.getElementById('feedback-form').style.display = 'none';
+      document.getElementById('feedback-success').style.display = 'block';
+      setTimeout(window.closeFeedback, 2200);
+      return;
     } catch (err) {
       console.error('Feedback error:', err);
       errEl.textContent = 'Nepodarilo sa odoslať. Skontroluj pripojenie a skús to znova.';
@@ -4270,6 +4276,11 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
       <div class="form-err" id="feedback-err" role="alert"></div>
       <button class="btn-submit" type="submit" id="feedback-submit">Odoslať</button>
     </form>
+    <div class="modal-body" id="feedback-success" style="display:none; text-align:center; padding:28px 16px;">
+      <div style="font-size:2.2rem; line-height:1; margin-bottom:10px;">✅</div>
+      <p style="font-weight:700; font-size:1.05rem; margin-bottom:4px;">Hlásenie bolo odoslané</p>
+      <p style="color:var(--muted); font-size:.88rem;">Ďakujeme, pozrieme sa na to.</p>
+    </div>
   </div>
 </div>
 
@@ -4848,7 +4859,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     const odkaz = `https://henkukaj.sk/?deal=${id}`;
     pop.innerHTML = `<button type="button" data-a="detail">${icon('news')} Detail dealu</button>
       <button type="button" data-a="kopia">${icon('copy')} Kopírovať odkaz</button>
-      <button type="button" data-a="nahlas">${icon('bell')} Nahlásiť problém</button>`;
+      <button type="button" data-a="nahlas">${icon('bell')} Nahlásiť expirovaný deal</button>`;
     pop.addEventListener('click', e => {
       e.stopPropagation();
       const b = e.target.closest('[data-a]');
@@ -7616,7 +7627,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
           return url ? `<a class="detail-link" href="${escapeAttr(url)}" target="_blank" rel="nofollow sponsored noopener"
               onclick="heurekaKlik('detail')">${icon('trending-down')} Porovnať ceny na Heureke</a>` : '';
         })()}
-        <a class="detail-link" href="#" onclick="openFeedback('neplatny_deal', ${jsArg(d.id)}, ${jsArg(d.title||'')}); return false;">${icon('bell')} Nahlásiť neplatný deal</a>
+        <a class="detail-link" href="#" onclick="openFeedback('neplatny_deal', ${jsArg(d.id)}, ${jsArg(d.title||'')}); return false;">${icon('bell')} Nahlásiť expirovaný deal</a>
       </div>
 
       <div style="border-top:1px solid var(--line); margin-top:18px; padding-top:14px;">
