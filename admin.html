@@ -677,7 +677,7 @@
   // majú zapnutý odber A overený e-mail (double opt-in).
   const uctyRef = doc(db, "settings", "ucty");
   const UC_TEMY_NAZVY = { dealy: 'Top dealy', elektronika: 'Elektronika', letenky: 'Letenky',
-    potraviny: 'Potraviny a letáky', kody: 'Zľavové kódy' };
+    potraviny: 'Potraviny a letáky', kody: 'Kupóny' };
   let uzivatelia = [];
 
   function startListeningUcty() {
@@ -927,7 +927,7 @@
     let host; try { host = new URL(url).hostname.toLowerCase(); } catch (e) { return { url: '', dovod: 'Neplatná adresa.' }; }
     if (!_vKampani(_bezWww(host), a.domains || [])) return { url, dovod: `${_bezWww(host)} nemá kampaň – odkaz ide priamo, bez provízie.` };
     const chid = druh === 'coupon' ? (a.couponsEnabled ? a.couponChid : '') : a.chid;
-    if (!chid) return { url, dovod: druh === 'coupon' ? 'Kódy nemajú zapnutý vlastný kanál – odkaz ide priamo.' : 'Chýba kód kanála (chid).' };
+    if (!chid) return { url, dovod: druh === 'coupon' ? 'Kupóny nemajú zapnutý vlastný kanál – odkaz ide priamo.' : 'Chýba kód kanála (chid).' };
     return { url: `https://go.dognet.com/?chid=${encodeURIComponent(chid)}&url=${encodeURIComponent(url)}`, dovod: '', ok: true };
   }
   window.affOtestuj = function() {
@@ -1676,7 +1676,7 @@
 
     const el = document.getElementById('coupon-list');
     if (!list.length) {
-      el.innerHTML = `<div class="empty">Žiadne kódy v tejto kategórii.</div>`;
+      el.innerHTML = `<div class="empty">Žiadne kupóny v tejto kategórii.</div>`;
       return;
     }
     el.innerHTML = list.map(c => couponRowTemplate(c)).join('');
@@ -3157,10 +3157,10 @@
       <div id="deal-list"></div>
     </section>
 
-    <!-- ── Sekcia: Zľavové kódy ───────────────────────────────────────── -->
+    <!-- ── Sekcia: Kupóny ───────────────────────────────────────── -->
     <section class="admin-section admin-page" data-page="kody">
-      <h2 class="section-title">Zľavové kódy</h2>
-      <p class="page-desc">Zľavové kódy od návštevníkov aj z importu.</p>
+      <h2 class="section-title">Kupóny</h2>
+      <p class="page-desc">Kupóny od návštevníkov aj z importu.</p>
       <details class="page-settings">
         <summary><svg class="ix"><use href="#ix-settings"></use></svg> Nastavenia sekcie <svg class="ix"><use href="#ix-chev"></use></svg></summary>
         <div class="page-settings-in">
@@ -3172,12 +3172,12 @@
             <span class="slider"></span>
           </label>
         </label>
-        <p class="settings-hint">Keď je vypnutá, nové kódy sa zverejnia okamžite bez čakania na schválenie.</p>
+        <p class="settings-hint">Keď je vypnutá, nové kupóny sa zverejnia okamžite bez čakania na schválenie.</p>
       </div>
 
       <div class="settings-panel">
         <label class="switch-label">
-          <span>Mazať exspirované kódy</span>
+          <span>Mazať exspirované kupóny</span>
           <label class="switch">
             <input type="checkbox" id="toggle-purge" onchange="togglePurge(this.checked)">
             <span class="slider"></span>
@@ -3195,7 +3195,7 @@
           </span>
         </div>
         <p class="settings-hint">
-          Exspirované kódy zostávajú na stránke označené červenou nálepkou. Po uplynutí
+          Exspirované kupóny zostávajú na stránke označené červenou nálepkou. Po uplynutí
           tejto lehoty ich agent nenávratne zmaže — mazanie sa nedá vrátiť späť.
           Keď je prepínač vypnutý, nemaže sa nič.
         </p>
@@ -3365,9 +3365,9 @@
         </div>
 
         <div class="af-card">
-          <h3>Dognet – zľavové kódy</h3>
+          <h3>Dognet – kupóny</h3>
           <label class="switch-label">
-            <span>Partnerské odkazy na kódoch</span>
+            <span>Partnerské odkazy na kupónoch</span>
             <label class="switch"><input type="checkbox" id="aff-coupons" onchange="saveAffiliate({ couponsEnabled: this.checked })"><span class="slider"></span></label>
           </label>
           <div class="aff-row">
@@ -3377,7 +3377,7 @@
             <span class="af-chk" id="aff-coupon-chid-chk"></span>
           </div>
           <p class="settings-hint">Kupóny idú cez <b>samostatný kanál</b> (inzerenti za ne platia inú províziu). Kým nie je vyplnený,
-            kódy sa nebalia vôbec.</p>
+            kupóny sa nebalia vôbec.</p>
         </div>
       </div>
 
@@ -3427,7 +3427,7 @@
         <p class="settings-hint" style="margin-top:0;">Vlož adresu produktu z e-shopu – uvidíš presne ten odkaz, ktorý dostane návštevník.</p>
         <div class="af-test">
           <input type="url" id="aff-test-url" placeholder="https://www.alza.sk/produkt…" oninput="affOtestuj()">
-          <select id="aff-test-druh" onchange="affOtestuj()"><option value="deal">deal</option><option value="coupon">zľavový kód</option></select>
+          <select id="aff-test-druh" onchange="affOtestuj()"><option value="deal">deal</option><option value="coupon">kupón</option></select>
         </div>
         <div class="af-test-out" id="aff-test-out"></div>
       </div>

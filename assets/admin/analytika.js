@@ -84,7 +84,7 @@ U.stranka('top', {
 // Čo ľudia hľadajú
 // ═══════════════════════════════════════════════════════════════════
 const hl = { obd: null, sekcia: '', data: [], kluc: '' };
-const SEKCIE = { '': 'Všade', dealy: 'Dealy', kody: 'Zľavové kódy', potraviny: 'Potraviny' };
+const SEKCIE = { '': 'Všade', dealy: 'Dealy', kody: 'Kupóny', potraviny: 'Potraviny' };
 U.stranka('hladania', {
   init(el) {
     el.innerHTML = `<div id="hl-obd"></div>
@@ -154,7 +154,7 @@ U.stranka('hladania', {
 // Používanie funkcií
 // ═══════════════════════════════════════════════════════════════════
 const NAZVY = {
-  zalozka_deals: 'Dealy', zalozka_coupons: 'Zľavové kódy', zalozka_food: 'Potraviny', zalozka_leaflets: 'Letáky', zalozka_flights: 'Letenky',
+  zalozka_deals: 'Dealy', zalozka_coupons: 'Kupóny', zalozka_food: 'Potraviny', zalozka_leaflets: 'Letáky', zalozka_flights: 'Letenky',
   letenky_filter_z: 'Odkiaľ', letenky_filter_druh: 'Kam (mesto / more)', letenky_filter_cena: 'Rozpočet', letenky_filter_kedy: 'Kedy',
   letenky_filter_typ: 'Dĺžka cesty', letenky_filter_mesiac: 'Mesiac odletu', letenky_rezervacia: 'Klik na Rezervovať',
   preklik_deal: 'Preklik na deal', kategoria: 'Výber kategórie', triedenie_new: 'Triedenie: najnovšie', triedenie_votes: 'Triedenie: najhorúcejšie',

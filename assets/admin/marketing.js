@@ -154,7 +154,7 @@ U.stranka('facebook', {
 // ═══════════════════════════════════════════════════════════════════
 // UTM odkazy
 // ═══════════════════════════════════════════════════════════════════
-const CIELE = [['', 'Dealy (hlavná stránka)'], ['letenky', 'Letenky'], ['kody', 'Zľavové kódy'], ['potraviny', 'Potraviny'], ['letaky', 'Letáky'], ['deal', 'Konkrétny deal'], ['vlastny', 'Vlastná adresa']];
+const CIELE = [['', 'Dealy (hlavná stránka)'], ['letenky', 'Letenky'], ['kody', 'Kupóny'], ['potraviny', 'Potraviny'], ['letaky', 'Letáky'], ['deal', 'Konkrétny deal'], ['vlastny', 'Vlastná adresa']];
 const utm = { odkazy: [], obd: null };
 function vykonKampane(source, campaign, r) {
   const v = HK().visits.filter(x => x.utmcampaign === campaign && (!source || x.utmsource === source) && (!r || (x.date >= r.od && x.date <= r.do)));

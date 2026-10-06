@@ -305,7 +305,7 @@ U.stranka('agent', {
 // Záloha a obnova
 // ═══════════════════════════════════════════════════════════════════
 const KOLEKCIE = [
-  ['deals', 'Dealy', true], ['komentare', 'Komentáre k dealom', true], ['coupons', 'Zľavové kódy', true],
+  ['deals', 'Dealy', true], ['komentare', 'Komentáre k dealom', true], ['coupons', 'Kupóny', true],
   ['settings', 'Nastavenia stránky', true], ['merchants', 'Predajcovia', true], ['fb_posty', 'Príspevky na Facebook', true],
   ['utm_odkazy', 'UTM odkazy', true], ['provizie', 'Provízie', true], ['financie', 'Príjmy', true],
   ['admini', 'Administrátori', true], ['pripomienky', 'Pripomienky', true], ['audit_log', 'Záznam zmien (môže byť veľký)', false],
@@ -436,9 +436,9 @@ U.stranka('admini', {
         <div id="ad-pridat"></div></div>
       <div class="karta"><h3 class="karta-nadpis">Čo kto smie</h3>
         <div class="tab-wrap"><table class="tab"><thead><tr><th></th><th>Moderátor</th><th>Administrátor</th></tr></thead><tbody>
-          <tr><td>Schvaľovať, upravovať a plánovať dealy, kódy a komentáre</td><td>áno</td><td>áno</td></tr>
+          <tr><td>Schvaľovať, upravovať a plánovať dealy, kupóny a komentáre</td><td>áno</td><td>áno</td></tr>
           <tr><td>Kalendár a Záznam zmien</td><td>áno</td><td>áno</td></tr>
-          <tr><td>Mazať dealy a kódy natrvalo</td><td>nie</td><td>áno</td></tr>
+          <tr><td>Mazať dealy a kupóny natrvalo</td><td>nie</td><td>áno</td></tr>
           <tr><td>Nastavenia, affiliate, reklamy, agent, plánovač</td><td>nie</td><td>áno</td></tr>
           <tr><td>Návštevnosť, provízie, príjmy, registrovaní používatelia</td><td>nie</td><td>áno</td></tr>
           <tr><td>Pridávať a odoberať ľudí</td><td>nie</td><td>len majiteľ</td></tr></tbody></table></div>

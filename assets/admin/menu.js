@@ -48,7 +48,7 @@
       { id: 'dealy', n: 'Dealy', m: 1, k: 'schvaľovanie moderácia zamietnuť archív kvalita topovať žiar' },
       { id: 'pridat', n: 'Pridať z odkazu', d: 'Vlož adresu produktu – admin načíta názov, cenu a fotku a ty len skontroluješ.', k: 'nový deal url import vložiť' },
       { id: 'kalendar', n: 'Kalendár', d: 'Naplánované dealy, príspevky aj automatické úlohy. Filtrom "Čo zobraziť" vyberieš, čo vidieť; dealy a príspevky presunieš ťahaním na iný deň.', m: 1, k: 'plán naplánované zverejnenie týždeň mesiac' },
-      { id: 'kody', n: 'Zľavové kódy', m: 1, k: 'kupóny coupon' },
+      { id: 'kody', n: 'Kupóny', m: 1, k: 'zľavové kódy coupon' },
       { id: 'komentare', n: 'Komentáre', m: 1, k: 'diskusia moderácia' },
       { id: 'hlasenia', n: 'Hlásenia', d: 'Chyby na stránke a nahlásené neplatné dealy od návštevníkov.', m: 1, k: 'nahlásenie chyba spätná väzba feedback neplatný deal' },
       { id: 'platnost', n: 'Kontrola platnosti', d: 'Nefunkčné odkazy a skončené akcie na stránke – skontroluj ich jedným klikom.', k: 'exspirované mŕtve odkazy 404 skončené' },
@@ -84,7 +84,7 @@
     ] },
     { g: 'Systém', p: [
       { id: 'admini', n: 'Administrátori', d: 'Kto má prístup do adminu a s akou rolou.', k: 'moderátor role prístup používatelia' },
-      { id: 'zaloha', n: 'Záloha', d: 'Stiahni zálohu dealov, kódov a nastavení do súboru, alebo ich obnov.', k: 'export import obnova backup' },
+      { id: 'zaloha', n: 'Záloha', d: 'Stiahni zálohu dealov, kupónov a nastavení do súboru, alebo ich obnov.', k: 'export import obnova backup' },
       { id: 'zaznam', n: 'Záznam zmien', m: 1, k: 'audit log história kto čo' },
     ] },
   ];
@@ -221,7 +221,7 @@
         <div class="ph-lab">${ikona(k)}${lab}</div><div class="ph-num${alert ? ' alert' : ''}">${num}</div><div class="ph-sub">${sub}</div></a>`;
     el.innerHTML =
       karta('dealy', 'Dealy na schválenie', dealy, `naplánované: <b>${cislo('count-planned')}</b> · zverejnené: <b>${cislo('count-approved')}</b>`, dealy > 0) +
-      karta('kody', 'Kódy na schválenie', kody, 'zľavové kódy od návštevníkov', kody > 0) +
+      karta('kody', 'Kupóny na schválenie', kody, 'kupóny od návštevníkov', kody > 0) +
       karta('komentare', 'Komentáre na schválenie', kom, 'komentáre pri dealoch', kom > 0) +
       (admin ? karta('navstevnost', 'Návštevy dnes', txt('visits-today') || '–', `za 7 dní: <b>${txt('visits-7d') || '–'}</b>`) +
         karta('affiliate', 'Affiliate', aff.zap ? 'Zapnuté' : 'Vypnuté',
@@ -239,7 +239,7 @@
     const dealy = cislo('count-pending'), kody = cislo('coupcount-pending'), kom = cislo('ccount-pending');
     const sk = (n, a, b, c) => `${n} ${n === 1 ? a : (n >= 2 && n <= 4 ? b : c)}`;
     if (dealy) z.push({ text: `${sk(dealy, 'deal čaká', 'dealy čakajú', 'dealov čaká')} na schválenie`, href: '#dealy', typ: 'info' });
-    if (kody) z.push({ text: `${sk(kody, 'zľavový kód čaká', 'zľavové kódy čakajú', 'zľavových kódov čaká')} na schválenie`, href: '#kody', typ: 'info' });
+    if (kody) z.push({ text: `${sk(kody, 'kupón čaká', 'kupóny čakajú', 'kupónov čaká')} na schválenie`, href: '#kody', typ: 'info' });
     if (kom) z.push({ text: `${sk(kom, 'komentár čaká', 'komentáre čakajú', 'komentárov čaká')} na schválenie`, href: '#komentare', typ: 'info' });
     Object.values(window.HK_UPOZORNENIA).forEach(zoz => (zoz || []).forEach(u => z.push(u)));
     return z;

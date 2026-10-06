@@ -1486,7 +1486,7 @@
       console.error("Coupons error (možno chýba Firestore index – pozri link v konzole):", e);
       if (window.allCoupons.length === 0) {
         document.getElementById('coupons-list').innerHTML =
-          '<div class="empty">Zľavové kódy sa nepodarilo načítať. (Možno chýba Firestore index – pozri konzolu prehliadača.)</div>';
+          '<div class="empty">Kupóny sa nepodarilo načítať. (Možno chýba Firestore index – pozri konzolu prehliadača.)</div>';
       }
       window.couponsHasMore = false;
     } finally {
@@ -1569,7 +1569,7 @@
       }
     } catch(e) {
       console.error('Coupon vote error:', e);
-      window.hkToast('Hlasovanie o kóde sa nepodarilo. Skús to neskôr.', 'error');
+      window.hkToast('Hlasovanie o kupóne sa nepodarilo. Skús to neskôr.', 'error');
     }
   };
 
@@ -2100,6 +2100,7 @@
   .hot-mini-title { font-size: .82rem; font-weight: 700; color: var(--ink); line-height: 1.3;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .hot-mini-price { font-size: .8rem; font-weight: 800; color: var(--green); margin-top: 2px; }
+  .hot-mini-item .ct-tile { width: 44px; height: 44px; }
   .cat-list { display: none; }
 
   /* ── Tabs bar (For you / Hottest / Trending / All) ─────────────────────── */
@@ -3729,10 +3730,10 @@ body.food-page { background: #FAF8F5; }
       <button class="main-section-btn" id="btn-letenky" style="display:none;" onclick="setMainSection('flights', this)"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Letenky</button>
       <button class="main-section-btn" onclick="setMainSection('food', this)"><svg class="ic" aria-hidden="true"><use href="#i-basket"></use></svg> Potraviny</button>
       <button class="main-section-btn" onclick="setMainSection('leaflets', this)"><svg class="ic" aria-hidden="true"><use href="#i-news"></use></svg> Letáky</button>
-      <button class="main-section-btn" onclick="setMainSection('coupons', this)"><svg class="ic" aria-hidden="true"><use href="#i-ticket"></use></svg> Kódy</button>
+      <button class="main-section-btn" onclick="setMainSection('coupons', this)"><svg class="ic" aria-hidden="true"><use href="#i-ticket"></use></svg> Kupóny</button>
     </div>
     <button class="btn-add" id="btn-add-deal" onclick="openModal()">+ Pridaj deal</button>
-    <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kód</button>
+    <button class="btn-add" id="btn-add-coupon" onclick="openCouponModal()" style="display:none;">+ Pridaj kupón</button>
     <button class="btn-add" id="btn-add-placeholder" style="display:none; visibility:hidden;" aria-hidden="true">+ Pridaj deal</button>
     <button class="hk-acct" id="btn-ucet" type="button" style="display:none;" onclick="otvorUcet()"
             title="Prihlásiť sa alebo vytvoriť účet"><svg class="ic" aria-hidden="true"><use href="#i-user"></use></svg><span class="hk-acct-txt">Prihlásiť sa</span></button>
@@ -3970,6 +3971,10 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
              oninput="filterDeals()" autocomplete="off" enterkeyhint="search">
     </label>
     <div class="sidebar-spacer" aria-hidden="true"></div>
+    <div class="sidebar-box" id="latest-coupons-sidebar-box" style="display:none;">
+      <h3><svg class="ic" aria-hidden="true"><use href="#i-ticket"></use></svg> Posledné pridané kupóny</h3>
+      <div id="latest-coupons-sidebar-list"><p style="font-size:.82rem; color:var(--muted);">Načítavam…</p></div>
+    </div>
     <div class="sidebar-box" id="hottest-sidebar-box">
       <h3><svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg> Najhorúcejšie dealy</h3>
       <div id="hottest-sidebar-list"><p style="font-size:.82rem; color:var(--muted);">Načítavam…</p></div>
@@ -4206,11 +4211,11 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   </div>
 </div>
 
-<!-- Úprava vlastného kódu - len pre autora, pozri window.openEditCoupon -->
+<!-- Úprava vlastného kupónu - len pre autora, pozri window.openEditCoupon -->
 <div class="modal-overlay" id="edit-coupon-modal">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-coupon-modal-title">
     <div class="modal-header">
-      <div><h2 id="edit-coupon-modal-title">Upraviť kód</h2><p>Opravíš len vlastný príspevok - hlasy a stav sa nemenia.</p></div>
+      <div><h2 id="edit-coupon-modal-title">Upraviť kupón</h2><p>Opravíš len vlastný príspevok - hlasy a stav sa nemenia.</p></div>
       <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeEditCoupon()">✕</button>
     </div>
     <form class="modal-body" id="edit-coupon-form" novalidate onsubmit="handleEditCouponSubmit(event)">
@@ -4324,7 +4329,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
 <div class="modal-overlay" id="coupon-modal">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="coupon-modal-title">
     <div class="modal-header">
-      <div><h2 id="coupon-modal-title">Pridaj zľavový kód</h2><p>Pomôž ostatným ušetriť pri nákupe.</p></div>
+      <div><h2 id="coupon-modal-title">Pridaj kupón</h2><p>Pomôž ostatným ušetriť pri nákupe.</p></div>
       <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeCouponModal()">✕</button>
     </div>
     <!-- Zľava sa už nepíše voľným textom. Ľudia do nej písali "20% na
@@ -4953,7 +4958,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   };
 
   // ── Sekcia: Dealy / Zľavové kódy ────────────────────────────────────────────
-  const HLAVICKY = {"deals": {"img": "hero-dealy", "c": "#08294E", "k": "Komunitné dealy", "h": "Najlepšie <span class=\"hl\">zľavy</span> dňa", "p": "Overené akcie zo slovenských a českých e-shopov. Hlasuj, ukladaj a pridávaj vlastné."}, "flights": {"img": "hero-letenky", "c": "#06244A", "k": "Letenková mapa", "h": "Kam za <span class=\"hl\">pár eur?</span>", "p": "Najlacnejšie letenky zo 7 letísk strednej Európy na jednej mape."}, "food": {"img": "hero-potraviny", "c": "#082B55", "k": "Porovnanie cien", "h": "Najlacnejšie <span class=\"hl\">potraviny</span>", "p": "Porovnaj ceny základných potravín vo všetkých veľkých reťazcoch."}, "leaflets": {"img": "hero-letaky", "c": "#07284F", "k": "Akciové letáky", "h": "Aktuálne <span class=\"hl\">letáky</span>", "p": "Najnovšie akciové letáky obchodov na jednom mieste – vždy priamo od obchodu."}, "coupons": {"img": "hero-kody", "c": "#09284E", "k": "Kupóny", "h": "Zľavové <span class=\"hl\">kódy</span>", "p": "Overené kódy do e-shopov. Skopíruj, vlož do košíka a ušetri."}};
+  const HLAVICKY = {"deals": {"img": "hero-dealy", "c": "#08294E", "k": "Komunitné dealy", "h": "Najlepšie <span class=\"hl\">zľavy</span> dňa", "p": "Overené akcie zo slovenských a českých e-shopov. Hlasuj, ukladaj a pridávaj vlastné."}, "flights": {"img": "hero-letenky", "c": "#06244A", "k": "Letenková mapa", "h": "Kam za <span class=\"hl\">pár eur?</span>", "p": "Najlacnejšie letenky zo 7 letísk strednej Európy na jednej mape."}, "food": {"img": "hero-potraviny", "c": "#082B55", "k": "Porovnanie cien", "h": "Najlacnejšie <span class=\"hl\">potraviny</span>", "p": "Porovnaj ceny základných potravín vo všetkých veľkých reťazcoch."}, "leaflets": {"img": "hero-letaky", "c": "#07284F", "k": "Akciové letáky", "h": "Aktuálne <span class=\"hl\">letáky</span>", "p": "Najnovšie akciové letáky obchodov na jednom mieste – vždy priamo od obchodu."}, "coupons": {"img": "hero-kody", "c": "#09284E", "k": "Kupóny", "h": "Zľavové <span class=\"hl\">kupóny</span>", "p": "Overené kódy do e-shopov. Skopíruj, vlož do košíka a ušetri."}};
   function nastavHlavicku(section) {
     const h = HLAVICKY[section], el = document.getElementById('hk-hero');
     if (!h || !el) return;
@@ -4994,6 +4999,8 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     // záložkách nemá čo robť - Kódy aj Potraviny majú vlastné.
     var hl = document.getElementById('sidebar-search');
     if (hl) hl.style.display = section === 'deals' ? '' : 'none';
+    var lk = document.getElementById('latest-coupons-sidebar-box');
+    if (lk) { lk.style.display = section === 'coupons' ? '' : 'none'; if (section === 'coupons') renderLatestCouponsSidebar(); }
     document.body.classList.toggle('leaflet-page', section === 'leaflets');
     if (section === 'leaflets') renderLeafletHot();
     // Teplé takmer biele pozadie patrí k tejto sekcii. Sivé zo zvyšku
@@ -5068,7 +5075,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   const UC_TEMY = [
     ['dealy', 'Top dealy dňa', 'flame'], ['elektronika', 'Elektronika', 'device-mobile'],
     ['letenky', 'Lacné letenky', 'plane'], ['potraviny', 'Potraviny a letáky', 'basket'],
-    ['kody', 'Zľavové kódy', 'ticket'],
+    ['kody', 'Kupóny', 'ticket'],
   ];
   const UC_LETISKA = [['BTS', 'Bratislava'], ['VIE', 'Viedeň'], ['KSC', 'Košice'], ['BRQ', 'Brno'], ['PRG', 'Praha'], ['BUD', 'Budapešť'], ['KRK', 'Krakov']];
   const UC_KRAJE = ['Bratislavský', 'Trnavský', 'Trenčiansky', 'Nitriansky', 'Žilinský',
@@ -7135,7 +7142,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     <div class="kd-card${expired ? ' is-expired' : ''}" id="coupon-${c.id}">
       ${shopTile(c)}
       <div style="min-width:0;">
-        <div class="kd-title">${expired ? 'Starší kód: ' : ''}${zvyrazni(c.discount || 'Zľavový kód')}${c.store ? ` <span class="obchod">· ${escapeHtml(c.store)}</span>` : ''}</div>
+        <div class="kd-title">${expired ? 'Starší kupón: ' : ''}${zvyrazni(c.discount || 'Zľavový kupón')}${c.store ? ` <span class="obchod">· ${escapeHtml(c.store)}</span>` : ''}</div>
         ${popis ? `<div class="kd-sub" onclick="kdPopis(this)" title="Kliknutím zobrazíš celý popis">${escapeHtml(popis)}${popis.length > 60 ? '<span class="kd-viac">viac</span>' : ''}</div>` : ''}
         <div class="kd-badges">${odznaky.join('')}${hlas}</div>
       </div>
@@ -7158,7 +7165,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     const vsetky = window.allCoupons || [];
     const platne = vsetky.filter(c => !couponExpired(c));
     document.getElementById('kd-stats').innerHTML = `
-      <div class="kd-stat"><span class="ico">${icon('ticket')}</span><div><b>${platne.length}</b><small>aktívnych kódov</small></div></div>
+      <div class="kd-stat"><span class="ico">${icon('ticket')}</span><div><b>${platne.length}</b><small>aktívnych kupónov</small></div></div>
       <div class="kd-stat"><span class="ico">${icon('building-store')}</span><div><b>${new Set(platne.map(c => (c.store || '').toLowerCase())).size}</b><small>e-shopov</small></div></div>`;
     const pocty = {
       vsetky: platne.length, top: platne.length,
@@ -7168,7 +7175,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     };
     document.getElementById('kd-chips').innerHTML = FILTRE.map(([k, t]) =>
       `<button class="kd-chip${filter === k ? ' on' : ''}" onclick="kdFilter('${k}')" ${pocty[k] ? '' : 'disabled'}>${t}${k !== 'top' ? ` <small>${pocty[k]}</small>` : ''}</button>`).join('');
-    if (!vsetky.length) { el.innerHTML = window.couponsLoading ? skeletonCards() : '<div class="empty">Žiadne kódy.</div>'; return; }
+    if (!vsetky.length) { el.innerHTML = window.couponsLoading ? skeletonCards() : '<div class="empty">Žiadne kupóny.</div>'; return; }
     const q = (document.getElementById('kd-hladaj').value || '').trim().toLowerCase();
     let zoz = vsetky.filter(c => !q || `${c.code} ${c.store} ${c.discount} ${c.description}`.toLowerCase().includes(q));
     if (filter === 'nove') zoz = zoz.filter(c => cas(c) && (Date.now() - cas(c)) < 7 * 86400000);
@@ -7181,11 +7188,34 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     if (q) window.hkHladanie && window.hkHladanie('kody', q, platnePrve.length);
     el.className = 'coupons-list kd-list';
     el.innerHTML = (platnePrve.map(couponCard).join('') ||
-        '<div class="empty" style="padding:30px;">Pre tento filter teraz nemáme platný kód.</div>') +
-      (stare.length ? `<div class="kd-oddel">Neplatné kódy</div>` + stare.map(couponCard).join('') : '');
+        '<div class="empty" style="padding:30px;">Pre tento filter teraz nemáme platný kupón.</div>') +
+      (stare.length ? `<div class="kd-oddel">Neplatné kupóny</div>` + stare.map(couponCard).join('') : '');
+    renderLatestCouponsSidebar();
   }
   window.renderCouponsList = renderCouponsList;
   window.kdFilter = k => { filter = k; renderCouponsList(); };
+
+  // Bočný panel na záložke Kupóny: posledných 5 pridaných, nezávisle od
+  // aktívneho triedenia/filtra v hlavnom zozname.
+  function renderLatestCouponsSidebar() {
+    const el = document.getElementById('latest-coupons-sidebar-list');
+    if (!el) return;
+    const platne = (window.allCoupons || []).filter(c => !couponExpired(c));
+    if (!platne.length) { el.innerHTML = '<p style="font-size:.82rem; color:var(--muted);">Zatiaľ žiadne kupóny.</p>'; return; }
+    const posledne = [...platne].sort((a, b) => (cas(b) || 0) - (cas(a) || 0)).slice(0, 5);
+    el.innerHTML = posledne.map(c => `
+      <a class="hot-mini-item" href="${outUrl(c.url, 'coupon')}" data-raw="${escapeAttr(c.url || '')}" data-kind="coupon"
+         target="_blank" rel="nofollow sponsored noopener"
+         onclick="navigator.clipboard && navigator.clipboard.writeText(${jsArg(c.code || '')})"
+         title="Skopíruje kód a otvorí obchod">
+        ${shopTile(c)}
+        <div class="hot-mini-info">
+          <div class="hot-mini-title">${zvyrazni(c.discount || 'Zľavový kupón')}${c.store ? ` · ${escapeHtml(c.store)}` : ''}</div>
+          <div class="hot-mini-price">${kedyPridane(c) || ''}</div>
+        </div>
+      </a>`).join('');
+  }
+  window.renderLatestCouponsSidebar = renderLatestCouponsSidebar;
 
   function escapeAttr(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
@@ -7521,12 +7551,12 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
         document.getElementById(id).value = '');
       resetCouponForm();
       if (status === 'approved') {
-        window.hkToast('Ďakujeme! Kód bol zverejnený.');
+        window.hkToast('Ďakujeme! Kupón bol zverejnený.');
       } else {
-        window.hkToast('Ďakujeme! Kód bol odoslaný na schválenie.');
+        window.hkToast('Ďakujeme! Kupón bol odoslaný na schválenie.');
       }
     } catch(e) {
-      chyba.textContent = 'Kód sa nepodarilo uložiť. Skontroluj pripojenie a skús to znova.';
+      chyba.textContent = 'Kupón sa nepodarilo uložiť. Skontroluj pripojenie a skús to znova.';
     }
   };
 
