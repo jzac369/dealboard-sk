@@ -101,8 +101,8 @@ KUPONY = [
     ("Real-soft.sk", "real-soft.sk", "X10RP", "Zľava 10 %", "", "2042-12-31"),
     ("Valachshop.sk", "valachshop.sk", "DOGNET5", "Zľava 5 %",
      "Pri nákupe nad 50 €. Platí na nezľavnený tovar.", "2026-12-31"),
-    ("Erexan.sk", "erexan.sk", "inspi5", "Zľava 5 %",
-     "Platí pri nákupe nad 35 €. Jeden zákazník ho môže využiť raz.", None),
+    # Erexan.sk (doplnky na erektilnú dysfunkciu) zámerne vynechaný -
+    # AdSense-hraničná kategória, radšej neriskovať. 6.10.2026.
 ]
 
 # Hemnia.com/sk (10CBDEUR) a budsforbuddies.com/sk (10BFBEUR) sem
