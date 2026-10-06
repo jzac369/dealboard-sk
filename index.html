@@ -2327,12 +2327,6 @@
   .lf-box-h { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }
   .lf-box-h h2 { flex: 1; }
   .lf-box-h .ic { color: var(--orange); flex: none; }
-  .lf-box-ico { width: 42px; height: 42px; background: var(--badge); border-radius: 12px;
-    display: flex; align-items: center; justify-content: center; color: var(--orange); margin-bottom: 12px; }
-  .lf-cta { width: 100%; border: none; background: var(--orange); color: #fff;
-    font-family: inherit; font-size: .92rem; font-weight: 700; padding: 13px;
-    border-radius: 12px; cursor: pointer; margin-top: 14px; }
-  .lf-cta:hover { background: var(--orange-dk); }
   .lf-muted { font-size: .82rem; color: var(--lf-faint); }
   .lf-hot-row { display: flex; align-items: center; gap: 11px; padding: 11px 0;
     border-top: 1px solid #F4F0EA; text-decoration: none; color: inherit; }
@@ -3920,13 +3914,6 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
 
       <aside class="lf-side">
         <div class="lf-box">
-          <span class="lf-box-ico"><svg class="ic" aria-hidden="true"><use href="#i-bell"></use></svg></span>
-          <h2>Už vám neunikne žiadny nový leták</h2>
-          <p>Dostávajte upozornenia, keď vyjde nový leták vášho obľúbeného obchodu.</p>
-          <button type="button" class="lf-cta" onclick="window.leafletAlerts()">Nastaviť upozornenia</button>
-        </div>
-
-        <div class="lf-box">
           <div class="lf-box-h">
             <svg class="ic" aria-hidden="true"><use href="#i-flame"></use></svg>
             <h2>Najhorúcejšie dealy</h2>
@@ -5442,7 +5429,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
         <ul class="uc-vyhody">
           <li>${icon('mail')}<span><b>Newsletter na mieru</b> – len dealy, letenky či letáky, ktoré ťa zaujímajú</span></li>
           <li>${icon('bookmark')}<span><b>Uložené dealy všade</b> – na mobile aj počítači</span></li>
-          <li>${icon('bell')}<span><b>Upozornenia</b> na lacné letenky z tvojho letiska <i>(čoskoro)</i></span></li>
+          <li>${icon('bell')}<span><b>Upozornenia</b> na lacné letenky z tvojho letiska</span></li>
         </ul>
         <div><label for="uc-email">E-mail</label>
           <input type="email" id="uc-email" autocomplete="email" placeholder="meno@example.sk" required></div>
@@ -7011,10 +6998,6 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
             <span>${cenaDealu(d)}</span></span>
         </a>`).join('');
   }
-
-  window.leafletAlerts = () => {
-    window.hkToast('Upozornenia na nové letáky pripravujeme. Letáky tu nájdeš vždy aktuálne.');
-  };
 
   window.goToDeals = () => {
     const btn = document.querySelector('.main-section-btn');
