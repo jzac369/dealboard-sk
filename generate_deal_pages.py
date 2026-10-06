@@ -89,12 +89,6 @@ def affiliate_url(url: str) -> str:
     return f"https://go.dognet.com/?chid={quote(chid, safe='')}&url={quote(url, safe='')}"
 
 
-# Expirovaný deal ešte 30 dní nechávame v indexe (ľudia ho hľadajú, stránka
-# im povie, že akcia skončila), potom noindex a von zo sitemap - inak by
-# Google ponúkal stovky dávno neplatných akcií.
-DNI_PO_EXPIRACII = 30
-
-
 def _datum_dealu(d: dict):
     """Dátum dealu (timestamp z Firestore) alebo None."""
     ts = d.get("timestamp")
@@ -109,17 +103,6 @@ def je_expirovany(d: dict) -> bool:
         return True
     platnost = d.get("validUntilISO")
     return bool(platnost) and platnost < date.today().isoformat()
-
-
-def dlho_expirovany(d: dict) -> bool:
-    """Expirovaný dlhšie než DNI_PO_EXPIRACII (podľa platnosti, inak dátumu dealu)."""
-    if not je_expirovany(d):
-        return False
-    try:
-        od = date.fromisoformat(d["validUntilISO"]) if d.get("validUntilISO") else _datum_dealu(d)
-    except ValueError:
-        od = _datum_dealu(d)
-    return bool(od) and (date.today() - od).days > DNI_PO_EXPIRACII
 
 
 def structured_data(d: dict, title: str, store: str, image_url: str, description: str,
@@ -185,7 +168,10 @@ def render_deal_page(deal_id: str, d: dict) -> str:
 
     meta_description = (description[:155] + "…") if len(description) > 158 else description
     ld_json = structured_data(d, title, store, image_url, meta_description, target_url, currency_code)
-    robots = '<meta name="robots" content="noindex, follow">\n' if dlho_expirovany(d) else ""
+    # Expirovaný deal dostane noindex hneď, nie až po čase - Google tieto
+    # tenké, neaktuálne stránky inak počíta do "low-value content" (nahlásené
+    # pri AdSense recenzii). Stránka ostáva prístupná, len sa neindexuje.
+    robots = '<meta name="robots" content="noindex, follow">\n' if je_expirovany(d) else ""
 
     return f"""<!DOCTYPE html>
 <html lang="sk">
@@ -402,8 +388,8 @@ def main():
         with open(os.path.join(page_dir, "index.html"), "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        # Dlho expirované do sitemap nepatria (stránka má noindex).
-        if not dlho_expirovany(d):
+        # Expirované do sitemap nepatria (stránka má noindex).
+        if not je_expirovany(d):
             deal_urls.append((f"{SITE_URL}/{OUTPUT_ROOT}/{slug}-{deal_id}/", _datum_dealu(d), je_expirovany(d)))
         if not je_expirovany(d):
             pre_uvod.append((f"{slug}-{deal_id}", d))
