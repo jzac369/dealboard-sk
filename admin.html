@@ -1762,8 +1762,9 @@
         return;
       }
     }
-    const dealPriceNum = parseFloat(get('deal')) || 0;
-    const originalPriceNum = parseFloat(get('orig')) || null;
+    const zadarmo = document.getElementById(`e-zadarmo-${id}`).checked;
+    const dealPriceNum = zadarmo ? 0 : (parseFloat(get('deal')) || 0);
+    const originalPriceNum = zadarmo ? null : (parseFloat(get('orig')) || null);
     const updates = {
       title: get('title'),
       store: get('store'),
@@ -1773,7 +1774,8 @@
       description: get('desc'),
       dealPrice: dealPriceNum,
       originalPrice: originalPriceNum,
-      discountPercent: (originalPriceNum && dealPriceNum && originalPriceNum > dealPriceNum)
+      zadarmo,
+      discountPercent: (!zadarmo && originalPriceNum && dealPriceNum && originalPriceNum > dealPriceNum)
         ? Math.round((1 - dealPriceNum / originalPriceNum) * 100) : 0
     };
     await updateDoc(doc(db, "deals", id), updates);
@@ -2065,6 +2067,7 @@
           <div><label>Názov</label><input id="e-title-${d.id}" value="${escapeAttr(d.title)}"></div>
           <div><label>E-shop</label><input id="e-store-${d.id}" value="${escapeAttr(d.store)}"></div>
           <div><label>Kategória</label><input id="e-cat-${d.id}" value="${escapeAttr(d.category)}"></div>
+          <div class="full"><label class="zaskrt"><input id="e-zadarmo-${d.id}" type="checkbox"${d.zadarmo ? ' checked' : ''}> Zadarmo (0 €)</label></div>
           <div><label>Cena teraz (€)</label><input id="e-deal-${d.id}" type="number" value="${d.dealPrice||''}"></div>
           <div><label>Pôvodná cena (€)</label><input id="e-orig-${d.id}" type="number" value="${d.originalPrice||''}"></div>
           <div class="full"><label>URL obchodu (affiliate sa pridá automaticky)</label><input id="e-url-${d.id}" value="${escapeAttr(d.url)}"></div>

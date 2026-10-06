@@ -1624,8 +1624,14 @@
     document.getElementById('ed-deal').value = d.dealPrice || '';
     document.getElementById('ed-cat').value = d.category || 'Iné';
     document.getElementById('ed-desc').value = d.description || '';
+    document.getElementById('ed-zadarmo').checked = d.zadarmo === true;
+    window.toggleEditZadarmo(d.zadarmo === true);
     document.getElementById('edit-deal-err').textContent = '';
     document.getElementById('edit-deal-modal').classList.add('open');
+  };
+  window.toggleEditZadarmo = function(zadarmo) {
+    document.getElementById('ed-cena-wrap').style.display = zadarmo ? 'none' : '';
+    document.getElementById('ed-deal').required = !zadarmo;
   };
   window.closeEditDeal = function() {
     document.getElementById('edit-deal-modal').classList.remove('open');
@@ -1642,24 +1648,25 @@
     const url = window.normalizeUrl(document.getElementById('ed-url').value.trim());
     const store = document.getElementById('ed-store').value.trim();
     const title = document.getElementById('ed-title').value.trim();
-    const dealPrice = parseFloat(document.getElementById('ed-deal').value);
-    const originalPrice = parseFloat(document.getElementById('ed-orig').value) || null;
+    const zadarmo = document.getElementById('ed-zadarmo').checked;
+    const dealPrice = zadarmo ? 0 : parseFloat(document.getElementById('ed-deal').value);
+    const originalPrice = zadarmo ? null : (parseFloat(document.getElementById('ed-orig').value) || null);
     const category = document.getElementById('ed-cat').value;
     const description = document.getElementById('ed-desc').value.trim().slice(0, 2000);
     if (!/^https?:\/\//i.test(url)) { errEl.textContent = 'Zadaj platný odkaz (https://...).'; return; }
     if (!store) { errEl.textContent = 'Zadaj e-shop.'; return; }
     if (!title) { errEl.textContent = 'Zadaj názov produktu.'; return; }
-    if (isNaN(dealPrice) || dealPrice < 0) { errEl.textContent = 'Zadaj platnú akciovú cenu.'; return; }
-    if (originalPrice && originalPrice <= dealPrice) { errEl.textContent = 'Bežná cena má byť vyššia ako akciová.'; return; }
-    const discountPercent = (originalPrice && dealPrice && originalPrice > dealPrice)
+    if (!zadarmo && (isNaN(dealPrice) || dealPrice < 0)) { errEl.textContent = 'Zadaj platnú akciovú cenu.'; return; }
+    if (!zadarmo && originalPrice && originalPrice <= dealPrice) { errEl.textContent = 'Bežná cena má byť vyššia ako akciová.'; return; }
+    const discountPercent = (!zadarmo && originalPrice && dealPrice && originalPrice > dealPrice)
       ? Math.round((1 - dealPrice / originalPrice) * 100) : 0;
     const btn = document.getElementById('edit-deal-submit');
     btn.disabled = true;
     btn.textContent = 'Ukladám…';
     try {
-      await updateDoc(doc(db, "deals", id), { url, store, title, dealPrice, originalPrice, category, description, discountPercent });
+      await updateDoc(doc(db, "deals", id), { url, store, title, dealPrice, originalPrice, category, description, discountPercent, zadarmo });
       const item = (window.allDeals || []).find(x => x.id === id);
-      if (item) Object.assign(item, { url, store, title, dealPrice, originalPrice, category, description, discountPercent });
+      if (item) Object.assign(item, { url, store, title, dealPrice, originalPrice, category, description, discountPercent, zadarmo });
       window.closeEditDeal();
       if (window.renderDealsList) window.renderDealsList();
       if (window.hkToast) window.hkToast('Zmeny boli uložené.');
@@ -2413,6 +2420,9 @@
   /* Chyby priamo pri poli - alert() bol na mobile otravný a nepovedal,
      ktoré pole je zle. */
   .req { color: var(--orange-dk); }
+  .zaskrt-zadarmo { display: flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 600;
+    margin: 4px 0 2px; cursor: pointer; }
+  .zaskrt-zadarmo input { width: auto; }
   .field-err { color: #B03A2E; font-size: .78rem; margin-top: 4px; line-height: 1.35; }
   .field-err:empty { display: none; }
   input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: #D64545 !important; }
@@ -3981,7 +3991,8 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
                placeholder="napr. Samsung Galaxy S24 128GB">
         <div class="field-err" id="f-title-err"></div>
       </div>
-      <div class="row2">
+      <label class="zaskrt-zadarmo"><input type="checkbox" id="f-zadarmo" onchange="toggleZadarmo(this.checked)"> Táto ponuka je úplne zadarmo (0 €)</label>
+      <div class="row2" id="f-cena-wrap">
         <div>
           <label for="f-orig">Bežná cena (€)</label>
           <input type="number" id="f-orig" name="originalPrice" placeholder="299" step="0.01" min="0" max="1000000"
@@ -4092,7 +4103,8 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
         <input type="text" id="ed-title" required maxlength="190" aria-describedby="ed-title-err">
         <div class="field-err" id="ed-title-err"></div>
       </div>
-      <div class="row2">
+      <label class="zaskrt-zadarmo"><input type="checkbox" id="ed-zadarmo" onchange="toggleEditZadarmo(this.checked)"> Táto ponuka je úplne zadarmo (0 €)</label>
+      <div class="row2" id="ed-cena-wrap">
         <div>
           <label for="ed-orig">Bežná cena (€)</label>
           <input type="number" id="ed-orig" step="0.01" min="0" max="1000000" inputmode="decimal" aria-describedby="ed-orig-err">
@@ -7717,7 +7729,17 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     btn.setAttribute('aria-expanded', 'false');
     document.getElementById('more-fields').style.display = 'none';
     document.getElementById('f-cat').selectedIndex = 0;
+    document.getElementById('f-zadarmo').checked = false;
+    window.toggleZadarmo(false);
   }
+
+  // Keď je ponuka zadarmo, cenové polia nemajú zmysel - schováme ich a
+  // akciová cena prestane byť povinná (inak by formulár nešlo odoslať).
+  window.toggleZadarmo = function(zadarmo) {
+    document.getElementById('f-cena-wrap').style.display = zadarmo ? 'none' : '';
+    document.getElementById('f-deal').required = !zadarmo;
+    if (zadarmo) { dfChyba('f-deal', ''); dfChyba('f-orig', ''); }
+  };
 
   // ── Dátumové polia ──────────────────────────────────────────────────
   // Nápoveda "deň. mesiac. rok" sa schová, len čo je dátum vyplnený
@@ -7802,12 +7824,17 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     ok.push(dfChyba('f-store', store ? '' : 'Napíš, v ktorom e-shope je ponuka.'));
     const title = document.getElementById('f-title').value.trim();
     ok.push(dfChyba('f-title', title.length < 3 ? 'Napíš názov produktu (aspoň 3 znaky).' : ''));
+    const zadarmo = document.getElementById('f-zadarmo').checked;
     const deal = parseFloat(document.getElementById('f-deal').value);
     const origTxt = document.getElementById('f-orig').value;
     const orig = parseFloat(origTxt);
-    ok.push(dfChyba('f-deal', isNaN(deal) ? 'Zadaj akciovú cenu.' : deal < 0 ? 'Cena nemôže byť záporná.' : ''));
-    ok.push(dfChyba('f-orig', origTxt && (isNaN(orig) || orig < 0) ? 'Zadaj platnú cenu.'
-      : origTxt && !isNaN(deal) && orig <= deal ? 'Bežná cena má byť vyššia ako akciová.' : ''));
+    if (!zadarmo) {
+      ok.push(dfChyba('f-deal', isNaN(deal) ? 'Zadaj akciovú cenu.' : deal < 0 ? 'Cena nemôže byť záporná.' : ''));
+      ok.push(dfChyba('f-orig', origTxt && (isNaN(orig) || orig < 0) ? 'Zadaj platnú cenu.'
+        : origTxt && !isNaN(deal) && orig <= deal ? 'Bežná cena má byť vyššia ako akciová.' : ''));
+    } else {
+      dfChyba('f-deal', ''); dfChyba('f-orig', '');
+    }
     const author = window.stripEmoji(document.getElementById('f-author').value).trim();
     ok.push(dfChyba('f-author', author ? '' : 'Napíš prezývku, pod ktorou sa deal zobrazí.'));
     const until = document.getElementById('f-until').value;
@@ -7837,7 +7864,8 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     const author = window.stripEmoji(document.getElementById('f-author').value).trim();
     const title = document.getElementById('f-title').value.trim();
     const store = document.getElementById('f-store').value.trim();
-    const deal  = parseFloat(document.getElementById('f-deal').value);
+    const zadarmo = document.getElementById('f-zadarmo').checked;
+    const deal  = zadarmo ? 0 : parseFloat(document.getElementById('f-deal').value);
     const url   = normalizeUrl(document.getElementById('f-url').value.trim());
     const honeypot = document.getElementById('f-honeypot').value.trim();
     const imgFile  = document.getElementById('f-img-file').files[0];
@@ -7869,12 +7897,13 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
         title,
         store,
         dealPrice: deal,
-        originalPrice: parseFloat(document.getElementById('f-orig').value) || null,
+        originalPrice: zadarmo ? null : (parseFloat(document.getElementById('f-orig').value) || null),
         category: document.getElementById('f-cat').value,
         url,
         imageUrl,
         description: document.getElementById('f-desc').value.trim().slice(0, 2000),
-        currency: '€'
+        currency: '€',
+        ...(zadarmo ? { zadarmo: true } : {})
       };
       // Platnosť je voliteľná. Keď ju človek zadá, deal sa po dátume
       // sám označí za neplatný - inak by tu visel donekonečna.
