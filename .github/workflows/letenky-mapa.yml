@@ -1,6 +1,7 @@
 name: Letenková mapa
 
-# Ceny leteniek pre záložku Letenky: pre každú trasu z BTS, VIE a KSC
+# Ceny leteniek pre záložku Letenky: pre každú trasu zo 7 odletových
+# letísk (Bratislava, Viedeň, Košice, Brno, Praha, Budapešť, Krakov)
 # najlacnejšia cena na každý deň tam aj späť. Výsledok je statický
 # súbor assets/letenky/ceny.json - stránka ho načíta priamo, bez
 # Firestore. Kedy sa to spustí, určuje plánovač podľa rozvrhu v admine.

@@ -2,7 +2,7 @@
 Dáta pre letenkovú mapu na stránke (záložka Letenky).
 
 ČO TO ROBÍ
-Pre každú trasu z Bratislavy, Viedne, Košíc, Brna a Prahy stiahne najlacnejšiu cenu
+Pre každú trasu z Bratislavy, Viedne, Košíc, Brna, Prahy, Budapešti a Krakova stiahne najlacnejšiu cenu
 na každý deň - tam aj späť - na päť mesiacov dopredu. Výsledok
 je jeden statický súbor assets/letenky/ceny.json, ktorý si stránka
 načíta a kombinácie "odlet + návrat" si podľa filtrov návštevníka
@@ -51,6 +51,8 @@ ODKIAL = {
     "KSC": {"n": "Košice", "lat": 48.6631, "lon": 21.2411},
     "BRQ": {"n": "Brno", "lat": 49.1513, "lon": 16.6944},
     "PRG": {"n": "Praha", "lat": 50.1008, "lon": 14.2600},
+    "BUD": {"n": "Budapešť", "lat": 47.4369, "lon": 19.2556},
+    "KRK": {"n": "Krakov", "lat": 50.0777, "lon": 19.7848},
 }
 
 # Koľko kalendárnych mesiacov dopredu (aktuálny + ďalšie). Pokrývame celé

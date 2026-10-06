@@ -4848,7 +4848,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   };
 
   // ── Sekcia: Dealy / Zľavové kódy ────────────────────────────────────────────
-  const HLAVICKY = {"deals": {"img": "hero-dealy", "c": "#08294E", "k": "Komunitné dealy", "h": "Najlepšie <span class=\"hl\">zľavy</span> dňa", "p": "Overené akcie zo slovenských a českých e-shopov. Hlasuj, ukladaj a pridávaj vlastné."}, "flights": {"img": "hero-letenky", "c": "#06244A", "k": "Letenková mapa", "h": "Kam za <span class=\"hl\">pár eur?</span>", "p": "Najlacnejšie letenky z Bratislavy, Viedne, Košíc, Brna a Prahy na jednej mape."}, "food": {"img": "hero-potraviny", "c": "#082B55", "k": "Porovnanie cien", "h": "Najlacnejšie <span class=\"hl\">potraviny</span>", "p": "Porovnaj ceny základných potravín vo všetkých veľkých reťazcoch."}, "leaflets": {"img": "hero-letaky", "c": "#07284F", "k": "Akciové letáky", "h": "Aktuálne <span class=\"hl\">letáky</span>", "p": "Najnovšie akciové letáky obchodov na jednom mieste – vždy priamo od obchodu."}, "coupons": {"img": "hero-kody", "c": "#09284E", "k": "Kupóny", "h": "Zľavové <span class=\"hl\">kódy</span>", "p": "Overené kódy do e-shopov. Skopíruj, vlož do košíka a ušetri."}};
+  const HLAVICKY = {"deals": {"img": "hero-dealy", "c": "#08294E", "k": "Komunitné dealy", "h": "Najlepšie <span class=\"hl\">zľavy</span> dňa", "p": "Overené akcie zo slovenských a českých e-shopov. Hlasuj, ukladaj a pridávaj vlastné."}, "flights": {"img": "hero-letenky", "c": "#06244A", "k": "Letenková mapa", "h": "Kam za <span class=\"hl\">pár eur?</span>", "p": "Najlacnejšie letenky zo 7 letísk strednej Európy na jednej mape."}, "food": {"img": "hero-potraviny", "c": "#082B55", "k": "Porovnanie cien", "h": "Najlacnejšie <span class=\"hl\">potraviny</span>", "p": "Porovnaj ceny základných potravín vo všetkých veľkých reťazcoch."}, "leaflets": {"img": "hero-letaky", "c": "#07284F", "k": "Akciové letáky", "h": "Aktuálne <span class=\"hl\">letáky</span>", "p": "Najnovšie akciové letáky obchodov na jednom mieste – vždy priamo od obchodu."}, "coupons": {"img": "hero-kody", "c": "#09284E", "k": "Kupóny", "h": "Zľavové <span class=\"hl\">kódy</span>", "p": "Overené kódy do e-shopov. Skopíruj, vlož do košíka a ušetri."}};
   function nastavHlavicku(section) {
     const h = HLAVICKY[section], el = document.getElementById('hk-hero');
     if (!h || !el) return;
@@ -4965,7 +4965,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     ['letenky', 'Lacné letenky', 'plane'], ['potraviny', 'Potraviny a letáky', 'basket'],
     ['kody', 'Zľavové kódy', 'ticket'],
   ];
-  const UC_LETISKA = [['BTS', 'Bratislava'], ['VIE', 'Viedeň'], ['KSC', 'Košice'], ['BRQ', 'Brno'], ['PRG', 'Praha']];
+  const UC_LETISKA = [['BTS', 'Bratislava'], ['VIE', 'Viedeň'], ['KSC', 'Košice'], ['BRQ', 'Brno'], ['PRG', 'Praha'], ['BUD', 'Budapešť'], ['KRK', 'Krakov']];
   const UC_KRAJE = ['Bratislavský', 'Trnavský', 'Trenčiansky', 'Nitriansky', 'Žilinský',
     'Banskobystrický', 'Prešovský', 'Košický'];
   let ucPohlad = 'prihlasenie';
@@ -5560,7 +5560,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   const LT_DNI = ['ne', 'po', 'ut', 'st', 'št', 'pi', 'so'];
   const LT_MES = ['jan', 'feb', 'mar', 'apr', 'máj', 'jún', 'júl', 'aug', 'sep', 'okt', 'nov', 'dec'];
   const LT_ODKIAL = { BTS: ['Bratislava', 'Bratislavy'], VIE: ['Viedeň', 'Viedne'], KSC: ['Košice', 'Košíc'],
-    BRQ: ['Brno', 'Brna'], PRG: ['Praha', 'Prahy'] };
+    BRQ: ['Brno', 'Brna'], PRG: ['Praha', 'Prahy'], BUD: ['Budapešť', 'Budapešti'], KRK: ['Krakov', 'Krakova'] };
   const LT_TYPY = {
     kratky: { od: 2, do: 4, nazov: 'Predĺžený víkend', pozn: '2–4 noci' },
     tyzden: { od: 5, do: 8, nazov: 'Týždeň', pozn: '5–8 nocí' },
