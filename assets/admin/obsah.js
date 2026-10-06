@@ -541,6 +541,66 @@ U.stranka('platnost', {
 });
 
 // ═══════════════════════════════════════════════════════════════════
+// Hlásenia: "Našli ste na stránke chybu?" a nahlásenie neplatného dealu
+// zo stránky - predtým šli mailom, teraz sú tu, aby sa nedali stratiť
+// v schránke a dalo sa ich jednoducho označiť ako vybavené.
+// ═══════════════════════════════════════════════════════════════════
+const hla = { filter: 'nove' };
+U.stranka('hlasenia', {
+  obnov: ['hk:hlasenia', 'hk:deals'],
+  init(el) {
+    el.innerHTML = `
+      <div class="kpi-row" id="hl-kpi"></div>
+      <div class="tabs" id="hl-tabs"></div>
+      <div id="hl-list"></div>`;
+    el.addEventListener('click', async e => {
+      const t = e.target.closest('[data-hf]');
+      if (t) { hla.filter = t.dataset.hf; this.show(el); return; }
+      const b = e.target.closest('[data-ha]');
+      if (!b) return;
+      const id = b.dataset.id;
+      if (b.dataset.ha === 'vybav') await fs.updateDoc(U.ref('hlasenia', id), { stav: 'vybavene' });
+      if (b.dataset.ha === 'otvor-znova') await fs.updateDoc(U.ref('hlasenia', id), { stav: 'nove' });
+      if (b.dataset.ha === 'vymaz') {
+        if (!await window.potvrd('Natrvalo vymazať toto hlásenie?')) return;
+        await fs.deleteDoc(U.ref('hlasenia', id));
+      }
+      if (b.dataset.ha === 'deal') HK().otvorDeal(b.dataset.dealid);
+    });
+  },
+  show(el) {
+    const vsetky = HK().hlasenia;
+    const pocet = s => vsetky.filter(x => x.stav === s).length;
+    el.querySelector('#hl-kpi').innerHTML =
+      U.kpi('Nové', pocet('nove')) + U.kpi('Vybavené', pocet('vybavene')) + U.kpi('Spolu', vsetky.length);
+    el.querySelector('#hl-tabs').innerHTML = [['nove', 'Nové'], ['vybavene', 'Vybavené']]
+      .map(([k, t]) => `<button class="tab-btn${hla.filter === k ? ' active' : ''}" data-hf="${k}">${t} (${pocet(k)})</button>`).join('');
+    const zoz = vsetky.filter(x => x.stav === hla.filter);
+    const TYP = { chyba: 'Chyba na stránke', neplatny_deal: 'Neplatný deal' };
+    el.querySelector('#hl-list').innerHTML = zoz.length ? zoz.map(h => {
+      const deal = h.dealId ? HK().deals.find(d => d.id === h.dealId) : null;
+      return `<div class="deal-row">
+        <div class="row-header">
+          <div class="row-info">
+            <div class="row-title"><span class="badge badge-pending">${esc(TYP[h.typ] || h.typ)}</span> <small>${U.casDlhy(h.timestamp)} (${U.pred(h.timestamp)})</small></div>
+            ${h.dealTitle || deal ? `<div class="row-sub">Deal: <em>${esc((deal && deal.title) || h.dealTitle || '')}</em></div>` : ''}
+            ${h.stranka ? `<div class="row-sub">Stránka: <a href="${esc(h.stranka)}" target="_blank" rel="noopener">${esc(h.stranka)}</a></div>` : ''}
+            ${h.text ? `<div class="comment-body-text">${esc(h.text)}</div>` : ''}
+          </div>
+          <div class="row-actions">
+            ${h.dealId ? `<button class="btn btn-ic" data-ha="deal" data-id="${h.id}" data-dealid="${h.dealId}" title="Otvoriť deal"><svg class="ix"><use href="#ix-external"></use></svg></button>` : ''}
+            ${h.stav === 'nove'
+              ? `<button class="btn btn-approve" data-ha="vybav" data-id="${h.id}"><svg class="ix"><use href="#ix-check"></use></svg> Vybaviť</button>`
+              : `<button class="btn" data-ha="otvor-znova" data-id="${h.id}">Otvoriť znova</button>`}
+            <button class="btn btn-delete" data-ha="vymaz" data-id="${h.id}"><svg class="ix"><use href="#ix-trash"></use></svg> Vymazať</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('') : `<div class="empty">Žiadne hlásenia v tejto kategórii.</div>`;
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════
 // Editor fotky dealu: orezanie, výmena, náhľad karty a Facebooku
 // ═══════════════════════════════════════════════════════════════════
 const POMERY = [['karta', 'Karta 4 : 3', 4 / 3], ['fb', 'Facebook 1,91 : 1', 1.91], ['stvorec', 'Štvorec 1 : 1', 1]];

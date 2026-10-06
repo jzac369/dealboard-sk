@@ -36,6 +36,7 @@
     emaily: 'M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z M3 7l9 6l9 -6',
     zaloha: 'M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3 M4 6v6c0 1.657 3.582 3 8 3c1.118 0 2.183 -.086 3.15 -.241 M20 12v-6 M4 12v6c0 1.657 3.582 3 8 3c.157 0 .312 -.002 .466 -.005 M16 19h6 M19 16l3 3l-3 3',
     zaznam: 'M12 8l0 4l2 2 M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5',
+    hlasenia: 'M12 9v4 M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z M12 16h.01',
   };
 
   // m = vidí aj moderátor. k = kľúčové slová pre vyhľadávanie.
@@ -49,6 +50,7 @@
       { id: 'kalendar', n: 'Kalendár', d: 'Naplánované dealy, príspevky aj automatické úlohy. Filtrom "Čo zobraziť" vyberieš, čo vidieť; dealy a príspevky presunieš ťahaním na iný deň.', m: 1, k: 'plán naplánované zverejnenie týždeň mesiac' },
       { id: 'kody', n: 'Zľavové kódy', m: 1, k: 'kupóny coupon' },
       { id: 'komentare', n: 'Komentáre', m: 1, k: 'diskusia moderácia' },
+      { id: 'hlasenia', n: 'Hlásenia', d: 'Chyby na stránke a nahlásené neplatné dealy od návštevníkov.', m: 1, k: 'nahlásenie chyba spätná väzba feedback neplatný deal' },
       { id: 'platnost', n: 'Kontrola platnosti', d: 'Nefunkčné odkazy a skončené akcie na stránke – skontroluj ich jedným klikom.', k: 'exspirované mŕtve odkazy 404 skončené' },
     ] },
     { g: 'Stránka', p: [

@@ -391,6 +391,27 @@ service cloud.firestore {
       allow create: if isAdmin() && request.resource.data.odoslane == false;
     }
 
+    // Hlásenia od návštevníkov ("Našli ste na stránke chybu?" a
+    // nahlásenie neplatného dealu) - predtým šli mailom, teraz sem,
+    // aby sa dali vidieť a vybaviť v admin zóne.
+    match /hlasenia/{id} {
+      allow read: if isModerator();
+      allow create: if autoId(id) && !('id' in request.resource.data)
+                    && request.resource.data.typ in ['chyba', 'neplatny_deal']
+                    && request.resource.data.stav == 'nove'
+                    && (!('text' in request.resource.data)
+                        || (request.resource.data.text is string && request.resource.data.text.size() <= 1000))
+                    && (!('dealId' in request.resource.data)
+                        || (request.resource.data.dealId is string && request.resource.data.dealId.size() <= 40))
+                    && (!('dealTitle' in request.resource.data)
+                        || (request.resource.data.dealTitle is string && request.resource.data.dealTitle.size() <= 200))
+                    && (!('stranka' in request.resource.data)
+                        || (request.resource.data.stranka is string && request.resource.data.stranka.size() <= 300));
+      allow update: if isModerator()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stav']);
+      allow delete: if isModerator();
+    }
+
     // ── Merania z verejnej stránky ───────────────────────────────────
     // Čo ľudia hľadajú. Len text hľadania, sekcia a počet výsledkov -
     // nič, čo by identifikovalo človeka.

@@ -1736,6 +1736,73 @@
       btn.textContent = 'Uložiť zmeny';
     }
   };
+
+  // ── Nahlásenie problému ("Našli ste chybu?" aj neplatný deal) ───────
+  // Predtým šlo mailom - veľa ľudí na mobile nemá nastavený e-mailový
+  // klient, takže sa to nikdy neodoslalo. Teraz ide priamo do Firestore,
+  // admin to vidí v zóne "Hlásenia" bez ohľadu na to, či sa mail odoslal.
+  window.openFeedback = function(typ, dealId, dealTitle) {
+    document.getElementById('fb-typ').value = typ;
+    document.getElementById('fb-deal-id').value = dealId || '';
+    document.getElementById('fb-deal-title').value = dealTitle || '';
+    const ctx = document.getElementById('fb-deal-context');
+    const sub = document.getElementById('feedback-modal-sub');
+    const lab = document.getElementById('fb-text-label');
+    const textEl = document.getElementById('fb-text');
+    if (typ === 'neplatny_deal') {
+      sub.textContent = 'Čo presne s dealom nie je v poriadku? Napíšeme si to a skontrolujeme.';
+      ctx.style.display = 'block';
+      ctx.textContent = 'Deal: ' + (dealTitle || '');
+      lab.firstChild.textContent = 'Čo nie je v poriadku? ';
+      textEl.placeholder = 'Napríklad: cena už nesedí, odkaz nefunguje, akcia skončila…';
+    } else {
+      sub.textContent = 'Napíš nám, čo si našiel/našla - pozrieme sa na to.';
+      ctx.style.display = 'none';
+      lab.firstChild.textContent = 'Čo sa deje? ';
+      textEl.placeholder = '';
+    }
+    textEl.value = '';
+    document.getElementById('feedback-err').textContent = '';
+    document.getElementById('feedback-modal').classList.add('open');
+  };
+  window.closeFeedback = function() {
+    document.getElementById('feedback-modal').classList.remove('open');
+  };
+  document.getElementById('feedback-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) window.closeFeedback();
+  });
+
+  window.handleFeedbackSubmit = async function(e) {
+    e.preventDefault();
+    const errEl = document.getElementById('feedback-err');
+    errEl.textContent = '';
+    const typ = document.getElementById('fb-typ').value;
+    const dealId = document.getElementById('fb-deal-id').value;
+    const dealTitle = document.getElementById('fb-deal-title').value;
+    const text = document.getElementById('fb-text').value.trim().slice(0, 1000);
+    if (!text) { errEl.textContent = 'Napíš, prosím, pár slov.'; return; }
+    const btn = document.getElementById('feedback-submit');
+    btn.disabled = true;
+    btn.textContent = 'Odosielam…';
+    try {
+      await addDoc(collection(db, "hlasenia"), {
+        typ, text,
+        ...(dealId ? { dealId } : {}),
+        ...(dealTitle ? { dealTitle } : {}),
+        stranka: location.href.slice(0, 300),
+        stav: 'nove',
+        timestamp: serverTimestamp()
+      });
+      window.closeFeedback();
+      if (window.hkToast) window.hkToast('Ďakujeme, pozrieme sa na to!');
+    } catch (err) {
+      console.error('Feedback error:', err);
+      errEl.textContent = 'Nepodarilo sa odoslať. Skontroluj pripojenie a skús to znova.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Odoslať';
+    }
+  };
 </script>
 
 
@@ -4183,6 +4250,29 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   </div>
 </div>
 
+<!-- Nahlásenie chyby/neplatného dealu - ide priamo do admin zóny, nie mailom -->
+<div class="modal-overlay" id="feedback-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
+    <div class="modal-header">
+      <div><h2 id="feedback-modal-title">Nahlásiť problém</h2><p id="feedback-modal-sub"></p></div>
+      <button class="modal-close" type="button" aria-label="Zavrieť" onclick="closeFeedback()">✕</button>
+    </div>
+    <form class="modal-body" id="feedback-form" novalidate onsubmit="handleFeedbackSubmit(event)">
+      <input type="hidden" id="fb-typ">
+      <input type="hidden" id="fb-deal-id">
+      <input type="hidden" id="fb-deal-title">
+      <div id="fb-deal-context" style="display:none; font-size:.85rem; color:var(--muted); margin-bottom:4px;"></div>
+      <div>
+        <label for="fb-text" id="fb-text-label">Čo sa deje? <span class="req" aria-hidden="true">*</span></label>
+        <textarea id="fb-text" rows="4" maxlength="1000" required></textarea>
+        <div class="field-err" id="fb-text-err"></div>
+      </div>
+      <div class="form-err" id="feedback-err" role="alert"></div>
+      <button class="btn-submit" type="submit" id="feedback-submit">Odoslať</button>
+    </form>
+  </div>
+</div>
+
 <!-- Deal Detail Modal -->
 <div class="modal-overlay" id="detail-modal">
   <div class="modal" style="max-width:600px;" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
@@ -4756,17 +4846,16 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     const pop = document.createElement('div');
     pop.className = 'dm-pop';
     const odkaz = `https://henkukaj.sk/?deal=${id}`;
-    const mail = 'mailto:info@henkukaj.sk?subject=' + encodeURIComponent(`Nahlásenie dealu: ${d.title || ''}`.slice(0, 120)) +
-      '&body=' + encodeURIComponent(`Deal: ${d.title || ''}\nOdkaz: ${odkaz}\n\nČo nie je v poriadku (cena, skončená akcia, nefunkčný odkaz):\n`);
     pop.innerHTML = `<button type="button" data-a="detail">${icon('news')} Detail dealu</button>
       <button type="button" data-a="kopia">${icon('copy')} Kopírovať odkaz</button>
-      <a href="${mail}">${icon('bell')} Nahlásiť problém</a>`;
+      <button type="button" data-a="nahlas">${icon('bell')} Nahlásiť problém</button>`;
     pop.addEventListener('click', e => {
       e.stopPropagation();
       const b = e.target.closest('[data-a]');
       if (b && b.dataset.a === 'detail') openDealDetail(id);
+      if (b && b.dataset.a === 'nahlas') window.openFeedback('neplatny_deal', id, d.title || '');
       if (b && b.dataset.a === 'kopia') navigator.clipboard.writeText(odkaz).then(() => { b.lastChild.textContent = ' Skopírované ✓'; });
-      if (!b || b.dataset.a === 'detail') setTimeout(() => pop.remove(), 50);
+      if (!b || b.dataset.a === 'detail' || b.dataset.a === 'nahlas') setTimeout(() => pop.remove(), 50);
     });
     btn.parentElement.appendChild(pop);
     setTimeout(() => document.addEventListener('click', function zavri(e) {
@@ -7095,14 +7184,6 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
   // spustí JavaScript - názov "Levi's" rozbil tlačidlo a upravený názov
   // by mohol spustiť kód. JSON urobí z hodnoty platný JS reťazec
   // (s úvodzovkami), escapeAttr ho potom bezpečne vloží do atribútu.
-  // "Nahlásiť neplatný deal" - e-mail s predvyplneným predmetom a odkazom,
-  // aby sme vedeli, o ktorý deal ide.
-  function nahlasOdkaz(d) {
-    const predmet = `Nahlásenie dealu: ${d.title || ''}`.slice(0, 120);
-    const telo = `Deal: ${d.title || ''}\nOdkaz: https://henkukaj.sk/?deal=${d.id}\n\nČo nie je v poriadku (napr. cena, skončená akcia, nefunkčný odkaz):\n`;
-    return 'mailto:info@henkukaj.sk?subject=' + encodeURIComponent(predmet) + '&body=' + encodeURIComponent(telo);
-  }
-
   function jsArg(v) {
     return escapeAttr(JSON.stringify(v == null ? '' : String(v)));
   }
@@ -7535,7 +7616,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
           return url ? `<a class="detail-link" href="${escapeAttr(url)}" target="_blank" rel="nofollow sponsored noopener"
               onclick="heurekaKlik('detail')">${icon('trending-down')} Porovnať ceny na Heureke</a>` : '';
         })()}
-        <a class="detail-link" href="${nahlasOdkaz(d)}">${icon('bell')} Nahlásiť neplatný deal</a>
+        <a class="detail-link" href="#" onclick="openFeedback('neplatny_deal', ${jsArg(d.id)}, ${jsArg(d.title||'')}); return false;">${icon('bell')} Nahlásiť neplatný deal</a>
       </div>
 
       <div style="border-top:1px solid var(--line); margin-top:18px; padding-top:14px;">
@@ -7960,6 +8041,8 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
     <a href="#" onclick="zmenitSuhlas(); return false;" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Nastavenia súhlasu</a>
     <span id="pwa-pata" hidden>&nbsp;·&nbsp;
     <a href="#" onclick="pwaInstaluj(); return false;" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Nainštalovať aplikáciu</a></span>
+    &nbsp;·&nbsp;
+    <a href="#" onclick="openFeedback('chyba'); return false;" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">Našli ste na stránke chybu?</a>
     <br><br>
     📧 Kontakt: <a href="mailto:info@henkukaj.sk" style="color:var(--orange-dk); text-decoration:none; font-weight:600;">info@henkukaj.sk</a>
 

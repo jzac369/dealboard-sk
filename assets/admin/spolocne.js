@@ -278,7 +278,7 @@ document.addEventListener('hk:stranka', e => U._skus(e.detail.id));
 document.addEventListener('hk:prihlaseny', () => setTimeout(() => U._skus(window.HK_STRANKA), 0));
 // Obnova otvorenej stránky po zmene dát (najviac raz za 400 ms).
 let _obnovT = null;
-['hk:deals', 'hk:coupons', 'hk:comments', 'hk:visits', 'hk:clicks', 'hk:plan'].forEach(ev => document.addEventListener(ev, () => {
+['hk:deals', 'hk:coupons', 'hk:comments', 'hk:visits', 'hk:clicks', 'hk:plan', 'hk:hlasenia'].forEach(ev => document.addEventListener(ev, () => {
   const id = window.HK_STRANKA, s = U._stranky[id];
   if (!s || !s.hotovo || !s.obnov || !s.obnov.includes(ev)) return;
   clearTimeout(_obnovT);

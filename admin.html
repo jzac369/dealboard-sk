@@ -126,9 +126,11 @@
   let allDeals = [];
   let allComments = [];
   let allCoupons = [];
+  let allHlasenia = [];
   let unsub = null;
   let unsubComments = null;
   let unsubCoupons = null;
+  let unsubHlasenia = null;
 
   // ── Role ──────────────────────────────────────────────────────────
   // Majiteľ má prístup vždy. Ďalší ľudia sú v kolekcii admini/{email}
@@ -173,6 +175,7 @@
       document.getElementById('admin-email').textContent = user.email;
       startListening();
       startListeningComments();
+      startListeningHlasenia();
       startListeningCoupons();
       startListeningSettings();
       startListeningTop();
@@ -208,6 +211,7 @@
     get deals() { return allDeals; },
     get coupons() { return allCoupons; },
     get comments() { return allComments; },
+    get hlasenia() { return allHlasenia; },
     get clicks() { return window.dealClicks || {}; },
     get visits() { return vsetkyNavstevy; },
     get topovane() { return topovane; },
@@ -1342,6 +1346,20 @@
       hkUdalost('hk:comments');
     }, (err) => {
       console.error('Comments collectionGroup error. Code:', err.code, 'Message:', err.message, 'Full error:', err);
+    });
+  }
+
+  function startListeningHlasenia() {
+    const hq = query(collection(db, "hlasenia"), orderBy("timestamp", "desc"));
+    unsubHlasenia = onSnapshot(hq, (snap) => {
+      allHlasenia = snap.docs.filter(d => bezpecneId(d.id)).map(d => ({ ...d.data(), id: d.id }));
+      hkUdalost('hk:hlasenia');
+      const nove = allHlasenia.filter(h => h.stav === 'nove');
+      if (window.HKU) window.HKU.upozornenia('hlasenia', nove.length
+        ? [{ text: `${nove.length} nové ${nove.length === 1 ? 'hlásenie' : 'hlásenia'} od návštevníkov`, href: '#hlasenia', typ: 'info' }]
+        : []);
+    }, (err) => {
+      console.error('Hlasenia error. Code:', err.code, 'Message:', err.message, 'Full error:', err);
     });
   }
 
