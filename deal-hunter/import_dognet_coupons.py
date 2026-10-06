@@ -92,8 +92,8 @@ KUPONY = [
     ("Tozax.sk", "tozax.sk", "Afil3", "Zľava 13 %", "Na všetky produkty.", None),
     ("Vypredaj-regalov.sk", "vypredaj-regalov.sk", "77rtn2gfj7", "Zľava 5 %", "Na všetko.", "2030-05-20"),
     ("HomePoint.sk", "homepoint.sk", "Dognet5", "Zľava 5 %", "Na celý nákup.", None),
-    ("Alkoshop.sk", "alkoshop.sk", "alkoshop5", "Zľava 5 %",
-     "Na všetko. Platí len na nezľavnený tovar.", None),
+    # Alkoshop.sk (alkohol) zámerne vynechaný - AdSense zakazuje
+    # reklamu/propagáciu alkoholu, pozri audit z 6. 10. 2026.
     ("4Home.sk", "4home.sk", "AFS3", "Zľava 3 %", "Na celý nákup.", "2026-12-31"),
     ("4Home.sk", "4home.sk", "AF3", "Zľava 3 €", "", "2026-12-31"),
     ("Desirel.sk", "desirel.sk", "25DNET", "Zľava 5 %",
