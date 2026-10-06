@@ -235,15 +235,29 @@ def write_pending_deals(
         if document.get("dedupeKey"):
             new_keys.append(document["dedupeKey"])
 
-    _remember_keys(db, batch, new_keys, stav, uz_dnes + len(written))
+    import garancie
+    garantovane = set(stav.get("garantovane") or []) if stav.get("den") == dnes else set()
+    garantovane |= {g for g in (garancie.skupina_obchodu(d.get("store", "")) for _, d in written) if g}
+    _remember_keys(db, batch, new_keys, stav, uz_dnes + len(written), sorted(garantovane))
 
     batch.commit()
     logger.info("Zapísaných %d návrhov do kolekcie '%s'", len(deals), config.DEALS_COLLECTION)
     return written
 
 
+def garantovane_dnes(db: firestore.Client) -> set[str]:
+    """Skupiny obchodov (garancie.py), ktoré už dnes dostali svoj deal."""
+    try:
+        stav = _state_ref(db).get().to_dict() or {}
+    except Exception as e:
+        raise PamatNedostupna(str(e)) from e
+    if stav.get("den") != _dnes_cislo():
+        return set()
+    return set(stav.get("garantovane") or [])
+
+
 def _remember_keys(db: firestore.Client, batch, new_keys: list[str],
-                   stav: dict, pocet_dnes: int) -> None:
+                   stav: dict, pocet_dnes: int, garantovane: list[str] | None = None) -> None:
     """
     Pridá kľúče do pamäte agenta aj s dnešným dátumom a zapíše denné
     počítadlo. Zápisy staršie než lehota sa zahodia - pamäť tak nerastie
@@ -265,6 +279,7 @@ def _remember_keys(db: firestore.Client, batch, new_keys: list[str],
     batch.set(
         _state_ref(db),
         {"keys": merged, "den": dnes, "pocetDnes": pocet_dnes,
+         "garantovane": garantovane or [],
          "updatedAt": firestore.SERVER_TIMESTAMP},
     )
 

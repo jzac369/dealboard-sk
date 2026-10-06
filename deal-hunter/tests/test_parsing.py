@@ -283,6 +283,46 @@ def test_broken_feed_returns_empty_not_crash():
     assert FeedsScraper().parse_feed("toto nie je XML") == []
 
 
+JSONL_FEED = (
+    '{"id":"1","name":"3mk Hardy MagCharger","description":"<h2>Nadpis</h2> <p>Popis s <b>HTML</b> značkami.</p>",'
+    '"imageLink":"https://a.allegroimg.com/original/x.jpg","price":"24.90",'
+    '"itemLink":"https://allegro.sk/affiliate?redirect_url=https://allegro.sk/ponuka/x123","availability":"in stock"}\n'
+    '{"id":"2","name":"Vypredany produkt","description":"","imageLink":"","price":"9.90",'
+    '"itemLink":"https://allegro.sk/affiliate?redirect_url=https://allegro.sk/ponuka/y456","availability":"out of stock"}\n'
+    '{"id":"3","name":"Bez ceny","price":null,"itemLink":"https://allegro.sk/ponuka/z"}\n'
+)
+
+
+def test_jsonl_feed_parsing():
+    from scrapers.feeds import FeedsScraper
+
+    candidates = FeedsScraper().parse_feed(JSONL_FEED)
+    # Vypredaná položka (availability != in stock) a položka bez ceny sa
+    # zahadzujú - ostane len jedna.
+    assert len(candidates) == 1
+
+    deal = candidates[0]
+    assert deal.title == "3mk Hardy MagCharger"
+    assert deal.deal_price == 24.9
+    assert deal.store == "Allegro"
+    assert deal.direct_url is True
+    # Pôvodnú cenu feed neuvádza - rozhodne o nej sledovanie cien.
+    assert deal.original_price is None
+    # HTML značky z popisu sú preč.
+    assert "<" not in deal.description
+    assert "Nadpis" in deal.description and "HTML" in deal.description
+
+
+def test_jsonl_feed_survives_broken_line():
+    from scrapers.feeds import FeedsScraper
+
+    text = '{"id":"1","name":"Ok","price":"1.00","itemLink":"https://allegro.sk/p/1","availability":"in stock"}\n' \
+           'toto nie je JSON\n'
+    candidates = FeedsScraper().parse_feed(text)
+    assert len(candidates) == 1
+    assert candidates[0].title == "Ok"
+
+
 # ── popisky ───────────────────────────────────────────────────────────
 
 def test_description_is_generated_when_source_has_none():
@@ -1111,3 +1151,25 @@ def test_planovac_rucne_spustenie_a_vypnuta_uloha():
     assert "letenky" in mena            # ručne, hoci termín 7:30 by aj tak prešiel
     assert "agent" not in mena          # vypnutý v admine
     assert "potraviny" not in mena      # lokálna úloha, cloud ju nespúšťa
+
+
+def test_garantovany_deal_z_allegra_a_lekarne_ide_dopredu():
+    from garancie import pridaj_garantovane, skupina_obchodu
+    from models import DealCandidate
+
+    def c(store, orig):
+        return DealCandidate(title=f"{store} vec", deal_price=10, original_price=orig,
+                             url="https://x.sk/p", source="s", store=store)
+
+    assert skupina_obchodu("BENU lekáreň") == "lekaren"
+    assert skupina_obchodu("Allegro") == "allegro"
+    assert skupina_obchodu("Lidl") is None
+
+    vyber = [c("Lidl", 50)]
+    kand = vyber + [c("Allegro", 14), c("Allegro", 12), c("BENU lekáreň", 13)]
+    out = pridaj_garantovane(vyber, kand, set())
+    assert [x.store for x in out] == ["Allegro", "BENU lekáreň", "Lidl"]
+    assert out[0].discount_percent == pytest.approx(28.6, abs=0.1)
+
+    # Skupina, ktorá už dnes dostala deal, sa nepridáva znova.
+    assert [x.store for x in pridaj_garantovane(vyber, kand, {"allegro", "lekaren"})] == ["Lidl"]

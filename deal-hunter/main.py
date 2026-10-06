@@ -509,6 +509,9 @@ def main() -> int:
     logger.info("Po deduplikácii: %d", len(unique))
 
     selected = select_best(unique, config.MAX_DEALS_PER_RUN)
+    import garancie
+    selected = garancie.pridaj_garantovane(
+        selected, unique, firestore_client.garantovane_dnes(db))
     selected = drop_dead_links(selected)
 
     # Karta bez obrázka vyzerá ako chyba načítania. Skúsime ho dotiahnuť

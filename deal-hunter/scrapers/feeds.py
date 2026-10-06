@@ -10,12 +10,16 @@ Feedy sa nastavujú cez premennú prostredia FEED_URLS (oddelené čiarkami),
 nie v kóde — každý partner má vlastnú URL aj tvoje partnerské ID v nej,
 a to do repozitára nepatrí.
 
-Podporované formáty (rozpozná sa automaticky podľa štruktúry XML):
+Podporované formáty (rozpozná sa automaticky podľa prvého znaku):
 - Google Merchant / RSS 2.0 s namespace g:  (<item><g:price>, <g:sale_price>)
 - Heureka XML                               (<SHOPITEM><PRICE_VAT>)
+- Dognet JSONL (napr. Allegro.sk)           (jeden JSON objekt na riadok)
 """
 
+import html
+import json
 import logging
+import re
 import xml.etree.ElementTree as ET
 from typing import Optional
 
@@ -69,6 +73,15 @@ def obchod_z_url(url: str) -> str:
     return zaklad[:1].upper() + zaklad[1:]
 
 
+def _strip_html(text: str) -> str:
+    """Dognet JSONL popisy sú plné HTML značiek (<h2>, <ul>, <li>...),
+    ktoré by sa inak zobrazili na stránke doslovne."""
+    if not text:
+        return ""
+    bez_znaciek = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", html.unescape(bez_znaciek)).strip()
+
+
 def _first(item: ET.Element, *paths: str) -> Optional[str]:
     """Vráti text prvého tagu, ktorý v položke existuje. Skratka pre feedy,
     ktoré ten istý údaj volajú rôzne (URL vs LINK vs link)."""
@@ -119,6 +132,11 @@ class FeedsScraper(BaseScraper):
     # ── parsovanie (oddelené, aby sa dalo testovať offline) ───────────
 
     def parse_feed(self, xml_text: str, feed_url: str = "") -> list[DealCandidate]:
+        # JSONL (Dognet produktový servis) začína "{" - na rozdiel od XML,
+        # ktoré začína "<". Netreba teda skúšať a čakať na ET.ParseError.
+        if xml_text.lstrip()[:1] == "{":
+            return self._parse_jsonl(xml_text, feed_url)
+
         try:
             root = ET.fromstring(xml_text)
         except ET.ParseError as e:
@@ -280,6 +298,61 @@ class FeedsScraper(BaseScraper):
             group_id=_first(item, "ITEMGROUP_ID"),
             image_url=_first(item, "IMGURL"),
             description=_first(item, "DESCRIPTION") or "",
+        )
+
+    def _parse_jsonl(self, text: str, feed_url: str = "") -> list[DealCandidate]:
+        """Dognet produktový servis (napr. Allegro.sk): jeden JSON objekt
+        na riadok, bez obalu do poľa - nedá sa teda načítať naraz cez
+        json.loads() na celý text."""
+        candidates: list[DealCandidate] = []
+        riadkov = 0
+        for line in text.splitlines():
+            if riadkov >= config.FEED_MAX_ITEMS:
+                break
+            line = line.strip()
+            if not line:
+                continue
+            riadkov += 1
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError as e:
+                logger.warning("Feed %s: riadok sa nedá prečítať ako JSON (%s)",
+                                http_client.ukaz(feed_url), e)
+                continue
+            try:
+                candidate = self._parse_dognet_jsonl_item(obj)
+            except Exception as e:
+                logger.warning("Feed %s: preskakujem položku (%s)", http_client.ukaz(feed_url), e)
+                continue
+            if candidate:
+                candidates.append(candidate)
+        return candidates
+
+    def _parse_dognet_jsonl_item(self, obj: dict) -> Optional[DealCandidate]:
+        title = (obj.get("name") or "").strip()
+        url = (obj.get("itemLink") or "").strip()
+        price = parse_price(str(obj.get("price"))) if obj.get("price") is not None else None
+        if not title or not url or price is None:
+            return None
+
+        # "availability" nie je vo všetkých feedoch, ale keď je, nedávaj
+        # dealy na tovar, ktorý si nikto nekúpi.
+        dostupnost = (obj.get("availability") or "").strip().lower()
+        if dostupnost and "in stock" not in dostupnost and "skladom" not in dostupnost:
+            return None
+
+        return DealCandidate(
+            title=title,
+            deal_price=price,
+            # Feed pôvodnú cenu neuvádza - rozhodne o nej sledovanie cien,
+            # rovnako ako pri Heureka/Google feedoch bez pôvodnej ceny.
+            original_price=None,
+            url=url,
+            source=self.source_name,
+            direct_url=True,   # feed dáva odkaz rovno na produkt (cez vlastný affiliate redirect)
+            store=obchod_z_url(url),
+            image_url=obj.get("imageLink"),
+            description=_strip_html(obj.get("description") or ""),
         )
 
 
