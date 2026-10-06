@@ -1358,6 +1358,10 @@
       if (window.HKU) window.HKU.upozornenia('hlasenia', nove.length
         ? [{ text: `${nove.length} nové ${nove.length === 1 ? 'hlásenie' : 'hlásenia'} od návštevníkov`, href: '#hlasenia', typ: 'info' }]
         : []);
+      // Číslo vedľa "Hlásenia" v menu - rovnaké miesto ako pri Dealoch,
+      // len tu sa napĺňa priamo (nb-dealy a pod. čaká na návštevu Prehľadu).
+      const nb = document.getElementById('nb-hlasenia');
+      if (nb) nb.textContent = nove.length ? nove.length : '';
     }, (err) => {
       console.error('Hlasenia error. Code:', err.code, 'Message:', err.message, 'Full error:', err);
     });
