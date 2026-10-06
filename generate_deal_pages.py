@@ -166,6 +166,13 @@ def structured_data(d: dict, title: str, store: str, image_url: str, description
     json.dumps - predtým to bol Python repr() s apostrofmi, čo nie je
     platný JSON a Google ho celý ignoroval.
     """
+    cena = d.get("dealPrice")
+    # Product bez ponuky Google berie ako kritickú chybu (offers/review/
+    # aggregateRating). Dealy bez ceny (napr. "-50 % vlaky") preto
+    # nedostanú žiadne štruktúrované dáta - vymyslieť cenu ani hodnotenie
+    # nesmieme.
+    if not (cena or d.get("zadarmo")):
+        return ""
     data = {
         "@context": "https://schema.org",
         "@type": "Product",
@@ -175,8 +182,7 @@ def structured_data(d: dict, title: str, store: str, image_url: str, description
     }
     if store:
         data["brand"] = {"@type": "Brand", "name": store}
-    cena = d.get("dealPrice")
-    if cena or d.get("zadarmo"):
+    if True:
         offer = {
             "@type": "Offer",
             "price": "0.00" if d.get("zadarmo") else f"{float(cena):.2f}",
@@ -184,6 +190,9 @@ def structured_data(d: dict, title: str, store: str, image_url: str, description
             "url": target_url,
             "availability": "https://schema.org/Discontinued" if je_expirovany(d) else "https://schema.org/InStock",
         }
+        pridane = _datum_dealu(d)
+        if pridane:
+            offer["validFrom"] = pridane.isoformat()
         if d.get("validUntilISO"):
             offer["priceValidUntil"] = d["validUntilISO"]
         if store:
@@ -249,9 +258,7 @@ def render_deal_page(deal_id: str, d: dict, suvisiace: list | None = None) -> st
 <meta name="twitter:description" content="{escape(meta_description)}">
 <meta name="twitter:image" content="{escape(image_url)}">
 
-<script type="application/ld+json">
-{ld_json}
-</script>
+{f'<script type="application/ld+json">{chr(10)}{ld_json}{chr(10)}</script>' if ld_json else ''}
 
 <style>
   body {{ font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background:#EDEDED; color:#1A1A1A; margin:0; padding:24px 16px; }}
