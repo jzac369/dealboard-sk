@@ -105,6 +105,60 @@ def je_expirovany(d: dict) -> bool:
     return bool(platnost) and platnost < date.today().isoformat()
 
 
+def kratka_cena(d: dict, currency_symbol: str) -> str:
+    """Cena pre kartičku súvisiaceho dealu - kratšia verzia price_html."""
+    if d.get("zadarmo"):
+        return "Zadarmo"
+    deal_price = d.get("dealPrice")
+    if deal_price:
+        return f"{deal_price:.2f} {currency_symbol}"
+    if d.get("discountPercent"):
+        return f"Zľava {round(d['discountPercent'])} %"
+    return ""
+
+
+def najdi_suvisiace(deal_id: str, d: dict, vsetky: list, limit: int = 6) -> list:
+    """Iné aktívne dealy z rovnakého obchodu, doplnené z rovnakej kategórie.
+
+    Len na vyplnenie - stránka dealu má dnes v priemere len pár stoviek
+    znakov textu, čo Google pri AdSense recenzii označil ako "low-value
+    content". Súvisiace dealy pridávajú originálny, pravdivý obsah (nie
+    vymyslený text) a zároveň držia návštevníka na stránke dlhšie.
+    """
+    store = (d.get("store") or "").strip().lower()
+    category = d.get("category") or ""
+    rovnaky_obchod, rovnaka_kategoria = [], []
+    for iid, idata, islug in vsetky:
+        if iid == deal_id or je_expirovany(idata):
+            continue
+        cieľ = rovnaky_obchod if store and (idata.get("store") or "").strip().lower() == store \
+            else rovnaka_kategoria if category and idata.get("category") == category else None
+        if cieľ is not None:
+            cieľ.append((iid, idata, islug))
+    return (rovnaky_obchod + rovnaka_kategoria)[:limit]
+
+
+def suvisiace_html(suvisiace: list) -> str:
+    if not suvisiace:
+        return ""
+    karty = []
+    for iid, idata, islug in suvisiace:
+        titul = idata.get("title") or "Deal"
+        obr = idata.get("imageUrl") or f"{SITE_URL}/images/logo.png"
+        cena = kratka_cena(idata, idata.get("currency") or "€")
+        odkaz = f"{SITE_URL}/{OUTPUT_ROOT}/{islug}-{iid}/"
+        karty.append(f"""<a class="rel-card" href="{odkaz}">
+      <img src="{escape(obr)}" alt="" loading="lazy">
+      <span class="rel-t">{escape(titul)}</span>
+      {f'<span class="rel-p">{escape(cena)}</span>' if cena else ''}
+    </a>""")
+    return f"""
+    <div class="rel-wrap">
+      <h2 class="rel-h">Súvisiace dealy</h2>
+      <div class="rel-row">{''.join(karty)}</div>
+    </div>"""
+
+
 def structured_data(d: dict, title: str, store: str, image_url: str, description: str,
                     target_url: str, currency_code: str) -> str:
     """
@@ -139,7 +193,7 @@ def structured_data(d: dict, title: str, store: str, image_url: str, description
     return json.dumps(data, ensure_ascii=False, indent=2).replace("</", "<\\/")
 
 
-def render_deal_page(deal_id: str, d: dict) -> str:
+def render_deal_page(deal_id: str, d: dict, suvisiace: list | None = None) -> str:
     title = d.get("title") or "Deal"
     store = d.get("store") or ""
     category = d.get("category") or ""
@@ -211,6 +265,14 @@ def render_deal_page(deal_id: str, d: dict) -> str:
     padding:12px 22px; border-radius:22px; margin-top:16px; margin-right:10px; }}
   .btn.secondary {{ background:#2E8B3D; }}
   a.home {{ color:#707070; font-size:.85rem; }}
+  .rel-wrap {{ max-width:640px; margin:14px auto 0; }}
+  .rel-h {{ font-size:1rem; margin:0 0 10px; color:#1A1A1A; }}
+  .rel-row {{ display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }}
+  .rel-card {{ flex:0 0 140px; background:#fff; border:1px solid #E2E2E2; border-radius:12px; overflow:hidden;
+    text-decoration:none; color:#1A1A1A; display:flex; flex-direction:column; }}
+  .rel-card img {{ width:100%; height:90px; object-fit:contain; background:#f5f5f5; display:block; }}
+  .rel-t {{ font-size:.76rem; line-height:1.3; padding:8px 8px 2px; flex:1; }}
+  .rel-p {{ font-size:.82rem; font-weight:700; color:#C44C0A; padding:0 8px 8px; }}
 </style>
 </head>
 <body>
@@ -227,6 +289,7 @@ def render_deal_page(deal_id: str, d: dict) -> str:
       <p style="margin-top:24px;"><a class="home" href="{SITE_URL}/">← Späť na HenKukaj.sk</a></p>
     </div>
   </div>
+  {suvisiace_html(suvisiace or [])}
   <script>
   /* Prenesieme UTM znacky na hlavnu stranku. Tato stranka merania
      nema - je to staticky sublist pre vyhladavace a nahlady odkazov.
@@ -355,20 +418,16 @@ def main():
 
     docs = db.collection("deals").where("status", "==", "approved").stream()
 
-    deal_urls = []
-    vygenerovane = []
-    pre_uvod = []
-    podla_obchodu = {}
-    generated = 0
+    # Prvý prechod: vytiahnuť fotky a poskladať zoznam všetkých dealov -
+    # kým nemáme všetky, nevieme ku ktorému dealu sú súvisiace.
+    vsetky = []
     for doc in docs:
         deal_id = doc.id
         d = doc.to_dict()
-
         slug = slugify(d.get("title") or "deal")
         page_dir = os.path.join(OUTPUT_ROOT, f"{slug}-{deal_id}")
         os.makedirs(page_dir, exist_ok=True)
 
-        vygenerovane.append(f"{slug}-{deal_id}")
         # Fotka nahraná alebo orezaná v admine je v databáze ako data: URL.
         # Facebook ani Google si ju z nej nevezmú - uložíme ju ako súbor
         # vedľa stránky dealu a do og:image dáme jeho adresu.
@@ -384,7 +443,19 @@ def main():
             except Exception as e:
                 logger.warning("Fotku dealu %s sa nepodarilo uložiť: %s", deal_id, e)
                 d = {**d, "imageUrl": None}
-        html_content = render_deal_page(deal_id, d)
+        vsetky.append((deal_id, d, slug))
+
+    deal_urls = []
+    vygenerovane = []
+    pre_uvod = []
+    podla_obchodu = {}
+    generated = 0
+    for deal_id, d, slug in vsetky:
+        page_dir = os.path.join(OUTPUT_ROOT, f"{slug}-{deal_id}")
+        vygenerovane.append(f"{slug}-{deal_id}")
+
+        suvisiace = najdi_suvisiace(deal_id, d, vsetky)
+        html_content = render_deal_page(deal_id, d, suvisiace)
         with open(os.path.join(page_dir, "index.html"), "w", encoding="utf-8") as f:
             f.write(html_content)
 
