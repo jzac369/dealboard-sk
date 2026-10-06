@@ -32,8 +32,8 @@ KUPONY = [
      "Pre prihlásených firemných zákazníkov pri objednávke od 149 €.", None),
     ("Stoporex.sk", "stoporex.sk", "zlava5", "Zľava 5 %", "", None),
     ("Dizajnove-doplnky.sk", "dizajnove-doplnky.sk", "dizajnove5", "Zľava 5 %", "", None),
-    ("69shop.sk", "69shop.sk", "69shop", "Zľava 5 %", "", None),
-    ("69shop.sk", "69shop.sk", "DLXH7L96", "Zľava 6 %", "", None),
+    # 69shop.sk (erotický sexshop) zámerne vynechaný - AdSense zakazuje
+    # erotický obsah, pozri audit z 6. 10. 2026.
     ("Sparkl.sk", "sparkl.sk", "sparkldog10", "Zľava 10 %", "Na všetko.", None),
     ("Autovybava.sk", "autovybava.sk", "DOGNET", "Zľava 2 €", "Pri nákupe nad 20 €.", None),
     ("Avita.sk", "avita.sk", "DOGNET15", "Zľava 15 %",
@@ -96,8 +96,7 @@ KUPONY = [
     # reklamu/propagáciu alkoholu, pozri audit z 6. 10. 2026.
     ("4Home.sk", "4home.sk", "AFS3", "Zľava 3 %", "Na celý nákup.", "2026-12-31"),
     ("4Home.sk", "4home.sk", "AF3", "Zľava 3 €", "", "2026-12-31"),
-    ("Desirel.sk", "desirel.sk", "25DNET", "Zľava 5 %",
-     "Minimálna hodnota nákupu 25 €. Nevzťahuje sa na zľavnené položky.", "2026-12-31"),
+    # Desirel.sk (erotický sexshop) zámerne vynechaný - rovnaký dôvod ako 69shop.sk.
     ("Kbloom.sk", "kbloom.sk", "dognet5", "Zľava 5 %", "Na čokoľvek.", None),
     ("Real-soft.sk", "real-soft.sk", "X10RP", "Zľava 10 %", "", "2042-12-31"),
     ("Valachshop.sk", "valachshop.sk", "DOGNET5", "Zľava 5 %",
