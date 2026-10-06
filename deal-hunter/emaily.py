@@ -49,6 +49,17 @@ PREDVOLENE = {
     "strazcaPredmet": "Našli sme deal, ktorý strážiš: {co}",
     "letenkyZap": True,
     "letenkyPredmet": "Lacná letenka z {letisko} za {cena} €",
+    # Tieto dva posielame sami namiesto Firebase (pozri ucty.py) - Firebase
+    # má úpravu svojich šablón pre tento projekt zakázanú.
+    "overeniePredmet": "Potvrď svoj e-mail na HenKukaj.sk",
+    "overenieText": ("Ahoj{meno},\n\nvitaj na HenKukaj.sk! Ešte jeden klik a máš hotovo – potvrď, že tento e-mail patrí tebe.\n\n"
+                      "Potom si môžeš ukladať dealy, nastaviť si strážcu zliav a dostávať len to, čo ťa naozaj zaujíma.\n\n"
+                      "Ak si sa neregistroval ty, tento e-mail pokojne zahoď. Bez potvrdenia sa nič nestane.\n\n"
+                      "Tím HenKukaj.sk"),
+    "hesloPredmet": "Nové heslo na HenKukaj.sk",
+    "hesloText": ("Ahoj{meno},\n\nposlali sme ti odkaz na nastavenie nového hesla. Platí hodinu a použiť sa dá raz.\n\n"
+                  "Ak si o zmenu nežiadal, nemusíš robiť nič – tvoje pôvodné heslo ostáva v platnosti.\n\n"
+                  "Tím HenKukaj.sk"),
 }
 
 

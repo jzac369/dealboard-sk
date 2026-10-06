@@ -1,19 +1,5 @@
 [
   {
-    "kluc": "overenie",
-    "nazov": "Overenie e-mailu po registrácii",
-    "kde": "Posielame ho my z noreply@henkukaj.sk – vo Firebase sa telo upraviť nedá, tak sme ho obišli.",
-    "predmet": "Potvrď svoj e-mail na HenKukaj.sk",
-    "firebase": false
-  },
-  {
-    "kluc": "heslo",
-    "nazov": "Zabudnuté heslo",
-    "kde": "Posielame ho my z noreply@henkukaj.sk – Firebase má úpravu šablón zakázanú.",
-    "predmet": "Nové heslo na HenKukaj.sk",
-    "firebase": false
-  },
-  {
     "kluc": "zmena",
     "nazov": "Zmena e-mailu v účte",
     "kde": "Posiela Firebase vlastným textom (ak si niekto zmení adresu). Stáva sa to zriedka.",

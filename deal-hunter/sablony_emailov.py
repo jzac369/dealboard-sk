@@ -1,15 +1,13 @@
 """
-Šablóny e-mailov, ktoré posiela Firebase (overenie e-mailu, zabudnuté
-heslo, zmena adresy).
+Šablóna e-mailu "Zmena e-mailu v účte" - jediná, ktorú ešte posiela
+priamo Firebase vlastným textom (zriedkavý jav, menej priorita).
 
-PREČO SÚBORY A NIE KÓD V ADMINE
-Tieto tri e-maily neposiela naša stránka ani plánovač, ale samotný
-Firebase - text aj vzhľad si drží vo svojej konzole. Nedá sa tam zapisovať
-z kódu, treba ich raz vložiť ručne. Aby vyzerali rovnako ako ostatné naše
-e-maily, vygenerujeme ich tým istým šablónovačom (emaily._html) do
-assets/emaily/ a admin ich odtiaľ ponúkne na skopírovanie.
+Overenie e-mailu a zabudnuté heslo tu predtým tiež boli, ale tie dnes
+posiela náš plánovač (ucty.py) a predmet aj text sa upravujú v admin
+zóne (E-maily) s rovno živým náhľadom - samostatný statický súbor by
+sa od skutočného znenia len rozchádzal.
 
-Spustenie po každej zmene vzhľadu e-mailov:
+Spustenie po zmene vzhľadu e-mailov:
     python sablony_emailov.py
 """
 
@@ -22,27 +20,6 @@ import emaily
 
 # %LINK% a %NEW_EMAIL% doplní Firebase pri odoslaní.
 SABLONY = {
-    "overenie": {
-        "nazov": "Overenie e-mailu po registrácii",
-        "kde": "Posielame ho my z noreply@henkukaj.sk – vo Firebase sa telo upraviť nedá, tak sme ho obišli.",
-        "firebase": False,
-        "predmet": "Potvrď svoj e-mail na HenKukaj.sk",
-        "text": ("Ahoj,\n\nvitaj na HenKukaj.sk! Ešte jeden klik a máš hotovo – potvrď, že tento e-mail patrí tebe.\n\n"
-                 "Potom si môžeš ukladať dealy, nastaviť si strážcu zliav a dostávať len to, čo ťa naozaj zaujíma.\n\n"
-                 "Ak si sa neregistroval ty, tento e-mail pokojne zahoď. Bez potvrdenia sa nič nestane.\n\n"
-                 "Tím HenKukaj.sk"),
-        "tlacidlo": ("Potvrdiť e-mail", "%LINK%"),
-    },
-    "heslo": {
-        "nazov": "Zabudnuté heslo",
-        "kde": "Posielame ho my z noreply@henkukaj.sk – Firebase má úpravu šablón zakázanú.",
-        "firebase": False,
-        "predmet": "Nové heslo na HenKukaj.sk",
-        "text": ("Ahoj,\n\nposlali sme ti odkaz na nastavenie nového hesla. Platí hodinu a použiť sa dá raz.\n\n"
-                 "Ak si o zmenu nežiadal, nemusíš robiť nič – tvoje pôvodné heslo ostáva v platnosti.\n\n"
-                 "Tím HenKukaj.sk"),
-        "tlacidlo": ("Nastaviť nové heslo", "%LINK%"),
-    },
     "zmena": {
         "nazov": "Zmena e-mailu v účte",
         "kde": "Posiela Firebase vlastným textom (ak si niekto zmení adresu). Stáva sa to zriedka.",

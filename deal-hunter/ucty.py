@@ -42,11 +42,6 @@ class NeznamyUcet(Exception):
     """K adrese neexistuje účet - navonok sa to nesmie prejaviť."""
 
 
-PREDMETY = {
-    "overenie": "Potvrď svoj e-mail na HenKukaj.sk",
-    "heslo": "Nové heslo na HenKukaj.sk",
-}
-
 TLACIDLA = {"overenie": "Potvrdiť e-mail", "heslo": "Nastaviť nové heslo"}
 
 
@@ -91,25 +86,17 @@ def odkaz(typ: str, email: str) -> str:
     })
 
 
-TEXTY = {
-    "overenie": (
-        "Ahoj{meno},\n\nvitaj na HenKukaj.sk! Ešte jeden klik a máš hotovo – potvrď, že tento e-mail patrí tebe.\n\n"
-        "Potom si môžeš ukladať dealy, nastaviť si strážcu zliav a dostávať len to, čo ťa naozaj zaujíma.\n\n"
-        "Ak si sa neregistroval ty, tento e-mail pokojne zahoď. Bez potvrdenia sa nič nestane.\n\n"
-        "Tím HenKukaj.sk"
-    ),
-    "heslo": (
-        "Ahoj{meno},\n\nposlali sme ti odkaz na nastavenie nového hesla. Platí hodinu a použiť sa dá raz.\n\n"
-        "Ak si o zmenu nežiadal, nemusíš robiť nič – tvoje pôvodné heslo ostáva v platnosti.\n\n"
-        "Tím HenKukaj.sk"
-    ),
-}
+# Predmet a text sú admin-editovateľné (nastavenia_admin/email, rovnaké
+# polia ako uvítací e-mail) - PREDVOLENE v emaily.py sú len záloha, keby
+# dokument v databáze ešte neexistoval.
+KLUCE = {"overenie": ("overeniePredmet", "overenieText"), "heslo": ("hesloPredmet", "hesloText")}
 
 
 def posli_email(db, typ: str, email: str, meno: str = "") -> None:
     n = emaily.nastavenia(db)
-    text = TEXTY[typ].format(meno=f" {meno}" if meno else "")
-    emaily.posli(n, email, PREDMETY[typ], text, tlacidlo=(TLACIDLA[typ], odkaz(typ, email)))
+    predmet_kluc, text_kluc = KLUCE[typ]
+    text = n[text_kluc].format(meno=f" {meno}" if meno else "")
+    emaily.posli(n, email, n[predmet_kluc], text, tlacidlo=(TLACIDLA[typ], odkaz(typ, email)))
 
 
 def spracuj(db, ref) -> None:
@@ -131,7 +118,7 @@ def spracuj(db, ref) -> None:
     email = str(data.get("email") or "").strip().lower()
     typ = data.get("typ")
     try:
-        if typ not in TEXTY or "@" not in email:
+        if typ not in KLUCE or "@" not in email:
             raise ValueError(f"Neznáma žiadosť: {typ}")
         if not os.environ.get("SMTP_PASSWORD"):
             raise ValueError("Chýba heslo k schránke (SMTP_PASSWORD).")
@@ -142,7 +129,7 @@ def spracuj(db, ref) -> None:
         poslane = [d for d in db.collection("email_log")
                    .where(filter=FieldFilter("komu", "==", email)).stream()
                    if (d.to_dict() or {}).get("kedy") and d.to_dict()["kedy"] > nedavno
-                   and (d.to_dict() or {}).get("typ") in TEXTY]
+                   and (d.to_dict() or {}).get("typ") in KLUCE]
         if len(poslane) >= 5:
             raise ValueError("Priveľa žiadostí pre túto adresu za poslednú hodinu.")
         try:

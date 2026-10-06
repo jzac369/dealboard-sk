@@ -538,7 +538,58 @@ const EMAIL_PREDVOLENE = {
   novaRegistraciaZap: false, novaRegistraciaKomu: 'info@henkukaj.sk',
   strazcaZap: true, strazcaPredmet: 'Našli sme deal, ktorý strážiš: {co}',
   letenkyZap: true, letenkyPredmet: 'Lacná letenka z {letisko} za {cena} €',
+  overeniePredmet: 'Potvrď svoj e-mail na HenKukaj.sk',
+  overenieText: 'Ahoj{meno},\n\nvitaj na HenKukaj.sk! Ešte jeden klik a máš hotovo – potvrď, že tento e-mail patrí tebe.\n\nPotom si môžeš ukladať dealy, nastaviť si strážcu zliav a dostávať len to, čo ťa naozaj zaujíma.\n\nAk si sa neregistroval ty, tento e-mail pokojne zahoď. Bez potvrdenia sa nič nestane.\n\nTím HenKukaj.sk',
+  hesloPredmet: 'Nové heslo na HenKukaj.sk',
+  hesloText: 'Ahoj{meno},\n\nposlali sme ti odkaz na nastavenie nového hesla. Platí hodinu a použiť sa dá raz.\n\nAk si o zmenu nežiadal, nemusíš robiť nič – tvoje pôvodné heslo ostáva v platnosti.\n\nTím HenKukaj.sk',
 };
+
+// JS verzia emaily._html() z Pythonu - rovnaký vzhľad (logo, oranžový
+// pruh, odseky, voliteľné tlačidlo, pätička), aby náhľad v admine
+// zodpovedal tomu, čo naozaj príde do schránky. Zámerne len inline
+// štýly, nech sa to nebije so štýlmi admin stránky.
+function emailNahladHtml(text, tlacidlo) {
+  const e = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let bezpecne = e(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#C44C0A;text-decoration:underline">$1</a>');
+  const casti = bezpecne.split('\n\n').filter(o => o.trim());
+  let kam = casti.length;
+  if (casti.length && /^(Tím|S pozdravom|Tvoj tím)/.test(casti[casti.length - 1].replace(/^\s+/, ''))) kam -= 1;
+  const odsek = o => `<p style="margin:0 0 14px">${o.replace(/\n/g, '<br>')}</p>`;
+  const odseky = casti.slice(0, kam).map(odsek).join('');
+  const podpis = casti.slice(kam).map(odsek).join('');
+  let cta = '';
+  if (tlacidlo) {
+    cta = `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px"><tr>
+      <td style="background:#E8590C;border-radius:10px"><a href="#" style="display:inline-block;padding:13px 26px;color:#ffffff;
+      font-weight:700;font-size:15px;text-decoration:none">${e(tlacidlo)}</a></td></tr></table>`;
+  }
+  return `<div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #E4E4E1;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+    <div style="background:#ffffff;padding:18px 22px 12px;text-align:center">
+      <img src="images/logo.png" alt="HenKukaj.sk" width="170" style="width:170px;max-width:70%;height:auto;border:0"></div>
+    <div style="height:4px;background:#E8590C"></div>
+    <div style="padding:22px;color:#1A1A1A;font-size:14px;line-height:1.6">${odseky}${cta}${podpis}</div>
+    <div style="padding:14px 22px;border-top:1px solid #E4E4E1;background:#FAFAF8;color:#8A8A85;font-size:11px;line-height:1.6">
+      <b style="color:#C44C0A">HenKukaj.sk</b> · najlepšie zľavy zo slovenských a českých e-shopov<br>
+      Píš nám na info@henkukaj.sk</div>
+  </div>`;
+}
+// Pripojí "Náhľad" prepínač k editovateľnej šablóne - zobrazí/schová
+// kartu a drží ju presnú podľa aktuálneho obsahu polí (aj počas písania).
+function pripojNahlad(form, id, predmetPole, textPole, tlacidlo, vzorky) {
+  const wrap = form.querySelector(`#${id}-nahlad-wrap`);
+  const telo = form.querySelector(`#${id}-nahlad`);
+  if (!wrap || !telo) return;
+  const dosad = t => Object.entries(vzorky || {}).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), t);
+  const prekresli = () => {
+    if (wrap.hidden) return;
+    telo.innerHTML = emailNahladHtml(dosad(form.elements[textPole].value), tlacidlo);
+  };
+  form.elements[textPole].addEventListener('input', prekresli);
+  form.querySelector(`[data-nahlad-tog="${id}"]`)?.addEventListener('click', () => {
+    wrap.hidden = !wrap.hidden;
+    prekresli();
+  });
+}
 const kopia = t => `<button type="button" class="btn btn-ic" data-kopia="${esc(t)}" title="Kopírovať"><svg class="ix"><use href="#ix-copy"></use></svg></button>`;
 U.stranka('emaily', {
   async init(el) {
@@ -583,13 +634,13 @@ U.stranka('emaily', {
       </div>
       <div class="karta">
         <h3 class="karta-nadpis">Krok 3 – e-maily o účte</h3>
-        <div class="hlaska ok"><svg class="ix"><use href="#ix-check"></use></svg> <span><b>Netreba nič nastavovať.</b>
-          Potvrdenie e-mailu aj odkaz na nové heslo posielame sami z <b>noreply@henkukaj.sk</b> v našom vzhľade
-          a odkaz vedie na <a href="/ucet-akcia.html?nahlad=overeny" target="_blank" rel="noopener">našu stránku</a>.</span></div>
+        <div class="hlaska ok"><svg class="ix"><use href="#ix-check"></use></svg> <span><b>Netreba nič nastavovať, dá sa len upraviť.</b>
+          Potvrdenie e-mailu aj odkaz na nové heslo posielame sami z <b>noreply@henkukaj.sk</b> v našom vzhľade - predmet aj text
+          upravíš nižšie v sekcii "Potvrdenie e-mailu a heslo", odkaz vedie na <a href="/ucet-akcia.html?nahlad=overeny" target="_blank" rel="noopener">našu stránku</a>.</span></div>
         <p class="settings-hint">Firebase má pre tento projekt úpravu svojich šablón zakázanú („Email template updates are currently
           unavailable for this project“) – jeho e-maily by chodili po anglicky, podpísané „dealboard-e60bf“ a s odkazom na
           dealboard-e60bf.firebaseapp.com. Preto si od neho pýtame len jednorazový odkaz a e-mail zostavíme a pošleme sami.
-          Nižšie je, ako vyzerajú; posielanie vyskúšaš tlačidlom „Poslať skúšobný e-mail“.</p>
+          Výnimka je nižšie - tú jedinú ešte posiela Firebase vlastným textom.</p>
         <div id="em-sablony"></div>
       </div>
       <form class="karta" id="em-form" autocomplete="off">
@@ -609,14 +660,39 @@ U.stranka('emaily', {
         <div class="form-mriezka" style="margin:10px 0 14px">
           <label class="cela">Predmet<input type="text" name="uvitaniePredmet" value="${esc(n.uvitaniePredmet)}" maxlength="120"></label>
           <label class="cela">Text (<code>{meno}</code> sa nahradí menom)<textarea name="uvitanieText" rows="7">${esc(n.uvitanieText)}</textarea></label>
+          <div class="cela"><button class="btn" type="button" data-nahlad-tog="uvit"><svg class="ix"><use href="#ix-eye"></use></svg> Náhľad</button>
+            <div id="uvit-nahlad-wrap" hidden style="margin-top:10px"><div id="uvit-nahlad"></div></div></div>
         </div>
         <label class="zaskrt"><input type="checkbox" name="novaRegistraciaZap"${n.novaRegistraciaZap ? ' checked' : ''}> Upozorniť ma e-mailom na každú novú registráciu</label>
         <div class="form-mriezka" style="margin-top:10px"><label>Na adresu<input type="email" name="novaRegistraciaKomu" value="${esc(n.novaRegistraciaKomu)}"></label></div>
+        <h3 class="karta-nadpis" style="margin-top:18px">Potvrdenie e-mailu a heslo</h3>
+        <p class="settings-hint">Tieto dva posielame sami namiesto Firebase (pozri Krok 3 vyššie) - tlačidlo v e-maile
+          vždy vedie na jednorazový odkaz, text okolo neho je tento.</p>
+        <div class="form-mriezka" style="margin:10px 0 14px">
+          <label class="cela">Predmet - Potvrdenie e-mailu<input type="text" name="overeniePredmet" value="${esc(n.overeniePredmet)}" maxlength="120"></label>
+          <label class="cela">Text (<code>{meno}</code> sa nahradí menom, tlačidlo "Potvrdiť e-mail" sa pridá samo)<textarea name="overenieText" rows="6">${esc(n.overenieText)}</textarea></label>
+          <div class="cela"><button class="btn" type="button" data-nahlad-tog="over"><svg class="ix"><use href="#ix-eye"></use></svg> Náhľad</button>
+            <div id="over-nahlad-wrap" hidden style="margin-top:10px"><div id="over-nahlad"></div></div></div>
+        </div>
+        <div class="form-mriezka" style="margin:10px 0 14px">
+          <label class="cela">Predmet - Zabudnuté heslo<input type="text" name="hesloPredmet" value="${esc(n.hesloPredmet)}" maxlength="120"></label>
+          <label class="cela">Text (<code>{meno}</code> sa nahradí menom, tlačidlo "Nastaviť nové heslo" sa pridá samo)<textarea name="hesloText" rows="6">${esc(n.hesloText)}</textarea></label>
+          <div class="cela"><button class="btn" type="button" data-nahlad-tog="hes"><svg class="ix"><use href="#ix-eye"></use></svg> Náhľad</button>
+            <div id="hes-nahlad-wrap" hidden style="margin-top:10px"><div id="hes-nahlad"></div></div></div>
+        </div>
         <h3 class="karta-nadpis" style="margin-top:18px">Pre registrovaných</h3>
         <label class="zaskrt"><input type="checkbox" name="strazcaZap"${n.strazcaZap ? ' checked' : ''}> Strážca dealov – e-mail, keď pribudne deal, ktorý si človek dal strážiť</label>
-        <div class="form-mriezka" style="margin:10px 0 14px"><label class="cela">Predmet (<code>{co}</code> = čo stráži)<input type="text" name="strazcaPredmet" value="${esc(n.strazcaPredmet)}" maxlength="120"></label></div>
+        <div class="form-mriezka" style="margin:10px 0 14px">
+          <label class="cela">Predmet (<code>{co}</code> = čo stráži)<input type="text" name="strazcaPredmet" value="${esc(n.strazcaPredmet)}" maxlength="120"></label>
+          <div class="cela settings-hint" id="strazca-nahlad">Náhľad predmetu: <b></b></div>
+        </div>
         <label class="zaskrt"><input type="checkbox" name="letenkyZap"${n.letenkyZap ? ' checked' : ''}> Lacné letenky z jeho letiska – najviac jeden e-mail denne</label>
-        <div class="form-mriezka" style="margin-top:10px"><label class="cela">Predmet (<code>{letisko}</code>, <code>{cena}</code>)<input type="text" name="letenkyPredmet" value="${esc(n.letenkyPredmet)}" maxlength="120"></label></div>
+        <div class="form-mriezka" style="margin-top:10px">
+          <label class="cela">Predmet (<code>{letisko}</code>, <code>{cena}</code>)<input type="text" name="letenkyPredmet" value="${esc(n.letenkyPredmet)}" maxlength="120"></label>
+          <div class="cela settings-hint" id="letenky-nahlad">Náhľad predmetu: <b></b></div>
+        </div>
+        <p class="settings-hint" style="margin-top:10px">Telo e-mailu pri strážcovi a letenkách zostavuje plánovač sám
+          zo zoznamu nájdených dealov/letov - nedá sa vopred napísať, len predmet.</p>
         <p class="settings-hint" style="margin-top:10px">Posielajú sa len na overené adresy a len tým, ktorí si strážcu alebo hranicu ceny
           sami nastavili vo svojom účte. Nastavenia komunity sú v sekcii <a href="#komunita">Komunita</a>.</p>
         <p class="settings-hint" style="margin-top:10px">Posielajú sa len pri registráciách od zapnutia – doterajší používatelia nič nedostanú.
@@ -657,12 +733,29 @@ U.stranka('emaily', {
     });
 
     const form = el.querySelector('#em-form');
+    pripojNahlad(form, 'uvit', 'uvitaniePredmet', 'uvitanieText', null, { meno: ' Jana' });
+    pripojNahlad(form, 'over', 'overeniePredmet', 'overenieText', 'Potvrdiť e-mail', { meno: ' Jana' });
+    pripojNahlad(form, 'hes', 'hesloPredmet', 'hesloText', 'Nastaviť nové heslo', { meno: ' Jana' });
+    // Strážca a letenky nemajú telo na úpravu (zostavuje ho plánovač zo
+    // zoznamu nájdených dealov/letov) - ukážeme aspoň živý náhľad predmetu.
+    const nahladPredmetu = (pole, id, vzorky) => {
+      const prekresli = () => {
+        let t = form.elements[pole].value;
+        Object.entries(vzorky).forEach(([k, v]) => { t = t.replaceAll(`{${k}}`, v); });
+        el.querySelector(`#${id}-nahlad b`).textContent = t;
+      };
+      form.elements[pole].addEventListener('input', prekresli);
+      prekresli();
+    };
+    nahladPredmetu('strazcaPredmet', 'strazca', { co: 'PS5 Slim' });
+    nahladPredmetu('letenkyPredmet', 'letenky', { letisko: 'Bratislavy', cena: '24,99' });
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const f = k => form.elements[k];
       const d = {};
       ['odosielatelMeno', 'odosielatelEmail', 'smtpHost', 'sifrovanie', 'pouzivatel', 'odpovedNa', 'uvitaniePredmet', 'uvitanieText',
-        'novaRegistraciaKomu', 'strazcaPredmet', 'letenkyPredmet'].forEach(k => { d[k] = f(k).value.trim(); });
+        'novaRegistraciaKomu', 'strazcaPredmet', 'letenkyPredmet', 'overeniePredmet', 'overenieText', 'hesloPredmet', 'hesloText']
+        .forEach(k => { d[k] = f(k).value.trim(); });
       d.strazcaZap = f('strazcaZap').checked;
       d.letenkyZap = f('letenkyZap').checked;
       d.smtpPort = Number(f('smtpPort').value) || 465;
