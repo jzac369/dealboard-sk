@@ -4549,7 +4549,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
       // na každých šesť dealov a zoznam by sa zmenil na reklamný pás.
       const karty = shown.map(d => d._top
         ? dealCard(d).replace('<div class="deal-card', '<div class="deal-card je-top')
-            .replace('<div class="chips">', '<div class="chips"><span class="top-tag">★ Topované</span>')
+            .replaceAll('<div class="chips">', '<div class="chips"><span class="top-tag">★ Topované</span>')
         : dealCard(d));
       const AD_PO = 6;
       if (karty.length > AD_PO) {
