@@ -155,7 +155,11 @@
     if (user && !user.isAnonymous) {
       // Čerstvý token: pravidlá vyžadujú overený e-mail a starý token
       // by ho mohol mať zapísaný ešte ako neoverený (platí hodinu).
-      await user.getIdTokenResult(true);
+      // Zlyhanie obnovy tokenu (pomalá sieť, App Check) nesmie zhodiť celý
+      // handler - človek by ostal na prihlasovacej obrazovke, hoci je
+      // prihlásený, a vyzeralo by to ako odhlásenie.
+      try { await user.getIdTokenResult(true); }
+      catch (e) { console.warn('Obnova tokenu zlyhala, pokračujem so starým:', e); }
       const rola = await zistiRolu(user);
       if (!rola) {
         const err = document.getElementById('login-error');
