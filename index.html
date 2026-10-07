@@ -7664,7 +7664,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
           // Porovnanie cien na Heureke. Nie pri letenkách - tie Heureka nemá.
           const h = window.HEUREKA || {};
           const url = h.detail === false || d.category === 'Cestovanie' ? '' : heurekaOdkaz(heurekaVyraz(d.title));
-          if (url && /[?&]nahlad=heureka/.test(location.search)) {
+          if (url && /[?&]nahlad=heureka\b/.test(location.search)) {
             // Náhľad: ten istý odkaz, len s malou ikonou Heureky.
             return `<a class="detail-link" href="${escapeAttr(url)}" target="_blank" rel="nofollow sponsored noopener"
               onclick="heurekaKlik('detail')"><svg class="hk-heu-ico" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" rx="4" fill="#E2231A"/><path d="M5 3.5v9M5 8c0-1.7 1.2-2.6 2.6-2.6S10.2 6.3 10.2 8v4.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg> Porovnať ceny na Heureke</a>`;
