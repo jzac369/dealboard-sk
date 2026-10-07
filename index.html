@@ -2127,10 +2127,7 @@
   .hk-heureka:hover { background: var(--orange); color: #fff; }
   .hk-heureka .ic { width: 16px; height: 16px; }
   .hk-heureka-pozn { font-size: .78rem; color: var(--muted); margin-top: 6px; }
-  .hk-heureka-big { flex: 1 1 100%; margin-top: 6px; padding: 12px 14px; border: 1px solid var(--line);
-    border-radius: 12px; background: #FFF9F4; }
-  .hk-heureka-big-t { font-weight: 700; font-size: .92rem; color: var(--ink); }
-  .hk-heureka-big .hk-heureka { margin-top: 8px; }
+  .hk-heu-ico { width: 15px; height: 15px; vertical-align: -3px; }
   @media (max-width: 720px) {
     .tabs-bar .header-search { width: 100%; max-width: 100% !important; flex: none; order: 10; }
     .sort-bar { gap: 14px; }
@@ -7667,14 +7664,10 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
           // Porovnanie cien na Heureke. Nie pri letenkách - tie Heureka nemá.
           const h = window.HEUREKA || {};
           const url = h.detail === false || d.category === 'Cestovanie' ? '' : heurekaOdkaz(heurekaVyraz(d.title));
-          if (url && /[?&]nahlad=heureka\b/.test(location.search)) {
-            // Náhľad výraznejšieho tlačidla - vidno ho len s ?nahlad=heureka.
-            return `<div class="hk-heureka-big">
-              <div class="hk-heureka-big-t">Chceš si cenu overiť?</div>
-              <a class="hk-heureka" href="${escapeAttr(url)}" target="_blank" rel="nofollow sponsored noopener"
-                 onclick="heurekaKlik('detail')">${icon('trending-down')} Porovnať ceny na Heureke →</a>
-              <div class="hk-heureka-pozn">Otvorí sa Heureka.sk s vyhľadaným názvom produktu.</div>
-            </div>`;
+          if (url && /[?&]nahlad=heureka/.test(location.search)) {
+            // Náhľad: ten istý odkaz, len s malou ikonou Heureky.
+            return `<a class="detail-link" href="${escapeAttr(url)}" target="_blank" rel="nofollow sponsored noopener"
+              onclick="heurekaKlik('detail')"><svg class="hk-heu-ico" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" rx="4" fill="#E2231A"/><path d="M5 3.5v9M5 8c0-1.7 1.2-2.6 2.6-2.6S10.2 6.3 10.2 8v4.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg> Porovnať ceny na Heureke</a>`;
           }
           return url ? `<a class="detail-link" href="${escapeAttr(url)}" target="_blank" rel="nofollow sponsored noopener"
               onclick="heurekaKlik('detail')">${icon('trending-down')} Porovnať ceny na Heureke</a>` : '';
