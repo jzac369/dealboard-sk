@@ -2535,10 +2535,9 @@
   .reklama-hore img { display: inline-block; max-width: 100%; height: auto; border-radius: 10px; }
   .reklama-hore .ad-label { display: block; text-align: left; }
   /* topovaný deal (nastavuje admin) */
-  .deal-card.je-top { box-shadow: 0 0 0 2px var(--orange), var(--shadow, 0 2px 8px rgba(0,0,0,.06)); position: relative; }
-  .deal-card.je-top::before { content: "Topované"; position: absolute; top: -9px; left: 14px; z-index: 2;
-    background: var(--orange); color: #fff; font-size: .68rem; font-weight: 800; letter-spacing: .4px;
-    text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+  .deal-card.je-top { border-left: 4px solid var(--orange); }
+  .top-tag { font-size: .7rem; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+    color: var(--orange-dk, #C44C0A); align-self: center; white-space: nowrap; }
   .sponzor-box img { display: block; width: 100%; height: auto; border-radius: 8px; }
 
   /* Box Heureky - vzhľadom ako "Najhorúcejšie dealy", aby nepôsobil
@@ -4548,6 +4547,7 @@ Technológia HyperForce poskytuje sací výkon 8 000 Pa na účinné odstráneni
       // na každých šesť dealov a zoznam by sa zmenil na reklamný pás.
       const karty = shown.map(d => d._top
         ? dealCard(d).replace('<div class="deal-card', '<div class="deal-card je-top')
+            .replace('<div class="chips">', '<div class="chips"><span class="top-tag">★ Topované</span>')
         : dealCard(d));
       const AD_PO = 6;
       if (karty.length > AD_PO) {
