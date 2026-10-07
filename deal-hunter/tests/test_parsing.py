@@ -1173,3 +1173,17 @@ def test_garantovany_deal_z_allegra_a_lekarne_ide_dopredu():
 
     # Skupina, ktorá už dnes dostala deal, sa nepridáva znova.
     assert [x.store for x in pridaj_garantovane(vyber, kand, {"allegro", "lekaren"})] == ["Lidl"]
+
+
+def test_push_vyber_preskoci_oznamene_stare_a_expirovane():
+    from datetime import datetime, timedelta, timezone
+    import push_dealy
+
+    teraz = datetime.now(timezone.utc)
+    ok = lambda **k: {"status": "approved", "timestamp": teraz - timedelta(minutes=10), **k}
+    dealy = [("a", ok()), ("b", ok()), ("c", ok(expired=True)),
+             ("d", ok(timestamp=teraz - timedelta(hours=9))), ("e", ok()), ("f", ok()), ("g", ok())]
+    out = push_dealy.vyber_na_odoslanie(dealy, {"b"}, teraz)
+    assert [i for i, _ in out] == ["a", "e", "f"]
+    m = push_dealy.sprava("a", {"title": "X", "dealPrice": 5, "store": "Lidl", "discountPercent": 30})
+    assert m["message"]["topic"] == "dealy" and "5,00" in m["message"]["notification"]["body"]

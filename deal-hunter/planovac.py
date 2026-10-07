@@ -247,6 +247,11 @@ def kontrola(db, nasucho: bool) -> None:
     posli_pripomienky(db, teraz, nasucho)
     spusti_facebook_naplanovane(db, teraz, nasucho)
     try:
+        import push_dealy
+        push_dealy.posli_nove(db, nasucho)
+    except Exception as e:
+        logger.warning("Push notifikácie zlyhali: %s", e)
+    try:
         if not nasucho:
             import ucty
             ucty.dobehni(db)
