@@ -1,6 +1,9 @@
 """
 Prehľad partnerského účtu eHUB (affiliate sieť) pre admin zónu.
 
+Sumy v eHUB sú v českých korunách (CZK). Prepočítavame ich na EUR kurzom ECB
+(denný referenčný kurz) a pri každej sume ostáva aj pôvodná hodnota v Kč.
+
 Plánovač raz za hodinu stiahne cez eHUB API v3 kampane, transakcie a
 odchádzajúce prekliky, zhrnie ich a uloží do admin_info/ehub. Admin
 stránka (Zarábanie -> eHUB) len číta tento dokument - API kľúč sa tak
@@ -62,7 +65,7 @@ def zhrn_kampane(kampane: list[dict]) -> list[dict]:
         out.append({
             "id": k.get("id"), "nazov": k.get("name"), "krajina": k.get("country"), "stav": st,
             "provizia": max(pct) if pct else (max(pevna) if pevna else None),
-            "jednotka": "%" if pct else ("€" if pevna else ""),
+            "jednotka": "%" if pct else ("Kč" if pevna else ""),
             "cookie": k.get("cookieLifetime"), "feed": bool(k.get("hasFeed")),
             "kategoria": ((k.get("categories") or [{}])[0]).get("name", ""),
             "web": k.get("web"),
@@ -72,19 +75,45 @@ def zhrn_kampane(kampane: list[dict]) -> list[dict]:
     return out
 
 
-def zhrn_transakcie(transakcie: list[dict], nazvy: dict[str, str]) -> dict:
-    """Súčty podľa stavu, kampane a mesiaca + zoznam posledných transakcií."""
-    stavy: dict[str, dict] = defaultdict(lambda: {"pocet": 0, "provizia": 0.0, "trzby": 0.0})
-    kampane: dict[str, dict] = defaultdict(lambda: {"pocet": 0, "provizia": 0.0, "trzby": 0.0})
+def kurz_czk() -> tuple[float, str]:
+    """Koľko CZK je 1 EUR podľa ECB (denný referenčný kurz). Vráti (kurz, dátum)."""
+    import re
+    r = requests.get("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", timeout=20)
+    r.raise_for_status()
+    m = re.search(r"currency=['\"]CZK['\"]\s+rate=['\"]([\d.]+)['\"]", r.text)
+    d = re.search(r"time=['\"](\d{4}-\d{2}-\d{2})['\"]", r.text)
+    if not m:
+        raise ValueError("ECB nevrátila kurz CZK")
+    return float(m.group(1)), (d.group(1) if d else "")
+
+
+def _eur(czk: float, kurz: float) -> float:
+    return round(czk / kurz, 2)
+
+
+def zhrn_transakcie(transakcie: list[dict], nazvy: dict[str, str], kurz: float) -> dict:
+    """Súčty podľa stavu, kampane a mesiaca + posledné transakcie.
+    Vstupné sumy sú v CZK; výstup má pri každej sume EUR (hlavná) aj Kč."""
+    def prazdne():
+        return {"pocet": 0, "provizia": 0.0, "trzby": 0.0}
+
+    stavy: dict[str, dict] = defaultdict(prazdne)
+    kampane: dict[str, dict] = defaultdict(prazdne)
     mesiace: dict[str, float] = defaultdict(float)
     vyplatene = nevyplatene = 0.0
+
+    def dvojica(d: dict) -> dict:
+        return {"pocet": d["pocet"], "provizia": _eur(d["provizia"], kurz), "proviziaCzk": round(d["provizia"], 2),
+                "trzby": _eur(d["trzby"], kurz), "trzbyCzk": round(d["trzby"], 2)}
+
     for t in transakcie:
         prov = float(t.get("commission") or 0)
         suma = float(t.get("amount") or 0)
         st = t.get("status") or "?"
-        stavy[st]["pocet"] += 1
-        stavy[st]["provizia"] += prov
-        stavy[st]["trzby"] += suma
+        for cielovy in (stavy[st],):
+            cielovy["pocet"] += 1
+            cielovy["provizia"] += prov
+            cielovy["trzby"] += suma
         if st != "declined":
             k = kampane[t.get("campaignId") or "?"]
             k["pocet"] += 1
@@ -98,15 +127,18 @@ def zhrn_transakcie(transakcie: list[dict], nazvy: dict[str, str]) -> dict:
                 nevyplatene += prov
     najnovsie = sorted(transakcie, key=lambda t: t.get("dateInserted") or "", reverse=True)[:200]
     return {
-        "stavy": {k: {kk: round(vv, 2) if isinstance(vv, float) else vv for kk, vv in v.items()} for k, v in stavy.items()},
-        "kampane": [{"id": k, "nazov": nazvy.get(k, k), **{kk: round(vv, 2) if isinstance(vv, float) else vv
-                                                          for kk, vv in v.items()}}
+        "stavy": {k: dvojica(v) for k, v in stavy.items()},
+        "kampane": [{"id": k, "nazov": nazvy.get(k, k), **dvojica(v)}
                     for k, v in sorted(kampane.items(), key=lambda kv: -kv[1]["provizia"])],
-        "mesiace": {m: round(v, 2) for m, v in sorted(mesiace.items()) if m},
-        "vyplatene": round(vyplatene, 2), "schvaleneNevyplatene": round(nevyplatene, 2),
+        "mesiace": {m: {"eur": _eur(v, kurz), "czk": round(v, 2)} for m, v in sorted(mesiace.items()) if m},
+        "vyplatene": _eur(vyplatene, kurz), "vyplateneCzk": round(vyplatene, 2),
+        "schvaleneNevyplatene": _eur(nevyplatene, kurz), "schvaleneNevyplateneCzk": round(nevyplatene, 2),
         "posledne": [{"datum": (t.get("dateInserted") or "")[:16].replace("T", " "),
                       "kampan": nazvy.get(t.get("campaignId"), t.get("campaignId")),
-                      "objednavka": t.get("orderId"), "suma": t.get("amount"), "provizia": t.get("commission"),
+                      "objednavka": t.get("orderId"),
+                      "suma": _eur(float(t.get("amount") or 0), kurz), "sumaCzk": round(float(t.get("amount") or 0), 2),
+                      "provizia": _eur(float(t.get("commission") or 0), kurz),
+                      "proviziaCzk": round(float(t.get("commission") or 0), 2),
                       "stav": t.get("status"), "vyplata": t.get("payoutStatus")} for t in najnovsie],
     }
 
@@ -161,11 +193,21 @@ def obnov(db, nasucho: bool = False, force: bool = False) -> dict | None:
             kliky = []
         zh = zhrn_kampane(kampane)
         nazvy = {k["id"]: k["nazov"] for k in zh}
+        try:
+            kurz, kurz_den = kurz_czk()
+        except Exception as ex:
+            # Bez čerstvého kurzu použijeme posledný známy; úplne bez kurzu sa nepočíta.
+            stary = ref.get().to_dict() or {}
+            kurz, kurz_den = stary.get("kurz"), stary.get("kurzDen")
+            if not kurz:
+                raise ValueError(f"Kurz CZK/EUR sa nepodarilo zistiť ({ex})")
+            logger.warning("eHUB: kurz ECB zlyhal, používam posledný známy %s z %s", kurz, kurz_den)
         data = {
             "aktualizovane": firestore.SERVER_TIMESTAMP, "chyba": None, "partner": partner,
+            "kurz": kurz, "kurzDen": kurz_den, "mena": "CZK",
             "kampane": zh, "kampaniSpolu": len(zh),
             "kampaniPodlaStavu": dict(Counter(k["stav"] for k in zh)),
-            "transakcie": zhrn_transakcie(transakcie, nazvy), "kliky": zhrn_kliky(kliky, nazvy),
+            "transakcie": zhrn_transakcie(transakcie, nazvy, kurz), "kliky": zhrn_kliky(kliky, nazvy),
         }
         ref.set(data)
         logger.info("eHUB: %d kampaní, %d transakcií, %d preklikov", len(zh), len(transakcie), len(kliky))

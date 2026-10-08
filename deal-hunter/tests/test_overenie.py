@@ -153,10 +153,13 @@ def test_ehub_zhrnutie_kampani_transakcii_a_preklikov():
         {"dateInserted": "2026-10-01T10:00:00+02:00", "campaignId": "a", "commission": 9.0, "amount": 90.0,
          "status": "declined", "payoutStatus": "unpaid", "orderId": "3"},
     ]
-    z = ehub.zhrn_transakcie(t, nazvy)
-    assert z["stavy"]["approved"]["provizia"] == 5.0 and z["stavy"]["declined"]["pocet"] == 1
-    assert z["vyplatene"] == 1.0 and z["schvaleneNevyplatene"] == 4.0
-    assert z["mesiace"] == {"2026-09": 5.0}          # zamietnuté sa do mesiacov nepočítajú
+    z = ehub.zhrn_transakcie(t, nazvy, 25.0)
+    # Sumy v CZK, kurz 25 Kč = 1 €: 5 Kč provízie = 0,20 €.
+    assert z["stavy"]["approved"]["proviziaCzk"] == 5.0 and z["stavy"]["approved"]["provizia"] == 0.2
+    assert z["stavy"]["declined"]["pocet"] == 1
+    assert z["vyplateneCzk"] == 1.0 and z["schvaleneNevyplateneCzk"] == 4.0 and z["vyplatene"] == 0.04
+    assert z["mesiace"] == {"2026-09": {"eur": 0.2, "czk": 5.0}}   # zamietnuté sa do mesiacov nepočítajú
+    assert z["posledne"][0]["suma"] == 3.6 and z["posledne"][0]["sumaCzk"] == 90.0
     assert z["posledne"][0]["objednavka"] == "3" and z["posledne"][0]["kampan"] == "AliExpress"
 
     from datetime import datetime, timezone
@@ -164,3 +167,17 @@ def test_ehub_zhrnutie_kampani_transakcii_a_preklikov():
     kl = ehub.zhrn_kliky([{"campaignId": "a", "dateTime": dnes + "T10:00:00"},
                           {"campaignId": "a", "dateTime": "2020-01-01T10:00:00"}], nazvy)
     assert kl["spolu"] == 1 and kl["poKampani"][0]["nazov"] == "AliExpress"
+
+
+def test_ehub_kurz_z_ecb_sa_precita(monkeypatch):
+    import ehub
+
+    class R:
+        text = ("<gesmes:Envelope><Cube><Cube time='2026-10-08'><Cube currency='USD' rate='1.09'/>"
+                "<Cube currency='CZK' rate='24.31'/></Cube></Cube></gesmes:Envelope>")
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(ehub.requests, "get", lambda *a, **k: R())
+    assert ehub.kurz_czk() == (24.31, "2026-10-08")

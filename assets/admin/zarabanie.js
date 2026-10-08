@@ -392,6 +392,9 @@ U.stranka('prijmy', {
 const EH_STAV = { approved: 'Schválená', pending: 'Čaká na schválenie', declined: 'Zamietnutá', available: 'Dostupná' };
 const EH_TX = { approved: 'Schválená', pending: 'Čaká', declined: 'Zamietnutá' };
 const ehEur = n => (Number(n) || 0).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const ehKc = n => Math.round(Number(n) || 0).toLocaleString('sk-SK') + ' Kč';
+// Hlavná suma v EUR a pôvodná v Kč (eHUB účtuje v českých korunách).
+const ehSuma = (eur, czk) => `${ehEur(eur)} <small class="eh-kc">(${ehKc(czk)})</small>`;
 
 U.stranka('ehub', {
   async init(el) {
@@ -402,6 +405,7 @@ U.stranka('ehub', {
           <span class="settings-hint" id="eh-cas" style="margin:0"></span>
           <button class="btn" id="eh-obnov"><svg class="ix"><use href="#ix-refresh"></use></svg> Obnoviť teraz</button></div>
         <div class="kpi-row" id="eh-kpi"></div>
+        <p class="settings-hint" id="eh-kurz"></p>
         <p class="settings-hint">Údaje sťahuje plánovač z eHUB raz za hodinu (provízie sa v sieti potvrdzujú až po čase, kým inzerent
           objednávku neschváli).</p>
       </div>
@@ -475,21 +479,25 @@ U.stranka('ehub', {
     }
     const st = x.kampaniPodlaStavu || {}, tx = x.transakcie || {}, sv = tx.stavy || {};
     const schv = (sv.approved || {}).provizia || 0, cak = (sv.pending || {}).provizia || 0;
+    const schvKc = (sv.approved || {}).proviziaCzk || 0, cakKc = (sv.pending || {}).proviziaCzk || 0;
+    const bezZam = Object.entries(sv).filter(([k]) => k !== 'declined').map(([, v]) => v);
+    const trzbyEur = bezZam.reduce((s, v) => s + (v.trzby || 0), 0), trzbyKc = bezZam.reduce((s, v) => s + (v.trzbyCzk || 0), 0);
+    el.querySelector('#eh-kurz').textContent = x.kurz ? `Sumy v eHUB sú v Kč, prepočítané na € kurzom ECB z ${x.kurzDen || ''}: 1 € = ${String(x.kurz).replace('.', ',')} Kč.` : '';
     el.querySelector('#eh-kpi').innerHTML =
       U.kpi('Schválené kampane', U.cislo(st.approved || 0), '', `${st.pending || 0} čaká · ${st.declined || 0} zamietnutých`) +
-      U.kpi('Provízia schválená', ehEur(schv), '', `vyplatené ${ehEur(tx.vyplatene)} · čaká na výplatu ${ehEur(tx.schvaleneNevyplatene)}`) +
-      U.kpi('Provízia čakajúca', ehEur(cak), '', `${(sv.pending || {}).pocet || 0} transakcií`) +
-      U.kpi('Tržby inzerentov', ehEur(Object.values(sv).reduce((s, v) => s + (v.trzby || 0), 0) - ((sv.declined || {}).trzby || 0)), '', 'bez zamietnutých') +
+      U.kpi('Provízia schválená', ehEur(schv), '', `${ehKc(schvKc)} · vyplatené ${ehEur(tx.vyplatene)} · čaká na výplatu ${ehEur(tx.schvaleneNevyplatene)}`) +
+      U.kpi('Provízia čakajúca', ehEur(cak), '', `${ehKc(cakKc)} · ${(sv.pending || {}).pocet || 0} transakcií`) +
+      U.kpi('Tržby inzerentov', ehEur(trzbyEur), '', `${ehKc(trzbyKc)} · bez zamietnutých`) +
       U.kpi('Prekliky (30 dní)', U.cislo((x.kliky || {}).spolu || 0), '', 'cez eHUB odkazy');
     this._kampane(el);
     el.querySelector('#eh-podla').innerHTML = (tx.kampane || []).map(k =>
-      `<tr><td>${esc(k.nazov)}</td><td class="n">${k.pocet}</td><td class="n">${ehEur(k.trzby)}</td><td class="n"><b>${ehEur(k.provizia)}</b></td></tr>`).join('')
+      `<tr><td>${esc(k.nazov)}</td><td class="n">${k.pocet}</td><td class="n">${ehSuma(k.trzby, k.trzbyCzk)}</td><td class="n"><b>${ehSuma(k.provizia, k.proviziaCzk)}</b></td></tr>`).join('')
       || '<tr><td colspan="4" class="vis-empty">Zatiaľ žiadne transakcie.</td></tr>';
     el.querySelector('#eh-mesiace').innerHTML = Object.entries(tx.mesiace || {}).reverse().map(([m, v]) =>
-      `<tr><td>${esc(m)}</td><td class="n">${ehEur(v)}</td></tr>`).join('') || '<tr><td colspan="2" class="vis-empty">–</td></tr>';
+      `<tr><td>${esc(m)}</td><td class="n">${ehSuma(v.eur, v.czk)}</td></tr>`).join('') || '<tr><td colspan="2" class="vis-empty">–</td></tr>';
     el.querySelector('#eh-tx').innerHTML = (tx.posledne || []).slice(0, 50).map(t =>
-      `<tr><td>${esc(t.datum)}</td><td>${esc(t.kampan)}</td><td>${esc(t.objednavka || '–')}</td><td class="n">${ehEur(t.suma)}</td>
-        <td class="n">${ehEur(t.provizia)}</td><td>${esc(EH_TX[t.stav] || t.stav || '')}</td><td>${t.vyplata === 'paid' ? 'vyplatené' : 'nevyplatené'}</td></tr>`).join('')
+      `<tr><td>${esc(t.datum)}</td><td>${esc(t.kampan)}</td><td>${esc(t.objednavka || '–')}</td><td class="n">${ehSuma(t.suma, t.sumaCzk)}</td>
+        <td class="n">${ehSuma(t.provizia, t.proviziaCzk)}</td><td>${esc(EH_TX[t.stav] || t.stav || '')}</td><td>${t.vyplata === 'paid' ? 'vyplatené' : 'nevyplatené'}</td></tr>`).join('')
       || '<tr><td colspan="7" class="vis-empty">Zatiaľ žiadne transakcie.</td></tr>';
     el.querySelector('#eh-kliky').innerHTML = ((x.kliky || {}).poKampani || []).map(k =>
       `<tr><td>${esc(k.nazov)}</td><td class="n">${k.pocet}</td></tr>`).join('') || '<tr><td colspan="2" class="vis-empty">Zatiaľ žiadne prekliky.</td></tr>';

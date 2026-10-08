@@ -394,3 +394,5 @@ body.okno-otvorene { overflow: hidden; }
 .fd-i b { color: var(--ink); }
 .fd-i small { display: block; color: var(--muted); font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 760px) { .fd-r { grid-template-columns: auto minmax(0, 1fr); } .fd-r .tl-rad { grid-column: 1 / -1; } }
+
+.eh-kc { color: var(--muted, #707070); font-weight: 400; white-space: nowrap; }
