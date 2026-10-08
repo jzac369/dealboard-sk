@@ -2542,6 +2542,7 @@
   .admin-page[data-page="dognet"] input, .admin-page[data-page="dognet"] select,
   .admin-page[data-page="dognet"] button, .admin-page[data-page="heureka"] input,
   .admin-page[data-page="heureka"] button { font-family: inherit; }
+  .af-stav.auto { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .dg-tabs { display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }
   .dg-tabs button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px;
     font: inherit; font-weight: 600; cursor: pointer; color: var(--muted); }
@@ -3353,11 +3354,36 @@
     <section class="admin-section admin-page" data-page="dognet">
       <h2 class="section-title">Dognet</h2>
       <p class="page-desc">Partnerské odkazy, kampane a provízie z Dognetu.</p>
-      <div class="dg-tabs"><button type="button" class="on" data-dg="nastavenia">Nastavenia a kampane</button><button type="button" data-dg="provizie">Provízie (import z CSV)</button></div>
-      <div id="dg-nastavenia">
-
+      <div class="dg-tabs"><button type="button" class="on" data-dg="prehlad">Prehľad</button><button type="button" data-dg="kampane">Kampane</button><button type="button" data-dg="nastavenia">Nastavenia</button></div>
+      <div id="dg-prehlad">
       <div class="af-stav" id="aff-stats"></div>
+        <div id="dg-provizie"></div>
+      </div>
+      <div id="dg-kampane" hidden>
+      <div class="af-card">
+        <h3>Obchody so schválenou kampaňou <span class="af-pocet" id="aff-dom-pocet"></span></h3>
+        <div class="af-add">
+          <input type="text" id="aff-dom-nova" placeholder="doména, napr. gymbeam.sk" onkeydown="if(event.key==='Enter') affPridaj()">
+          <button class="af-btn hlavne" type="button" onclick="affPridaj()">+ Pridať</button>
+          <input type="search" id="aff-dom-filter" placeholder="Hľadať v zozname…" oninput="renderAffiliateStats()">
+        </div>
+        <div class="af-chips" id="aff-domeny"></div>
+        <p class="settings-hint">Pri každom obchode je počet zverejnených dealov a preklikov. Pridávaj len <b>schválené</b> kampane –
+          odkaz na neschválenú nezarobí a môže skončiť chybou.</p>
+      </div>
 
+      <div class="af-card">
+        <h3>Príležitosti – obchody bez kampane</h3>
+        <p class="settings-hint" style="margin-top:0;">Obchody, z ktorých máš najviac dealov, ale nezarábaš na nich. Oplatí sa ich
+          v Dognete vyhľadať a požiadať o kampaň; po schválení ich jedným klikom pridáš.</p>
+        <div class="af-tab-wrap">
+          <table class="af-tab"><thead><tr><th>Obchod</th><th class="n">Dealov</th><th class="n">Preklikov</th><th></th></tr></thead>
+            <tbody id="aff-prilezitosti"></tbody></table>
+        </div>
+      </div>
+
+      </div>
+      <div id="dg-nastavenia" hidden>
       <div class="af-grid">
         <div class="af-card">
           <h3>Dognet – dealy</h3>
@@ -3391,8 +3417,6 @@
             kupóny sa nebalia vôbec.</p>
         </div>
       </div>
-
-
       <div class="af-card">
         <h3><svg class="ai-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 15l6 -6 M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464 M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463"/></svg> Otestovať odkaz</h3>
         <p class="settings-hint" style="margin-top:0;">Vlož adresu produktu z e-shopu – uvidíš presne ten odkaz, ktorý dostane návštevník.</p>
@@ -3401,28 +3425,6 @@
           <select id="aff-test-druh" onchange="affOtestuj()"><option value="deal">deal</option><option value="coupon">kupón</option></select>
         </div>
         <div class="af-test-out" id="aff-test-out"></div>
-      </div>
-
-      <div class="af-card">
-        <h3>Obchody so schválenou kampaňou <span class="af-pocet" id="aff-dom-pocet"></span></h3>
-        <div class="af-add">
-          <input type="text" id="aff-dom-nova" placeholder="doména, napr. gymbeam.sk" onkeydown="if(event.key==='Enter') affPridaj()">
-          <button class="af-btn hlavne" type="button" onclick="affPridaj()">+ Pridať</button>
-          <input type="search" id="aff-dom-filter" placeholder="Hľadať v zozname…" oninput="renderAffiliateStats()">
-        </div>
-        <div class="af-chips" id="aff-domeny"></div>
-        <p class="settings-hint">Pri každom obchode je počet zverejnených dealov a preklikov. Pridávaj len <b>schválené</b> kampane –
-          odkaz na neschválenú nezarobí a môže skončiť chybou.</p>
-      </div>
-
-      <div class="af-card">
-        <h3>Príležitosti – obchody bez kampane</h3>
-        <p class="settings-hint" style="margin-top:0;">Obchody, z ktorých máš najviac dealov, ale nezarábaš na nich. Oplatí sa ich
-          v Dognete vyhľadať a požiadať o kampaň; po schválení ich jedným klikom pridáš.</p>
-        <div class="af-tab-wrap">
-          <table class="af-tab"><thead><tr><th>Obchod</th><th class="n">Dealov</th><th class="n">Preklikov</th><th></th></tr></thead>
-            <tbody id="aff-prilezitosti"></tbody></table>
-        </div>
       </div>
 
       <div class="af-card">
@@ -3444,8 +3446,7 @@
         </p>
       </div>
       </div>
-      </div>
-      <div id="dg-provizie" hidden></div>
+            </div>
     </section>
 
     <!-- ── Sekcia: Heureka ───────────────────────────────────────────── -->

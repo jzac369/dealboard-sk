@@ -123,10 +123,9 @@
     const b = e.target.closest('[data-dg]');
     if (!b) return;
     document.querySelectorAll('[data-dg]').forEach(x => x.classList.toggle('on', x === b));
-    document.getElementById('dg-nastavenia').hidden = b.dataset.dg !== 'nastavenia';
-    document.getElementById('dg-provizie').hidden = b.dataset.dg !== 'provizie';
+    ['prehlad', 'kampane', 'nastavenia'].forEach(t => { const p = document.getElementById('dg-' + t); if (p) p.hidden = b.dataset.dg !== t; });
     window.HK_DOGNET_TAB = b.dataset.dg;
-    if (b.dataset.dg === 'provizie' && window.HKU) window.HKU._skus('provizie');
+    if (b.dataset.dg === 'prehlad' && window.HKU) window.HKU._skus('provizie');
   });
 
   // ── Menu ──
@@ -211,7 +210,7 @@
     if (k === 'affiliate') k = 'dognet';
     if (k === 'provizie') {
       k = 'dognet';
-      setTimeout(() => { const b = document.querySelector('[data-dg="provizie"]'); if (b) b.click(); }, 0);
+      setTimeout(() => { const b = document.querySelector('[data-dg="prehlad"]'); if (b) b.click(); }, 0);
     }
     if (!povolena(k)) k = 'prehlad';
     document.querySelectorAll('.admin-page').forEach(s => s.classList.toggle('on', s.dataset.page === k));
@@ -223,6 +222,7 @@
     window.scrollTo(0, 0);
     window.HK_STRANKA = k;
     document.dispatchEvent(new CustomEvent('hk:stranka', { detail: { id: k } }));
+    if (k === 'dognet' && window.HKU) window.HKU._skus('provizie');
     if (k === 'prehlad') prehlad();
   }
   window.HK_UKAZ = ukaz;
