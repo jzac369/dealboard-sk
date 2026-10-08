@@ -276,8 +276,11 @@ const U = window.HKU = {
   },
 };
 
-document.addEventListener('hk:stranka', e => U._skus(e.detail.id));
-document.addEventListener('hk:prihlaseny', () => setTimeout(() => U._skus(window.HK_STRANKA), 0));
+// Stránka Dognet obsahuje aj modulovú stránku Provízie (záložka Prehľad) - načítať spolu.
+const DETI = { dognet: ['provizie'] };
+const skusSpolu = id => { U._skus(id); (DETI[id] || []).forEach(d => U._skus(d)); };
+document.addEventListener('hk:stranka', e => skusSpolu(e.detail.id));
+document.addEventListener('hk:prihlaseny', () => setTimeout(() => skusSpolu(window.HK_STRANKA), 0));
 // Obnova otvorenej stránky po zmene dát (najviac raz za 400 ms).
 let _obnovT = null;
 ['hk:deals', 'hk:coupons', 'hk:comments', 'hk:visits', 'hk:clicks', 'hk:plan', 'hk:hlasenia'].forEach(ev => document.addEventListener(ev, () => {
