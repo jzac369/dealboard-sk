@@ -181,3 +181,33 @@ def test_ehub_kurz_z_ecb_sa_precita(monkeypatch):
 
     monkeypatch.setattr(ehub.requests, "get", lambda *a, **k: R())
     assert ehub.kurz_czk() == (24.31, "2026-10-08")
+
+
+def test_import_z_odkazu_najde_fotku_aj_ked_je_relativna_alebo_len_v_obrazku():
+    import admin_ulohy as a
+
+    # og:image bez domény
+    h1 = '<html><head><title>X</title><meta property="og:image" content="/media/p/1.jpg"></head><body></body></html>'
+    assert a._rozober(h1, "https://shop.sk/produkt/1")["imageUrl"] == "https://shop.sk/media/p/1.jpg"
+    # JSON-LD image ako odkaz na iný objekt (@id)
+    h2 = ('<script type="application/ld+json">{"@graph":[{"@type":"Product","name":"P","image":{"@id":"#f"},'
+          '"offers":{"price":"9.90"}},{"@type":"ImageObject","@id":"#f","url":"https://cdn.shop.sk/f.webp"}]}</script>')
+    assert a._rozober(h2, "https://shop.sk/p")["imageUrl"] == "https://cdn.shop.sk/f.webp"
+    # žiadne meta - berie sa hlavný obrázok produktu (leniváci data-src), logo sa preskočí
+    h3 = ('<html><body><img class="logo" src="/logo.png">'
+          '<img class="product-gallery__image" data-src="//cdn.shop.sk/big.jpg" src="data:image/gif;base64,xx"></body></html>')
+    assert a._rozober(h3, "https://shop.sk/p")["imageUrl"] == "https://cdn.shop.sk/big.jpg"
+    assert a._rozober("<html><body>nič</body></html>", "https://shop.sk/p")["imageUrl"] is None
+
+
+def test_import_z_odkazu_nacita_aj_povodnu_cenu():
+    import admin_ulohy as a
+
+    h = ('<html><head><title>Kreslo | Shop</title>'
+         '<script type="application/ld+json">{"@type":"Product","name":"Kreslo","offers":{"@type":"Offer","price":"89.90",'
+         '"priceCurrency":"EUR","availability":"https://schema.org/InStock"}}</script></head>'
+         '<body><del>149,00 €</del> <b>89,90 €</b></body></html>')
+    r = a._rozober(h, "https://shop.sk/kreslo")
+    assert r["dealPrice"] == 89.9 and r["originalPrice"] == 149.0 and r["title"] == "Kreslo"
+    bez = h.replace("<del>149,00 €</del>", "")
+    assert a._rozober(bez, "https://shop.sk/kreslo")["originalPrice"] is None

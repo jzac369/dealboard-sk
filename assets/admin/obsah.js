@@ -119,13 +119,15 @@ U.stranka('pridat', {
           if (v.title) f('title').value = v.title;
           if (v.store) f('store').value = v.store;
           if (v.dealPrice) f('dealPrice').value = v.dealPrice;
+          if (v.originalPrice) f('originalPrice').value = v.originalPrice;
           if (v.imageUrl) f('imageUrl').value = v.imageUrl;
           if (v.description) f('description').value = v.description;
           if (v.url) f('url').value = cistaUrl(v.url);
           const chyba = [!v.title && 'názov', !v.dealPrice && 'cenu', !v.imageUrl && 'fotku'].filter(Boolean);
           stav.innerHTML = `<div class="hlaska ${chyba.length ? 'pozor' : 'ok'}">${chyba.length
-            ? `Načítané, ale chýba ${chyba.join(', ')} – doplň ručne. Pôvodnú cenu e-shopy zvyčajne neuvádzajú.`
-            : 'Údaje načítané. Doplň pôvodnú cenu a kategóriu a skontroluj zvyšok.'}${v.vypredane ? ' <b>Pozor: e-shop hlási, že produkt nie je skladom.</b>' : ''}</div>`;
+            ? `Načítané, ale chýba ${chyba.join(', ')} – doplň ručne.${v.originalPrice ? '' : ' Pôvodnú cenu stránka neuvádza.'}`
+            : (v.originalPrice ? 'Údaje načítané aj s pôvodnou cenou. Doplň kategóriu a skontroluj zvyšok.'
+              : 'Údaje načítané. Stránka pôvodnú cenu neuvádza - doplň ju a kategóriu a skontroluj zvyšok.')}${v.vypredane ? ' <b>Pozor: e-shop hlási, že produkt nie je skladom.</b>' : ''}</div>`;
           obnov();
         } catch (err) {
           stav.innerHTML = `<div class="hlaska chyba">${esc(err.message)}</div>`;

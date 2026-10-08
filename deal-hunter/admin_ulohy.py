@@ -27,7 +27,7 @@ import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -114,9 +114,63 @@ def nacitaj_url(db, vstup: dict) -> dict:
     if r.status_code >= 400:
         raise ValueError(f"E-shop odpovedal chybou {r.status_code} - automatické čítanie asi nepovoľuje. "
                          "Údaje doplň ručne.")
-    html = r.text[:2_000_000]
+    return _rozober(r.text[:2_000_000], r.url)
 
-    produkt = next((x for x in _json_ld(html)
+
+def _absolutna(url, zaklad: str) -> str | None:
+    if not url or not isinstance(url, str):
+        return None
+    url = url.strip()
+    if url.startswith("data:"):
+        return None
+    url = urljoin(zaklad, url)
+    return url if url.startswith("http") else None
+
+
+def _obrazok(html: str, zaklad: str, produkt: dict, objekty: list[dict]) -> str | None:
+    """Fotka produktu: JSON-LD, og:image, link image_src, itemprop=image, potom
+    prvý rozumný <img> v stránke. Relatívne adresy sa dopĺňajú podľa stránky."""
+    kandidati: list = []
+    img = produkt.get("image")
+    for x in (img if isinstance(img, list) else [img]):
+        if isinstance(x, dict):
+            # {"@id": "#foto"} ukazuje na iný objekt v JSON-LD
+            if x.get("url") or x.get("contentUrl"):
+                kandidati.append(x.get("url") or x.get("contentUrl"))
+            elif x.get("@id"):
+                for o in objekty:
+                    if o.get("@id") == x["@id"]:
+                        kandidati.append(o.get("url") or o.get("contentUrl"))
+        else:
+            kandidati.append(x)
+    kandidati += [_meta(html, "og:image", "og:image:secure_url", "twitter:image", "twitter:image:src")]
+    m = re.search(r'<link[^>]+rel=["\']image_src["\'][^>]*href=["\']([^"\']+)["\']', html, re.I)
+    kandidati.append(m.group(1) if m else None)
+    m = re.search(r'<[^>]+itemprop=["\']image["\'][^>]*(?:content|src|href)=["\']([^"\']+)["\']', html, re.I)
+    kandidati.append(m.group(1) if m else None)
+    for x in kandidati:
+        u = _absolutna(x, zaklad)
+        if u:
+            return u
+    # Posledná záchrana: prvý obrázok, ktorý vyzerá ako fotka produktu.
+    for tag in re.findall(r"<img\b[^>]*>", html, re.I):
+        trieda = " ".join(re.findall(r'(?:class|id|alt)=["\']([^"\']*)["\']', tag, re.I)).lower()
+        if re.search(r"logo|icon|sprite|banner|avatar|flag|payment|badge", trieda):
+            continue
+        if not re.search(r"product|gallery|main|detail|zoom|primary|hero|photo|fotka|obrazok", trieda):
+            continue
+        for atribut in ("data-zoom-image", "data-large", "data-src", "data-lazy-src", "data-original", "src"):
+            m = re.search(rf'{atribut}=["\']([^"\']+)["\']', tag, re.I)
+            u = _absolutna(m.group(1), zaklad) if m else None
+            if u and not re.search(r"\.svg(\?|$)|pixel|spacer|blank|placeholder", u, re.I):
+                return u
+    return None
+
+
+def _rozober(html: str, url: str) -> dict:
+    """Z HTML produktovej stránky vytiahne názov, cenu, pôvodnú cenu, fotku a popis."""
+    objekty = _json_ld(html)
+    produkt = next((x for x in objekty
                     if "Product" in (x.get("@type") if isinstance(x.get("@type"), list) else [x.get("@type")])), {})
     ponuka = produkt.get("offers") or {}
     if isinstance(ponuka, list):
@@ -125,27 +179,30 @@ def nacitaj_url(db, vstup: dict) -> dict:
     titul = (produkt.get("name") or _meta(html, "og:title", "twitter:title")
              or (re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I) or [None, None])[1] or "")
     titul = re.sub(r"\s+", " ", _html.unescape(str(titul))).strip()
-    obrazok = produkt.get("image")
-    if isinstance(obrazok, list):
-        obrazok = obrazok[0] if obrazok else None
-    if isinstance(obrazok, dict):
-        obrazok = obrazok.get("url")
-    obrazok = obrazok or _meta(html, "og:image", "twitter:image")
-    if obrazok and obrazok.startswith("//"):
-        obrazok = "https:" + obrazok
+    obrazok = _obrazok(html, url, produkt, objekty)
     cena = (_cena(ponuka.get("price") or ponuka.get("lowPrice"))
             or _cena(_meta(html, "product:price:amount", "og:price:amount", "price")))
-    host = urlparse(r.url).hostname or ""
+    # Pôvodná (prečiarknutá) cena, ak ju stránka ukazuje.
+    povodna = None
+    try:
+        from scrapers.overenie import extrahuj_ponuku
+        e = extrahuj_ponuku(html)
+        if e and e.get("povodna") and cena and e["povodna"] > cena:
+            povodna = e["povodna"]
+    except Exception:
+        pass
+    host = urlparse(url).hostname or ""
     obchod = (_meta(html, "og:site_name") or host.replace("www.", "")).strip()
     popis = produkt.get("description") or _meta(html, "og:description", "description") or ""
     popis = re.sub(r"<[^>]+>", " ", _html.unescape(str(popis)))
     popis = re.sub(r"\s+", " ", popis).strip()[:400]
     dostupnost = str(ponuka.get("availability") or "")
     return {
-        "url": r.url,
+        "url": url,
         "title": titul[:180],
-        "imageUrl": obrazok if obrazok and obrazok.startswith("http") else None,
+        "imageUrl": obrazok,
         "dealPrice": cena,
+        "originalPrice": povodna,
         "currency": ponuka.get("priceCurrency") or "EUR",
         "store": obchod[:60],
         "description": popis,
