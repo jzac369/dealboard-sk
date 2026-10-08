@@ -216,6 +216,7 @@
     get coupons() { return allCoupons; },
     get comments() { return allComments; },
     get hlasenia() { return allHlasenia; },
+    affOdkaz: (url, druh) => _affOdkaz(url, druh),
     get clicks() { return window.dealClicks || {}; },
     get visits() { return vsetkyNavstevy; },
     get topovane() { return topovane; },
@@ -927,12 +928,19 @@
   // Rovnaká logika ako affiliateUrl() v index.html - musí sa zhodovať.
   function _affOdkaz(url, druh) {
     const a = affiliate || {};
-    if (!a.enabled) return { url, dovod: 'Affiliate je vypnutý – odkaz ide priamo.' };
     let host; try { host = new URL(url).hostname.toLowerCase(); } catch (e) { return { url: '', dovod: 'Neplatná adresa.' }; }
+    // eHUB má prednosť pred Dognetom (rovnako ako affiliateUrl() v index.html).
+    if (/(^|\.)ehub\.cz$|(^|\.)go\.dognet\.(com|sk)$/.test(host)) return { url, dovod: 'Odkaz už je affiliate odkaz.', siet: 'uz' };
+    const eh = a.ehubKampane || {};
+    if (a.ehubAid && a.ehubZap !== false) {
+      const dom = Object.keys(eh).find(d => host === d || host.endsWith('.' + d));
+      if (dom) return { url: `https://ehub.cz/system/scripts/click.php?a_aid=${encodeURIComponent(a.ehubAid)}&a_bid=${encodeURIComponent(eh[dom])}&data1=henkukaj-${encodeURIComponent(druh || 'deal')}&desturl=${encodeURIComponent(url)}`, dovod: '', ok: true, siet: 'eHUB' };
+    }
+    if (!a.enabled) return { url, dovod: 'Affiliate je vypnutý – odkaz ide priamo.' };
     if (!_vKampani(_bezWww(host), a.domains || [])) return { url, dovod: `${_bezWww(host)} nemá kampaň – odkaz ide priamo, bez provízie.` };
     const chid = druh === 'coupon' ? (a.couponsEnabled ? a.couponChid : '') : a.chid;
     if (!chid) return { url, dovod: druh === 'coupon' ? 'Kupóny nemajú zapnutý vlastný kanál – odkaz ide priamo.' : 'Chýba kód kanála (chid).' };
-    return { url: `https://go.dognet.com/?chid=${encodeURIComponent(chid)}&url=${encodeURIComponent(url)}`, dovod: '', ok: true };
+    return { url: `https://go.dognet.com/?chid=${encodeURIComponent(chid)}&url=${encodeURIComponent(url)}`, dovod: '', ok: true, siet: 'Dognet' };
   }
   window.affOtestuj = function() {
     const inp = document.getElementById('aff-test-url'), out = document.getElementById('aff-test-out');

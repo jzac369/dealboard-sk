@@ -224,3 +224,27 @@ def test_import_vyberie_prvu_fotku_ktora_sa_naozaj_nacita(monkeypatch):
     assert a._rozober(html, "https://shop.sk/p", overit_fotku=True)["imageUrl"] == "https://cdn.shop.sk/ok.png"
     monkeypatch.setattr(a, "_je_obrazok", lambda u: False)
     assert a._rozober(html, "https://shop.sk/p", overit_fotku=True)["imageUrl"] is None
+
+
+def test_import_popis_je_o_produkte_v_prvej_osobe_a_vseobecny_text_sa_zahodi():
+    import admin_ulohy as a
+
+    vseobecny = "Kulturistika.com - fitness eshop a magazín o kulturistike, fitness, silových športoch a zdravom životnom štýle."
+    p = a.popis_produktu("OstroVit Vitamin C 1000mg", "kulturistika.com", 2.53, None, vseobecny)
+    assert "OstroVit Vitamin C 1000mg" in p and "kulturistika.com" in p and "2,53 €" in p
+    assert "fitness eshop" not in p                      # popis celého e-shopu sa nepoužije
+    assert ("som" in p or "ma zaujal" in p) and "Obchod ho opisuje" not in p   # prvá osoba, žiadny cudzí text
+    # Text o produkte sa použije a cituje sa ako text obchodu (nie ako vlastná skúsenosť).
+    o = a.popis_produktu("OstroVit Vitamin C 1000mg", "kulturistika.com", 2.53, 3.99,
+                         "Vitamin C 1000mg od OstroVit v tabletách. Podporuje imunitu. Balenie 90 tabliet.")
+    assert "Obchod ho opisuje takto: „Vitamin C 1000mg od OstroVit v tabletách. Podporuje imunitu.“" in o
+    assert "namiesto 3,99 €" in o and "zľava 37 %" in o
+    for zakazane in ("vyskúšal", "kúpil som", "odporúčam"):
+        assert zakazane not in o
+
+
+def test_import_hada_kategoriu_z_nazvu():
+    import admin_ulohy as a
+
+    h = '<html><head><title>Notebook Lenovo IdeaPad 15 | Shop</title></head></html>'
+    assert a._rozober(h, "https://shop.sk/n")["category"] == "Elektronika"

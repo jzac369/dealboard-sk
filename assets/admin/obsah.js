@@ -40,6 +40,12 @@ U.stranka('pridat', {
             <label>Cena teraz (€)<input name="dealPrice" type="number" step="0.01" min="0"></label>
             <label>Pôvodná cena (€)<input name="originalPrice" type="number" step="0.01" min="0"></label>
             <label class="cela">Odkaz na produkt<input name="url" type="url" required></label>
+            <div class="cela pr-aff" id="pr-aff" hidden>
+              <span class="pr-aff-lab">Affiliate odkaz pre návštevníka <b id="pr-aff-siet"></b></span>
+              <div class="pr-aff-r"><input type="text" id="pr-aff-url" readonly>
+                <button type="button" class="btn" id="pr-aff-kop" title="Skopírovať odkaz">Kopírovať</button></div>
+              <small id="pr-aff-dovod"></small>
+            </div>
             <label class="cela">Fotka (adresa obrázka)<input name="imageUrl" type="url" placeholder="https://…"></label>
             <label class="cela">Popis<textarea name="description" rows="3" maxlength="2000"></textarea></label>
             <label>Platí do (nepovinné)<input name="validUntilISO" type="date"></label>
@@ -104,6 +110,26 @@ U.stranka('pridat', {
     });
     obnov();
 
+    // Affiliate odkaz, ktorý dostane návštevník po kliknutí (rovnaká logika ako na stránke).
+    const aff = el.querySelector('#pr-aff');
+    const kresliAff = () => {
+      const u = (f('url').value || '').trim();
+      if (!/^https?:\/\//i.test(u) || !HK().affOdkaz) { aff.hidden = true; return; }
+      const v = HK().affOdkaz(u, 'deal');
+      aff.hidden = false;
+      el.querySelector('#pr-aff-url').value = v.url || '';
+      el.querySelector('#pr-aff-siet').textContent = v.ok ? `(${v.siet})` : (v.siet === 'uz' ? '' : '(priamy odkaz)');
+      el.querySelector('#pr-aff-dovod').textContent = v.ok
+        ? `Návštevník pôjde cez ${v.siet}, takže z preklikov môžeš zarábať.` : (v.dovod || '');
+      aff.classList.toggle('ok', !!v.ok);
+    };
+    f('url').addEventListener('input', kresliAff);
+    form.addEventListener('reset', () => setTimeout(kresliAff, 0));
+    el.querySelector('#pr-aff-kop').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(el.querySelector('#pr-aff-url').value); window.toast('Odkaz skopírovaný.'); }
+      catch (e) { el.querySelector('#pr-aff-url').select(); }
+    });
+
     // Načítanie cez plánovač
     el.querySelector('#pr-nacitaj').addEventListener('click', async (e) => {
       const url = el.querySelector('#pr-url').value.trim();
@@ -122,12 +148,14 @@ U.stranka('pridat', {
           if (v.originalPrice) f('originalPrice').value = v.originalPrice;
           if (v.imageUrl) f('imageUrl').value = v.imageUrl;
           if (v.description) f('description').value = v.description;
+          if (v.category) f('category').value = v.category;
           if (v.url) f('url').value = cistaUrl(v.url);
+          kresliAff();
           const chyba = [!v.title && 'názov', !v.dealPrice && 'cenu', !v.imageUrl && 'fotku'].filter(Boolean);
           stav.innerHTML = `<div class="hlaska ${chyba.length ? 'pozor' : 'ok'}">${chyba.length
             ? `Načítané, ale chýba ${chyba.join(', ')} – doplň ručne.${v.originalPrice ? '' : ' Pôvodnú cenu stránka neuvádza.'}`
-            : (v.originalPrice ? 'Údaje načítané aj s pôvodnou cenou. Doplň kategóriu a skontroluj zvyšok.'
-              : 'Údaje načítané. Stránka pôvodnú cenu neuvádza - doplň ju a kategóriu a skontroluj zvyšok.')}${v.vypredane ? ' <b>Pozor: e-shop hlási, že produkt nie je skladom.</b>' : ''}</div>`;
+            : (v.originalPrice ? 'Údaje načítané aj s pôvodnou cenou, kategóriou a popisom. Skontroluj ich.'
+              : 'Údaje načítané aj s kategóriou a popisom. Stránka pôvodnú cenu neuvádza - doplň ju, ak ju poznáš, a skontroluj zvyšok.')}${v.vypredane ? ' <b>Pozor: e-shop hlási, že produkt nie je skladom.</b>' : ''}</div>`;
           obnov();
         } catch (err) {
           stav.innerHTML = `<div class="hlaska chyba">${esc(err.message)}</div>`;

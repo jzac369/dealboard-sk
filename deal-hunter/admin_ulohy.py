@@ -187,6 +187,55 @@ def _je_obrazok(url: str) -> bool:
         return False
 
 
+def _slova(text: str) -> set[str]:
+    return {x for x in re.findall(r"[a-záäčďéíľĺňóôŕšťúýž0-9]{4,}", text.lower())}
+
+
+def _text_o_produkte(text: str, titul: str, obchod: str) -> str:
+    """Popis zo stránky len vtedy, keď je naozaj o produkte. Všeobecný popis
+    e-shopu ("fitness eshop a magazín...") sa zahodí."""
+    text = re.sub(r"\s+", " ", text or "").strip()
+    if len(text) < 30:
+        return ""
+    male = text.lower()
+    spolocne = len(_slova(titul) & _slova(text))
+    vseobecny = (obchod and obchod.lower().split(".")[0] in male[:60]) or re.search(
+        r"e-?shop|online obchod|magaz[ií]n|najlep[sš][ií] ponuk|nakupujte", male)
+    if vseobecny and spolocne < 2:
+        return ""
+    # Najviac dve vety, do ~220 znakov, bez rozkúskovanej vety na konci.
+    vety = re.split(r"(?<=[.!?])\s+", text)
+    out = ""
+    for v in vety[:2]:
+        if len(out) + len(v) > 220 and out:
+            break
+        out = (out + " " + v).strip()
+    return out[:240].rstrip(" ,;:")
+
+
+def popis_produktu(titul: str, obchod: str, cena: float | None, povodna: float | None, text: str) -> str:
+    """Krátky popis v prvej osobe, len z overiteľných údajov (názov, obchod, cena,
+    text obchodu). Nič netvrdí o vlastnej skúsenosti s produktom."""
+    uvod = [f"Narazil som na {titul} v obchode {obchod}.",
+            f"V obchode {obchod} som našiel {titul}.",
+            f"Pri prezeraní ponuky {obchod} ma zaujal produkt {titul}."]
+    veta = uvod[sum(map(ord, titul)) % len(uvod)]
+    casti = [veta]
+    if cena:
+        c = f"{cena:.2f}".replace(".", ",")
+        if povodna and povodna > cena:
+            p = f"{povodna:.2f}".replace(".", ",")
+            pct = round((1 - cena / povodna) * 100)
+            casti.append(f"Teraz stojí {c} € namiesto {p} €, čo je zľava {pct} %.")
+        else:
+            casti.append(f"Cena je teraz {c} €.")
+    opis = _text_o_produkte(text, titul, obchod)
+    if opis:
+        casti.append(f"Obchod ho opisuje takto: „{opis}“")
+    casti.append("Pred nákupom si skontroluj aktuálnu cenu a dostupnosť u predajcu.")
+    return " ".join(casti)[:480]
+
+
 def _rozober(html: str, url: str, overit_fotku: bool = False) -> dict:
     """Z HTML produktovej stránky vytiahne názov, cenu, pôvodnú cenu, fotku a popis."""
     objekty = _json_ld(html)
@@ -217,9 +266,12 @@ def _rozober(html: str, url: str, overit_fotku: bool = False) -> dict:
         pass
     host = urlparse(url).hostname or ""
     obchod = (_meta(html, "og:site_name") or host.replace("www.", "")).strip()
-    popis = produkt.get("description") or _meta(html, "og:description", "description") or ""
-    popis = re.sub(r"<[^>]+>", " ", _html.unescape(str(popis)))
-    popis = re.sub(r"\s+", " ", popis).strip()[:400]
+    # Text obchodu o produkte (JSON-LD má prednosť pred všeobecným meta popisom).
+    text_obchodu = produkt.get("description") or _meta(html, "og:description", "description") or ""
+    text_obchodu = re.sub(r"<[^>]+>", " ", _html.unescape(str(text_obchodu)))
+    from models import guess_category
+    kategoria = guess_category(titul, None) if titul else None
+    popis = popis_produktu(titul, obchod, cena, povodna, text_obchodu) if titul else ""
     dostupnost = str(ponuka.get("availability") or "")
     return {
         "url": url,
@@ -230,6 +282,7 @@ def _rozober(html: str, url: str, overit_fotku: bool = False) -> dict:
         "currency": ponuka.get("priceCurrency") or "EUR",
         "store": obchod[:60],
         "description": popis,
+        "category": kategoria,
         "vypredane": "OutOfStock" in dostupnost or "SoldOut" in dostupnost,
     }
 
