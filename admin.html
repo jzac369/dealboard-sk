@@ -2577,7 +2577,11 @@
   .af-tab tbody tr:hover { background: #FAFBFC; }
   .af-card #lt-odkazy, .af-card #lt-affiliate { width: 100%; max-width: 560px; height: 40px; padding: 0 12px !important;
     border: 1.5px solid var(--line) !important; border-radius: 8px !important; font: inherit !important; font-size: .875rem !important; }
-  .af-card label[style] { font-size: .75rem !important; font-weight: 700 !important; color: #444; }
+  .af-card label[style]:not(.switch-label) { font-size: .75rem !important; font-weight: 700 !important; color: #444; }
+  /* Prepínače v kartách: rovnaká veľkosť písma a rozostupy v každom riadku. */
+  .af-card .switch-label { justify-content: space-between; padding: 7px 0; min-height: 34px; line-height: 1.35; color: var(--ink); }
+  .af-card .switch-label > span { font-size: .875rem; font-weight: 600; }
+  .af-card .switch { flex: none; }
 
   /* Tablet */
   @media (max-width: 1100px) {
