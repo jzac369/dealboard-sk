@@ -126,7 +126,7 @@ U.stranka('zdravie', {
 // Nastavenia agenta (settings/agent)
 // ═══════════════════════════════════════════════════════════════════
 const PREDVOLENE_AGENT = {
-  zdroje: ['zlacnene', 'feeds', 'shop_feeds'], minZlava: 25, maxZlava: 95, minCena: 15, maxNaBeh: 5, maxNaDen: 10, maxNaObchod: 4,
+  zdroje: ['zlacnene', 'feeds', 'shop_feeds'], minZlava: 25, maxZlava: 95, minCena: 15, maxNaBeh: 5, maxNaDen: 10, maxNaObchod: 4, penalizaciaObchodu: 15,
   znovaPoDnochZverejnene: 7, znovaPoDnochZamietnute: 10,
   maxNaKategoriu: 3, podielObmedzenych: 0.2, feedMinPokles: 20, obmedzeneKategorie: ['Jedlo & Nápoje'], blokovaneKategorie: [],
   vylucenaSlova: ['vzorka', 'vzorky', 'sample'],
@@ -144,6 +144,8 @@ const CISLA = [
   ['znovaPoDnochZamietnute', 'Zamietnutý deal ponúknuť znova po', 'dňoch', 1, 365,
    'Aby sa to, čo si raz zamietol, nevracalo do Telegramu.'],
   ['maxNaObchod', 'Najviac z jedného obchodu', 'na beh', 1, 50, 'Aby výber nevyzeral ako leták jedného reťazca.'],
+  ['penalizaciaObchodu', 'Pestrosť obchodov', 'bodov', 0, 100,
+   'Koľko bodov zľavy obchod stráca za každý deal, ktorý už dnes navrhol. Väčšie číslo = viac rôznych obchodov, 0 = len podľa zľavy.'],
   ['maxNaKategoriu', 'Najviac z jednej kategórie', 'na beh', 1, 50, ''],
   ['feedMinPokles', 'Pokles ceny vo feede', '%', 0, 95, 'O koľko musí cena klesnúť pod doteraz najnižšiu videnú.'],
 ];

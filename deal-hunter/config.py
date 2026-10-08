@@ -81,6 +81,10 @@ REQUIRE_KNOWN_MERCHANT = os.environ.get("REQUIRE_KNOWN_MERCHANT", "true").lower(
 # Najviac dealov z jedného obchodu za beh - aby výber nevyzeral
 # ako leták jediného reťazca.
 MAX_PER_STORE = _env_int("MAX_PER_STORE", 4)
+# Koľko bodov zľavy stráca obchod za každý deal, ktorý už dnes navrhol
+# (alebo ktorý už bol vybraný v tomto behu). 15 znamená, že obchod s o 15
+# bodov menšou zľavou predbehne ten, z ktorého dnes už niečo bolo.
+STORE_REPEAT_PENALTY = _env_float("STORE_REPEAT_PENALTY", 15)
 # Najviac dealov z jednej kategórie za beh. Bez tohto by potraviny
 # obsadili celý výber - letáky reťazcov sú prevažne potravinové.
 MAX_PER_CATEGORY = _env_int("MAX_PER_CATEGORY", 3)
@@ -217,6 +221,7 @@ _CISLA = {
     "znovaPoDnochZverejnene": ("DEDUPE_APPROVED_DAYS", 1, 365),
     "znovaPoDnochZamietnute": ("DEDUPE_REJECTED_DAYS", 1, 365),
     "maxNaObchod": ("MAX_PER_STORE", 1, 50),
+    "penalizaciaObchodu": ("STORE_REPEAT_PENALTY", 0, 100),
     "maxNaKategoriu": ("MAX_PER_CATEGORY", 1, 50),
     "podielObmedzenych": ("CAPPED_CATEGORY_SHARE", 0, 1),
     "feedMinPokles": ("FEED_MIN_DROP_PERCENT", 0, 95),

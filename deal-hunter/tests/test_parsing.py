@@ -1188,3 +1188,20 @@ def test_push_vyber_preskoci_oznamene_stare_a_expirovane():
     m = push_dealy.sprava("a", {"title": "X", "dealPrice": 5, "store": "Lidl", "discountPercent": 30})
     assert m["message"]["topic"] == "dealy" and "5,00" in m["message"]["data"]["body"]
     assert m["message"]["data"]["zlava"] == "30" and "notification" not in m["message"]
+
+
+def test_vyber_uprednostni_obchod_ktory_dnes_neboval():
+    import main
+    from models import DealCandidate
+
+    def c(store, orig, nazov):
+        return DealCandidate(title=nazov, deal_price=10, original_price=orig,
+                             url="https://x.sk/p", source="s", store=store)
+
+    kand = [c("GymBeam", 40, "Proteín"), c("GymBeam", 38, "Kreatín"), c("Jysk", 30, "Vankúš"),
+            c("Mikona", 28, "Hrniec")]
+    # Bez znalosti dneška vyhráva najväčšia zľava.
+    assert main.select_best(kand, 1)[0].store == "GymBeam"
+    # GymBeam už dnes dvakrát bol - na rad príde obchod, ktorý ešte nebol.
+    out = main.select_best(kand, 2, {"GymBeam": 2})
+    assert out[0].store != "GymBeam"

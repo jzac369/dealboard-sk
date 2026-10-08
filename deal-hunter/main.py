@@ -117,15 +117,39 @@ def deduplicate(
     return unique
 
 
-def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandidate]:
+def select_best(candidates: list[DealCandidate], limit: int,
+                dnes_obchody: dict[str, int] | None = None) -> list[DealCandidate]:
     """
-    Zoradí podľa zľavy a vyberie top N so stropom na obchod aj kategóriu.
+    Vyberie top N so stropom na obchod aj kategóriu.
 
     Bez stropu na kategóriu by výber tvorili takmer len potraviny — letáky
     reťazcov sú prevažne potravinové, takže najväčšie zľavy sú tam. Strop
     prepustí aj nábytok, náradie či oblečenie, aj keď majú menšiu zľavu.
+
+    Poradie nie je čisto podľa zľavy: obchod, z ktorého už dnes niečo
+    navrhlo (dnes_obchody) alebo z ktorého sme už vybrali v tomto behu,
+    stráca STORE_REPEAT_PENALTY bodov zľavy za každý taký deal. Inak by
+    obchody, ktoré zľavy uvádzajú samy (GymBeam, letenky), vyhrávali
+    každý beh a ostatné by sa k slovu nedostali.
     """
-    ranked = sorted(candidates, key=lambda c: c.discount_percent, reverse=True)
+    dnes_obchody = dnes_obchody or {}
+    # Z variantov (veľkosti, farby) necháme len ten s najväčšou zľavou.
+    zoradene = sorted(candidates, key=lambda c: c.discount_percent, reverse=True)
+    pool: list[tuple[DealCandidate, str, str]] = []
+    preskocene_kategorie = 0
+    videne_skupiny: set[tuple[str, str]] = set()
+    for candidate in zoradene:
+        if candidate.group_id:
+            skupina = ((candidate.store or candidate.source).lower(), candidate.group_id)
+            if skupina in videne_skupiny:
+                continue
+            videne_skupiny.add(skupina)
+        category = guess_category(candidate.title, candidate.category_hint)
+        # Kategórie zakázané úplne.
+        if category in config.BLOCKED_CATEGORIES:
+            preskocene_kategorie += 1
+            continue
+        pool.append((candidate, candidate.store or candidate.source, category))
 
     selected: list[DealCandidate] = []
     per_store: dict[str, int] = defaultdict(int)
@@ -136,42 +160,26 @@ def select_best(candidates: list[DealCandidate], limit: int) -> list[DealCandida
     # strop by sa zmenil na zákaz.
     strop_podielu = max(1, int(limit * config.CAPPED_CATEGORY_SHARE))
 
-    preskocene_kategorie = 0
-    videne_skupiny: set[tuple[str, str]] = set()
-    for candidate in ranked:
-        # Z variantov (veľkosti, farby) necháme len ten s najväčšou
-        # zľavou - poradie je už zoradené, takže prvý je najlepší.
-        if candidate.group_id:
-            skupina = ((candidate.store or candidate.source).lower(), candidate.group_id)
-            if skupina in videne_skupiny:
+    while len(selected) < limit and pool:
+        najlepsi = None
+        najlepsie_skore = None
+        for i, (c, store, category) in enumerate(pool):
+            # Kategórie so stropom podielu. Potraviny zdroj nájde najviac a
+            # bez stropu by zaplnili celý výber.
+            if category in config.CAPPED_CATEGORIES and per_category[category] >= strop_podielu:
                 continue
-            videne_skupiny.add(skupina)
-
-        store = candidate.store or candidate.source
-        category = guess_category(candidate.title, candidate.category_hint)
-
-        # Kategórie zakázané úplne.
-        if category in config.BLOCKED_CATEGORIES:
-            preskocene_kategorie += 1
-            continue
-
-        # Kategórie so stropom podielu. Potraviny zdroj nájde najviac a
-        # bez stropu by zaplnili celý výber; takto sa do neho zmestia,
-        # ale nechajú miesto elektronike a ostatnému.
-        if category in config.CAPPED_CATEGORIES and per_category[category] >= strop_podielu:
-            preskocene_kategorie += 1
-            continue
-
-        if per_store[store] >= config.MAX_PER_STORE:
-            continue
-        if per_category[category] >= config.MAX_PER_CATEGORY:
-            continue
-
+            if per_store[store] >= config.MAX_PER_STORE or per_category[category] >= config.MAX_PER_CATEGORY:
+                continue
+            skore = c.discount_percent - config.STORE_REPEAT_PENALTY * (
+                dnes_obchody.get(store, 0) + per_store[store])
+            if najlepsie_skore is None or skore > najlepsie_skore:
+                najlepsi, najlepsie_skore = i, skore
+        if najlepsi is None:
+            break
+        c, store, category = pool.pop(najlepsi)
         per_store[store] += 1
         per_category[category] += 1
-        selected.append(candidate)
-        if len(selected) >= limit:
-            break
+        selected.append(c)
 
     if preskocene_kategorie:
         logger.info(
@@ -508,7 +516,10 @@ def main() -> int:
     unique = deduplicate(sane, seen_keys, seen_urls)
     logger.info("Po deduplikácii: %d", len(unique))
 
-    selected = select_best(unique, config.MAX_DEALS_PER_RUN)
+    dnes_obchody = firestore_client.obchody_dnes(db)
+    if dnes_obchody:
+        logger.info("Dnes už navrhnuté podľa obchodu: %s", dict(dnes_obchody))
+    selected = select_best(unique, config.MAX_DEALS_PER_RUN, dnes_obchody)
     import garancie
     selected = garancie.pridaj_garantovane(
         selected, unique, firestore_client.garantovane_dnes(db))
