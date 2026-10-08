@@ -384,3 +384,126 @@ U.stranka('prijmy', {
         <td class="n"><b>${U.eur(r.spolu)}</b></td></tr>`).join('');
   },
 });
+
+
+// ═══════════════════════════════════════════════════════════════════
+// eHUB - prehľad partnerského účtu (dáta dopĺňa plánovač do admin_info/ehub)
+// ═══════════════════════════════════════════════════════════════════
+const EH_STAV = { approved: 'Schválená', pending: 'Čaká na schválenie', declined: 'Zamietnutá', available: 'Dostupná' };
+const EH_TX = { approved: 'Schválená', pending: 'Čaká', declined: 'Zamietnutá' };
+const ehEur = n => (Number(n) || 0).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
+U.stranka('ehub', {
+  async init(el) {
+    el.innerHTML = `
+      <div id="eh-chyba"></div>
+      <div class="karta">
+        <div class="riadok-pole"><h3 class="karta-nadpis" style="flex:1;margin:0">Prehľad eHUB</h3>
+          <span class="settings-hint" id="eh-cas" style="margin:0"></span>
+          <button class="btn" id="eh-obnov"><svg class="ix"><use href="#ix-refresh"></use></svg> Obnoviť teraz</button></div>
+        <div class="kpi-row" id="eh-kpi"></div>
+        <p class="settings-hint">Údaje sťahuje plánovač z eHUB raz za hodinu (provízie sa v sieti potvrdzujú až po čase, kým inzerent
+          objednávku neschváli).</p>
+      </div>
+      <div class="karta">
+        <div class="riadok-pole"><h3 class="karta-nadpis" style="flex:1;margin:0">Kampane</h3>
+          <select id="eh-stav"><option value="approved">Schválené</option><option value="pending">Čakajúce</option>
+            <option value="declined">Zamietnuté</option><option value="available">Dostupné (neprihlásené)</option></select>
+          <input type="search" id="eh-hladaj" placeholder="hľadať kampaň…" style="max-width:220px"></div>
+        <div class="tab-wrap"><table class="tab"><thead><tr><th>Kampaň</th><th>Krajina</th><th>Kategória</th><th class="n">Provízia</th>
+          <th class="n">Cookie (dni)</th><th>Feed</th><th>Stav</th></tr></thead><tbody id="eh-kampane"></tbody></table></div>
+        <p class="settings-hint" id="eh-kampane-pozn"></p>
+      </div>
+      <div class="karta"><h3 class="karta-nadpis">Provízie podľa kampane</h3>
+        <div class="tab-wrap"><table class="tab"><thead><tr><th>Kampaň</th><th class="n">Transakcií</th><th class="n">Tržby</th><th class="n">Provízia</th></tr></thead>
+          <tbody id="eh-podla"></tbody></table></div>
+        <div class="tab-wrap" style="margin-top:12px"><table class="tab"><thead><tr><th>Mesiac</th><th class="n">Provízia (bez zamietnutých)</th></tr></thead>
+          <tbody id="eh-mesiace"></tbody></table></div></div>
+      <div class="karta"><h3 class="karta-nadpis">Posledné transakcie</h3>
+        <div class="tab-wrap"><table class="tab"><thead><tr><th>Dátum</th><th>Kampaň</th><th>Objednávka</th><th class="n">Suma</th><th class="n">Provízia</th>
+          <th>Stav</th><th>Výplata</th></tr></thead><tbody id="eh-tx"></tbody></table></div></div>
+      <div class="karta"><h3 class="karta-nadpis">Prekliky za 30 dní</h3>
+        <div class="tab-wrap"><table class="tab"><thead><tr><th>Kampaň</th><th class="n">Preklikov</th></tr></thead><tbody id="eh-kliky"></tbody></table></div>
+        <p class="settings-hint">Počítajú sa len prekliky cez eHUB odkazy. Kým nemáme eHUB odkazy na stránke, tu bude 0.</p></div>
+      <div class="karta"><h3 class="karta-nadpis">Pripojenie</h3>
+        <p class="settings-hint">API kľúč nájdeš v eHUB: <b>API → API kľúč</b>. Ukladá sa len do databázy v admin zóne, nie do kódu.
+          Ak kľúč niekomu ukážeš, v eHUB ho môžeš „Pregenerovať“ a sem vložiť nový.</p>
+        <div class="riadok-pole"><input type="password" id="eh-kluc" placeholder="API kľúč" autocomplete="off">
+          <input type="text" id="eh-partner" placeholder="ID partnera" style="max-width:150px">
+          <button class="btn btn-save" id="eh-uloz"><svg class="ix"><use href="#ix-save"></use></svg> Uložiť</button></div>
+        <div class="settings-hint" id="eh-pripojenie"></div></div>`;
+    el.querySelector('#eh-stav').addEventListener('change', () => this._kampane(el));
+    el.querySelector('#eh-hladaj').addEventListener('input', () => this._kampane(el));
+    el.querySelector('#eh-obnov').addEventListener('click', e => U.akcia(e.currentTarget, async () => {
+      try {
+        const v = await U.uloha('ehub_obnov', {}, (x, ms) => { el.querySelector('#eh-cas').textContent = U.textCakania(x, ms); });
+        window.toast(`Obnovené: ${v.kampani} kampaní, ${v.transakcii} transakcií.`);
+      } catch (err) { window.toast(err.message, 'chyba'); }
+      await this.show(el);
+    }));
+    el.querySelector('#eh-uloz').addEventListener('click', e => U.akcia(e.currentTarget, async () => {
+      const kluc = el.querySelector('#eh-kluc').value.trim();
+      const partner = el.querySelector('#eh-partner').value.trim();
+      const d = { upravene: fs.serverTimestamp() };
+      if (kluc) d.apiKey = kluc;
+      if (partner) d.publisherId = partner;
+      if (!kluc && !partner) { window.toast('Vlož API kľúč alebo ID partnera.', 'chyba'); return; }
+      await fs.setDoc(U.ref('nastavenia_admin', 'ehub'), d, { merge: true });
+      HK().logChange('ehub', 'ehub', 'eHUB: zmenené pripojenie');
+      el.querySelector('#eh-kluc').value = '';
+      window.toast('Uložené. Klikni na „Obnoviť teraz“.');
+      await this.show(el);
+    }));
+  },
+  async show(el) {
+    const [d, n] = await Promise.all([fs.getDoc(U.ref('admin_info', 'ehub')).catch(() => null),
+      fs.getDoc(U.ref('nastavenia_admin', 'ehub')).catch(() => null)]);
+    const nast = n && n.exists() ? n.data() : {};
+    const kluc = nast.apiKey || '';
+    el.querySelector('#eh-pripojenie').textContent = kluc
+      ? `API kľúč je uložený (…${kluc.slice(-4)}), ID partnera ${nast.publisherId || '0506c0ea'}.`
+      : 'API kľúč zatiaľ nie je uložený - bez neho sa nič nestiahne.';
+    if (nast.publisherId) el.querySelector('#eh-partner').placeholder = nast.publisherId;
+    this._d = d && d.exists() ? d.data() : null;
+    const x = this._d;
+    el.querySelector('#eh-chyba').innerHTML = x && x.chyba
+      ? `<div class="hlaska chyba">Posledné obnovenie zlyhalo: ${esc(x.chyba)}</div>` : '';
+    el.querySelector('#eh-cas').textContent = x && x.aktualizovane ? `Naposledy: ${U.pred(x.aktualizovane)}` : '';
+    if (!x || !x.kampane) {
+      el.querySelector('#eh-kpi').innerHTML = '<p class="vis-empty">Zatiaľ žiadne dáta. Ulož API kľúč dole a klikni na „Obnoviť teraz“.</p>';
+      return;
+    }
+    const st = x.kampaniPodlaStavu || {}, tx = x.transakcie || {}, sv = tx.stavy || {};
+    const schv = (sv.approved || {}).provizia || 0, cak = (sv.pending || {}).provizia || 0;
+    el.querySelector('#eh-kpi').innerHTML =
+      U.kpi('Schválené kampane', U.cislo(st.approved || 0), '', `${st.pending || 0} čaká · ${st.declined || 0} zamietnutých`) +
+      U.kpi('Provízia schválená', ehEur(schv), '', `vyplatené ${ehEur(tx.vyplatene)} · čaká na výplatu ${ehEur(tx.schvaleneNevyplatene)}`) +
+      U.kpi('Provízia čakajúca', ehEur(cak), '', `${(sv.pending || {}).pocet || 0} transakcií`) +
+      U.kpi('Tržby inzerentov', ehEur(Object.values(sv).reduce((s, v) => s + (v.trzby || 0), 0) - ((sv.declined || {}).trzby || 0)), '', 'bez zamietnutých') +
+      U.kpi('Prekliky (30 dní)', U.cislo((x.kliky || {}).spolu || 0), '', 'cez eHUB odkazy');
+    this._kampane(el);
+    el.querySelector('#eh-podla').innerHTML = (tx.kampane || []).map(k =>
+      `<tr><td>${esc(k.nazov)}</td><td class="n">${k.pocet}</td><td class="n">${ehEur(k.trzby)}</td><td class="n"><b>${ehEur(k.provizia)}</b></td></tr>`).join('')
+      || '<tr><td colspan="4" class="vis-empty">Zatiaľ žiadne transakcie.</td></tr>';
+    el.querySelector('#eh-mesiace').innerHTML = Object.entries(tx.mesiace || {}).reverse().map(([m, v]) =>
+      `<tr><td>${esc(m)}</td><td class="n">${ehEur(v)}</td></tr>`).join('') || '<tr><td colspan="2" class="vis-empty">–</td></tr>';
+    el.querySelector('#eh-tx').innerHTML = (tx.posledne || []).slice(0, 50).map(t =>
+      `<tr><td>${esc(t.datum)}</td><td>${esc(t.kampan)}</td><td>${esc(t.objednavka || '–')}</td><td class="n">${ehEur(t.suma)}</td>
+        <td class="n">${ehEur(t.provizia)}</td><td>${esc(EH_TX[t.stav] || t.stav || '')}</td><td>${t.vyplata === 'paid' ? 'vyplatené' : 'nevyplatené'}</td></tr>`).join('')
+      || '<tr><td colspan="7" class="vis-empty">Zatiaľ žiadne transakcie.</td></tr>';
+    el.querySelector('#eh-kliky').innerHTML = ((x.kliky || {}).poKampani || []).map(k =>
+      `<tr><td>${esc(k.nazov)}</td><td class="n">${k.pocet}</td></tr>`).join('') || '<tr><td colspan="2" class="vis-empty">Zatiaľ žiadne prekliky.</td></tr>';
+  },
+  _kampane(el) {
+    const x = this._d;
+    if (!x || !x.kampane) return;
+    const stav = el.querySelector('#eh-stav').value, q = U.norm(el.querySelector('#eh-hladaj').value);
+    const zoz = x.kampane.filter(k => k.stav === stav && (!q || U.norm(k.nazov || '').includes(q)));
+    el.querySelector('#eh-kampane').innerHTML = zoz.slice(0, 120).map(k =>
+      `<tr><td>${k.web ? `<a href="${esc(k.web)}" target="_blank" rel="noopener">${esc(k.nazov)}</a>` : esc(k.nazov)}</td><td>${esc(k.krajina || '')}</td>
+        <td>${esc(k.kategoria || '')}</td><td class="n">${k.provizia != null ? esc(k.provizia + ' ' + k.jednotka) : '–'}</td>
+        <td class="n">${k.cookie != null ? esc(k.cookie) : '–'}</td><td>${k.feed ? 'áno' : '–'}</td><td>${esc(EH_STAV[k.stav] || k.stav)}</td></tr>`).join('')
+      || '<tr><td colspan="7" class="vis-empty">Nič nenájdené.</td></tr>';
+    el.querySelector('#eh-kampane-pozn').textContent = zoz.length > 120 ? `Zobrazených prvých 120 z ${zoz.length}. Zúž hľadanie.` : `${zoz.length} kampaní.`;
+  },
+});

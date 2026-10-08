@@ -20,6 +20,7 @@
     affiliate: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1 M12 7v10',
     provizie: 'M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2 M14 8h-2.5a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3h-2.5 M12 7v1 M12 14v1',
     prijmy: 'M4 19l16 0 M4 15l4 -6l4 2l4 -5l4 4',
+    ehub: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M12 3a9 9 0 0 1 0 18 M3.6 9h16.8 M3.6 15h16.8',
     predajcovia: 'M3 21l18 0 M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4 M5 21l0 -10.15 M19 21l0 -10.15 M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4',
     facebook: 'M7 10v4h3v7h4v-7h3l1 -4h-4v-2a1 1 0 0 1 1 -1h3v-4h-3a5 5 0 0 0 -5 5v2h-3',
     utm: 'M7.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3z',
@@ -63,6 +64,7 @@
     { g: 'Zarábanie', p: [
       { id: 'affiliate', n: 'Affiliate', k: 'dognet chid kampane partnerské odkazy' },
       { id: 'provizie', n: 'Provízie', d: 'Import provízií z Dognetu (CSV) – zárobok podľa obchodu a mesiaca.', k: 'dognet csv import zárobok obchody' },
+      { id: 'ehub', n: 'eHUB', d: 'Kampane, transakcie a provízie z partnerskej siete eHUB.', k: 'ehub affiliate provizie kampane transakcie prekliky' },
       { id: 'prijmy', n: 'Príjmy', d: 'Affiliate a AdSense po mesiacoch v jednom grafe.', k: 'adsense peniaze graf mesiac zisk' },
       { id: 'predajcovia', n: 'Predajcovia', k: 'obchody odkazy agent merchant' },
     ] },

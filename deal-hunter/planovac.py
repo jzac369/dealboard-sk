@@ -247,6 +247,11 @@ def kontrola(db, nasucho: bool) -> None:
     posli_pripomienky(db, teraz, nasucho)
     spusti_facebook_naplanovane(db, teraz, nasucho)
     try:
+        import ehub
+        ehub.obnov(db, nasucho)
+    except Exception as e:
+        logger.warning("Prehľad eHUB zlyhal: %s", e)
+    try:
         import push_dealy
         push_dealy.posli_nove(db, nasucho)
     except Exception as e:

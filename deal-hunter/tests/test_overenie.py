@@ -128,3 +128,39 @@ def test_obchody_pre_sitemap_z_admina_nahradia_predvolene_a_preskocia_zle():
         assert config.pouzi_sitemap({}) == 0 and len(config.SITEMAP_OBCHODY) == 1   # bez dokumentu sa nič nemení
     finally:
         config.SITEMAP_OBCHODY = povodne
+
+
+def test_ehub_zhrnutie_kampani_transakcii_a_preklikov():
+    import ehub
+
+    k = [
+        {"id": "a", "name": "AliExpress", "country": "other", "commissionGroups": [
+            {"status": "approved", "commissions": [{"commissionType": "PPS", "valueType": "%", "value": 2.3},
+                                                    {"commissionType": "PPS", "valueType": "%", "value": 7.0}]}]},
+        {"id": "b", "name": "Alza.sk", "country": "SK", "commissionGroups": [{"status": "declined", "commissions": []}]},
+        {"id": "c", "name": "Iný", "country": "SK", "commissionGroups": [{"status": "approval_required", "commissions": []}]},
+    ]
+    zh = ehub.zhrn_kampane(k)
+    assert [x["stav"] for x in zh] == ["approved", "available", "declined"]
+    assert zh[0]["provizia"] == 7.0 and zh[0]["jednotka"] == "%"
+    nazvy = {x["id"]: x["nazov"] for x in zh}
+
+    t = [
+        {"dateInserted": "2026-09-01T10:00:00+02:00", "campaignId": "a", "commission": 4.0, "amount": 80.0,
+         "status": "approved", "payoutStatus": "unpaid", "orderId": "1"},
+        {"dateInserted": "2026-09-05T10:00:00+02:00", "campaignId": "a", "commission": 1.0, "amount": 20.0,
+         "status": "approved", "payoutStatus": "paid", "orderId": "2"},
+        {"dateInserted": "2026-10-01T10:00:00+02:00", "campaignId": "a", "commission": 9.0, "amount": 90.0,
+         "status": "declined", "payoutStatus": "unpaid", "orderId": "3"},
+    ]
+    z = ehub.zhrn_transakcie(t, nazvy)
+    assert z["stavy"]["approved"]["provizia"] == 5.0 and z["stavy"]["declined"]["pocet"] == 1
+    assert z["vyplatene"] == 1.0 and z["schvaleneNevyplatene"] == 4.0
+    assert z["mesiace"] == {"2026-09": 5.0}          # zamietnuté sa do mesiacov nepočítajú
+    assert z["posledne"][0]["objednavka"] == "3" and z["posledne"][0]["kampan"] == "AliExpress"
+
+    from datetime import datetime, timezone
+    dnes = datetime.now(timezone.utc).date().isoformat()
+    kl = ehub.zhrn_kliky([{"campaignId": "a", "dateTime": dnes + "T10:00:00"},
+                          {"campaignId": "a", "dateTime": "2020-01-01T10:00:00"}], nazvy)
+    assert kl["spolu"] == 1 and kl["poKampani"][0]["nazov"] == "AliExpress"

@@ -373,7 +373,7 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isAdmin()
                     && request.resource.data.stav == 'caka'
-                    && request.resource.data.typ in ['nacitaj_url', 'kontrola_platnosti', 'spusti_workflow', 'zopakuj_beh', 'test_email'];
+                    && request.resource.data.typ in ['nacitaj_url', 'kontrola_platnosti', 'spusti_workflow', 'zopakuj_beh', 'test_email', 'ehub_obnov'];
       allow update, delete: if false;
     }
 

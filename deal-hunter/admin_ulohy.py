@@ -290,7 +290,16 @@ def test_email(db, vstup: dict) -> dict:
     return emaily.test(db, vstup)
 
 
+def ehub_obnov(db, vstup: dict) -> dict:
+    import ehub
+    v = ehub.obnov(db, force=True)
+    if v is None:
+        raise ValueError("Prehľad sa neobnovil - skontroluj API kľúč eHUB v nastaveniach alebo chybu na stránke.")
+    return v
+
+
 SPRACOVATELIA = {
+    "ehub_obnov": ehub_obnov,
     "test_email": test_email,
     "test_feed": test_feed,
     "nacitaj_url": nacitaj_url,
