@@ -163,6 +163,19 @@ USER_AGENT = os.environ.get(
     "USER_AGENT",
     "HenKukajDealHunter/1.0 (+https://henkukaj.sk; kontakt: info@henkukaj.sk)",
 )
+# ── Hľadanie na webe (Claude + vyhľadávanie), pozri scrapers/web_hunt.py ──
+# Zdroj "web_hunt" sa zapína v admine (Agent -> zdroje) a potrebuje secret
+# ANTHROPIC_API_KEY. Každý beh stojí peniaze, preto najviac raz za interval.
+WEB_HUNT_MODEL = os.environ.get("WEB_HUNT_MODEL", "claude-opus-5-5")
+WEB_HUNT_INTERVAL_HOURS = _env_int("WEB_HUNT_INTERVAL_HOURS", 20)
+WEB_HUNT_MAX_VYHLADAVANI = _env_int("WEB_HUNT_MAX_VYHLADAVANI", 12)
+WEB_HUNT_MAX_NAVRHOV = _env_int("WEB_HUNT_MAX_NAVRHOV", 20)
+WEB_HUNT_SKUPINY = _env_list("WEB_HUNT_SKUPINY") or [
+    "technológie a gaming", "domácnosť a záhrada", "deti a rodina", "kozmetika a starostlivosť",
+    "šport a outdoor", "cestovanie", "móda", "knihy a vzdelávanie", "jedlo a nápoje",
+    "auto-moto", "domáce zvieratá", "softvér a predplatné",
+]
+
 REQUEST_TIMEOUT_SECONDS = _env_int("REQUEST_TIMEOUT_SECONDS", 25)
 # Pauza medzi requestmi na ten istý web. zlacnene.sk v robots.txt
 # žiada Crawl-delay: 1 — držíme sa toho s rezervou.

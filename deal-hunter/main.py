@@ -63,6 +63,12 @@ def is_sane(candidate: DealCandidate) -> bool:
     """Základná kontrola zmysluplnosti — chráni pred šumom aj chybami v dátach."""
     discount = candidate.discount_percent
 
+    if candidate.zadarmo:
+        # Freebie: zľava ani cena nedávajú zmysel, ostatné kontroly platia.
+        nazov = candidate.title.lower()
+        return bool(candidate.title.strip() and candidate.url and not candidate.is_already_expired
+                    and not any(s in nazov for s in config.EXCLUDED_TITLE_WORDS))
+
     if discount < config.MIN_DISCOUNT_PERCENT:
         return False
     # Zľava 99 % býva preklep v zdroji, nie deal storočia.
@@ -269,7 +275,7 @@ def resolve_feed_prices(
     Prvé dni feed nevydá nič, kým sa nenazbierajú dáta. To je zámer, nie
     porucha.
     """
-    watched = [c for c in candidates if c.direct_url and c.original_price is None]
+    watched = [c for c in candidates if c.direct_url and c.original_price is None and not c.zadarmo]
     if not watched:
         return candidates
 
@@ -298,7 +304,7 @@ def resolve_feed_prices(
     )
 
     # Ostatné kandidátov necháme tak - tie majú pôvodnú cenu od zdroja.
-    rest = [c for c in candidates if not (c.direct_url and c.original_price is None)]
+    rest = [c for c in candidates if c.zadarmo or not (c.direct_url and c.original_price is None)]
     return rest + passed
 
 

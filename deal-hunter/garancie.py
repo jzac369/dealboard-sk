@@ -13,6 +13,7 @@ import config
 SKUPINY: dict[str, tuple[str, ...]] = {
     "allegro": ("allegro",),
     "lekaren": ("lekaren", "benu", "lieky"),
+    "freebie": (),   # určuje sa podľa príznaku zadarmo, nie podľa názvu obchodu
 }
 
 
@@ -20,6 +21,13 @@ def _bez_diakritiky(text: str) -> str:
     import unicodedata
     return "".join(c for c in unicodedata.normalize("NFD", text.lower())
                    if unicodedata.category(c) != "Mn")
+
+
+def skupina_dealu(c) -> str | None:
+    """Skupina kandidáta: freebie má vlastnú, inak podľa obchodu."""
+    if getattr(c, "zadarmo", False):
+        return "freebie"
+    return skupina_obchodu(c.store or c.source)
 
 
 def skupina_obchodu(store: str) -> str | None:
@@ -32,13 +40,13 @@ def skupina_obchodu(store: str) -> str | None:
 
 def pridaj_garantovane(vybrane: list, kandidati: list, splnene: set[str]) -> list:
     """Vráti výber s garantovanými kandidátmi na začiatku (prežijú denný strop)."""
-    maju = {skupina_obchodu(c.store or c.source) for c in vybrane}
+    maju = {skupina_dealu(c) for c in vybrane}
     navyse = []
     for skupina in SKUPINY:
         if skupina in splnene or skupina in maju:
             continue
         z_skupiny = [c for c in kandidati
-                     if skupina_obchodu(c.store or c.source) == skupina and c not in vybrane]
+                     if skupina_dealu(c) == skupina and c not in vybrane]
         if z_skupiny:
             navyse.append(max(z_skupiny, key=lambda c: c.discount_percent))
     return navyse + vybrane

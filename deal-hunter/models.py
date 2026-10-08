@@ -221,6 +221,8 @@ class DealCandidate:
     # skupinu - bez nej by šli na stránku tri takmer rovnaké dealy.
     group_id: Optional[str] = None
     currency: str = "€"
+    # Produkt/vzorka/služba úplne zadarmo (freebie) - ide mimo pravidiel o zľave a cene.
+    zadarmo: bool = False
     found_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -331,6 +333,7 @@ class DealCandidate:
             "dealPrice": round(self.deal_price, 2),
             "discountPercent": round(self.discount_percent),
             "currency": self.currency,
+            **({"zadarmo": True} if self.zadarmo else {}),
             # Odkaz mieri k predajcovi, nie na sprostredkovateľa.
             "url": self.publishable_url,
             "imageUrl": self.image_url,

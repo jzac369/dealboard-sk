@@ -1205,3 +1205,67 @@ def test_vyber_uprednostni_obchod_ktory_dnes_neboval():
     # GymBeam už dnes dvakrát bol - na rad príde obchod, ktorý ešte nebol.
     out = main.select_best(kand, 2, {"GymBeam": 2})
     assert out[0].store != "GymBeam"
+
+
+# ── web_hunt: overenie návrhov od Claude voči skutočnej stránke ───────
+
+STRANKA_DEAL = ('<html><head><title>Slúchadlá Sony WH | Shop.sk</title>'
+                '<meta property="og:title" content="Slúchadlá Sony WH | Shop.sk">'
+                '<meta property="og:image" content="https://shop.sk/i.jpg">'
+                '<meta name="description" content="Bezdrôtové slúchadlá."></head>'
+                '<body><span>Pôvodne 129,90 €</span><b>Teraz 79,90 €</b></body></html>')
+
+
+def test_web_hunt_prijme_deal_len_ked_ceny_potvrdi_stranka():
+    from scrapers.web_hunt import over_navrh
+
+    n = {"typ": "deal", "skupina": "technológie a gaming", "url": "https://shop.sk/p/1",
+         "cena": 79.90, "povodna_cena": 129.90}
+    c = over_navrh(n, STRANKA_DEAL)
+    assert c and c.deal_price == 79.9 and c.original_price == 129.9
+    assert c.title == "Slúchadlá Sony WH" and c.category_hint == "Elektronika" and c.direct_url
+    assert c.discount_percent == pytest.approx(38.5, abs=0.1)
+    # Vymyslená cena, ktorá na stránke nie je, sa zahodí.
+    assert over_navrh({**n, "cena": 59.90}, STRANKA_DEAL) is None
+    assert over_navrh({**n, "povodna_cena": 199.0}, STRANKA_DEAL) is None
+
+
+def test_web_hunt_zahodi_agregator_nezabezpeceny_odkaz_a_zakazany_obsah():
+    from scrapers.web_hunt import over_navrh
+
+    n = {"typ": "deal", "skupina": "móda", "url": "https://shop.sk/p/1", "cena": 79.90, "povodna_cena": 129.90}
+    assert over_navrh({**n, "url": "http://shop.sk/p/1"}, STRANKA_DEAL) is None
+    assert over_navrh({**n, "url": "https://www.heureka.sk/x"}, STRANKA_DEAL) is None
+    assert over_navrh(n, STRANKA_DEAL.replace("Slúchadlá Sony WH", "Whisky 12 ročná")) is None
+
+
+def test_web_hunt_freebie_vyzaduje_slovo_zadarmo_na_stranke():
+    from scrapers.web_hunt import over_navrh
+
+    n = {"typ": "freebie", "skupina": "knihy a vzdelávanie", "url": "https://kniha.sk/e"}
+    ano = over_navrh(n, "<html><title>E-kniha Spánok</title><body>Stiahni si e-knihu zadarmo.</body></html>")
+    assert ano and ano.zadarmo and ano.deal_price == 0 and ano.discount_percent == 100
+    d = ano.to_firestore_dict()
+    assert d["zadarmo"] is True and d["dealPrice"] == 0
+    assert over_navrh(n, "<html><title>E-kniha</title><body>Cena 9,90 €</body></html>") is None
+
+
+def test_web_hunt_json_a_cena_v_texte():
+    from scrapers.web_hunt import cena_v_texte, vytiahni_json
+
+    assert vytiahni_json('Tu je výsledok: [{"url": "https://a.sk"}] hotovo')[0]["url"] == "https://a.sk"
+    assert vytiahni_json("nič nenašiel") == [] and vytiahni_json("[nie json]") == []
+    assert cena_v_texte("teraz 12,99 € s dph", 12.99) and cena_v_texte("len 12 €", 12.0)
+    assert not cena_v_texte("cena 112,99 €", 12.99) and not cena_v_texte("od 12,990", 12.99)
+
+
+def test_freebie_prejde_kontrolou_zmysluplnosti_aj_vyberom():
+    import main
+    from models import DealCandidate
+
+    f = DealCandidate(title="Vzorka krému zadarmo test", deal_price=0, url="https://x.sk/f", source="web-hunt",
+                      store="X", explicit_discount_percent=100, zadarmo=True)
+    f.title = "Krém zadarmo"
+    assert main.is_sane(f)
+    from garancie import skupina_dealu
+    assert skupina_dealu(f) == "freebie"

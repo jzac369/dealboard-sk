@@ -104,6 +104,7 @@ jobs:
           AFFILIATE_LINK_TEMPLATE: ${{ secrets.AFFILIATE_LINK_TEMPLATE }}
           FEED_DIAGNOSTICS: ${{ inputs.feed_diagnostics }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
       - name: Zmazanie kľúča

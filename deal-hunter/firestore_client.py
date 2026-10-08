@@ -237,7 +237,7 @@ def write_pending_deals(
 
     import garancie
     garantovane = set(stav.get("garantovane") or []) if stav.get("den") == dnes else set()
-    garantovane |= {g for g in (garancie.skupina_obchodu(d.get("store", "")) for _, d in written) if g}
+    garantovane |= {g for g in ((("freebie" if d.get("zadarmo") else garancie.skupina_obchodu(d.get("store", ""))) for _, d in written)) if g}
     _remember_keys(db, batch, new_keys, stav, uz_dnes + len(written), sorted(garantovane))
 
     batch.commit()

@@ -66,6 +66,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # Naplánované dealy sa v určený čas posielajú na schválenie.
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # Heslo k schránke info@henkukaj.sk (e-maily z adminu a po registrácii).
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
