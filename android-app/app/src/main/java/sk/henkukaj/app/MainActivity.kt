@@ -8,12 +8,15 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
-import android.view.animation.OvershootInterpolator
+import android.view.ViewAnimationUtils
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -78,13 +81,30 @@ class MainActivity : AppCompatActivity() {
         web.loadUrl(url)
     }
 
+    // Úvod: obrázok sa "odkryje" kruhom od stredu lupy (kohút vykukne zo tmy)
+    // a pomaly sa približuje, kým sa načíta stránka.
     private fun pustiAnimaciuLoga() {
         val logo = findViewById<ImageView>(R.id.logo)
-        logo.scaleX = 0.6f; logo.scaleY = 0.6f; logo.alpha = 0f
-        logo.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(650)
-            .setInterpolator(OvershootInterpolator(1.4f))
-            .withEndAction { animaciaHotova = true; skryUvod() }
-            .start()
+        val verzia = findViewById<TextView>(R.id.verzia)
+        verzia.text = "ver. " + packageManager.getPackageInfo(packageName, 0).versionName
+        verzia.animate().alpha(1f).setStartDelay(700).setDuration(500).start()
+        logo.post {
+            val vw = logo.width.toFloat(); val vh = logo.height.toFloat()
+            val s = maxOf(vw / 853f, vh / 1844f)
+            val cx = ((410f * s) - (853f * s - vw) / 2f).toInt()
+            val cy = ((515f * s) - (1844f * s - vh) / 2f).toInt()
+            val r = Math.hypot(vw.toDouble(), vh.toDouble()).toFloat()
+            logo.visibility = View.INVISIBLE
+            val reveal = ViewAnimationUtils.createCircularReveal(logo, cx, cy, 0f, r)
+            reveal.duration = 850
+            reveal.interpolator = DecelerateInterpolator(1.3f)
+            logo.visibility = View.VISIBLE
+            reveal.start()
+            logo.pivotX = cx.toFloat(); logo.pivotY = cy.toFloat()
+            logo.animate().scaleX(1.07f).scaleY(1.07f).setDuration(2200)
+                .setInterpolator(LinearInterpolator()).start()
+            logo.postDelayed({ animaciaHotova = true; skryUvod() }, 1500)
+        }
     }
 
     // Úvod zmizne, keď dobehla animácia aj prvá stránka (aspoň ~1,2 s celkom).
@@ -92,7 +112,7 @@ class MainActivity : AppCompatActivity() {
         if (!(stranka && animaciaHotova) || uvod.visibility != View.VISIBLE) return
         uvod.postDelayed({
             uvod.animate().alpha(0f).setDuration(350).withEndAction { uvod.visibility = View.GONE }.start()
-        }, 450)
+        }, 250)
     }
 
     // Notifikácie sú predvolene zapnuté: prihlásenie na tému "dealy" pri prvom

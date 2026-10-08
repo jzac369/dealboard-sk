@@ -18,16 +18,24 @@
         android:id="@+id/uvod"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/pozadie"
+        android:background="@color/tmava"
         android:clickable="true"
         android:focusable="true">
         <ImageView
             android:id="@+id/logo"
-            android:layout_width="280dp"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:adjustViewBounds="true"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
             android:contentDescription="HenKukaj.sk"
-            android:src="@drawable/logo_full" />
+            android:src="@drawable/uvod" />
+        <TextView
+            android:id="@+id/verzia"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="36dp"
+            android:alpha="0"
+            android:textColor="#B3FFFFFF"
+            android:textSize="13sp" />
     </FrameLayout>
 </FrameLayout>

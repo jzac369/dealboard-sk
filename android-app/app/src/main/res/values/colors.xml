@@ -2,4 +2,6 @@
 <resources>
     <color name="oranzova">#E8590C</color>
     <color name="pozadie">#FFFFFF</color>
+    <color name="ikona_pozadie">#FDF3DD</color>
+    <color name="tmava">#101112</color>
 </resources>
