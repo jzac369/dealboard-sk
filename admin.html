@@ -2538,9 +2538,14 @@
 
 
   /* ── Affiliate: jedno písmo, jednotné polia a tlačidlá ── */
-  .admin-page[data-page="affiliate"] { font-size: .875rem; }
-  .admin-page[data-page="affiliate"] input, .admin-page[data-page="affiliate"] select,
-  .admin-page[data-page="affiliate"] button { font-family: inherit; }
+  .admin-page[data-page="dognet"], .admin-page[data-page="heureka"] { font-size: .875rem; }
+  .admin-page[data-page="dognet"] input, .admin-page[data-page="dognet"] select,
+  .admin-page[data-page="dognet"] button, .admin-page[data-page="heureka"] input,
+  .admin-page[data-page="heureka"] button { font-family: inherit; }
+  .dg-tabs { display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }
+  .dg-tabs button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px;
+    font: inherit; font-weight: 600; cursor: pointer; color: var(--muted); }
+  .dg-tabs button.on { color: var(--orange-dk, #C44C0A); border-color: var(--orange, #E8590C); background: #FFF6EF; }
   .af-card h3 { font-size: 1rem; font-weight: 800; }
   .af-card .switch-label { font-size: .875rem; font-weight: 600; }
   .af-card .aff-row label { font-size: .75rem; font-weight: 700; color: #444; }
@@ -3340,14 +3345,16 @@
 
       <div class="settings-panel">
         <p class="settings-hint" style="margin:0;">Kam vedie tlačidlo „Rezervovať“ a partnerský odkaz pre letenky
-          nastavíš v <a href="#affiliate">Affiliate → Letenky</a>.</p>
+          nastavíš v <a href="#dognet">Dognet</a>.</p>
       </div>
     </section>
 
     <!-- ── Sekcia: Affiliate odkazy ───────────────────────────────────── -->
-    <section class="admin-section admin-page" data-page="affiliate">
-      <h2 class="section-title">Affiliate</h2>
-      <p class="page-desc">Partnerské odkazy, kampane a príležitosti na zárobok.</p>
+    <section class="admin-section admin-page" data-page="dognet">
+      <h2 class="section-title">Dognet</h2>
+      <p class="page-desc">Partnerské odkazy, kampane a provízie z Dognetu.</p>
+      <div class="dg-tabs"><button type="button" class="on" data-dg="nastavenia">Nastavenia a kampane</button><button type="button" data-dg="provizie">Provízie (import z CSV)</button></div>
+      <div id="dg-nastavenia">
 
       <div class="af-stav" id="aff-stats"></div>
 
@@ -3385,46 +3392,6 @@
         </div>
       </div>
 
-      <div class="af-card">
-        <h3>Heureka</h3>
-        <label class="switch-label">
-          <span>Odkazy na Heureku</span>
-          <label class="switch"><input type="checkbox" id="hk-enabled" onchange="saveHeureka({ enabled: this.checked })"><span class="slider"></span></label>
-        </label>
-        <div class="aff-row">
-          <label for="hk-haff">Číslo pozície (haff)</label>
-          <input id="hk-haff" type="text" inputmode="numeric" placeholder="napr. 74596" spellcheck="false" autocomplete="off"
-                 onchange="saveHeureka({ haff: this.value.replace(/\D/g, '') })">
-        </div>
-        <label class="switch-label" style="margin-top:10px;">
-          <span>„Porovnať ceny na Heureke" v detaile dealu</span>
-          <label class="switch"><input type="checkbox" id="hk-detail" onchange="saveHeureka({ detail: this.checked })"><span class="slider"></span></label>
-        </label>
-        <label class="switch-label">
-          <span>„Hľadať na Heureke", keď hľadanie nič nenájde</span>
-          <label class="switch"><input type="checkbox" id="hk-hladanie" onchange="saveHeureka({ hladanie: this.checked })"><span class="slider"></span></label>
-        </label>
-        <label class="switch-label" style="margin-top:14px;">
-          <span>Box s produktmi v pravom stĺpci</span>
-          <label class="switch"><input type="checkbox" id="hk-box" onchange="saveHeureka({ box: this.checked })"><span class="slider"></span></label>
-        </label>
-        <div class="aff-row">
-          <label for="hk-box-poz">Pozícia boxu</label>
-          <input id="hk-box-poz" type="text" inputmode="numeric" placeholder="napr. 74597" spellcheck="false" autocomplete="off"
-                 onchange="saveHeureka({ boxPozicia: this.value.replace(/\D/g, '') })">
-        </div>
-        <div class="aff-row">
-          <label for="hk-box-prod">Produkty (ID)</label>
-          <input id="hk-box-prod" type="text" placeholder="729427756,791356862,…" spellcheck="false" autocomplete="off"
-                 onchange="saveHeureka({ boxProdukty: this.value.replace(/[^0-9,]/g, '') })">
-        </div>
-        <p class="settings-hint">Box: Heureka Affiliate → Formáty → Výber produktov → HTML bez štýlu. Pozícia je
-          <code>data-trixam-positionid</code>, produkty <code>data-trixam-productselection</code> (najviac 6).
-          Box sa ukáže len návštevníkom, ktorí povolili reklamné cookies.</p>
-        <p class="settings-hint">Heureka Affiliate → Formáty → Priamy odkaz → hodnota za <code>haff=</code>.
-          Ak si v Heureke vytvoríš pre každé miesto vlastnú pozíciu, uvidíš v ich štatistikách, ktoré zarába viac.
-          Ukážka: <a id="hk-ukazka" href="#" target="_blank" rel="noopener">hľadanie „slúchadlá"</a></p>
-      </div>
 
       <div class="af-card">
         <h3><svg class="ai-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 15l6 -6 M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464 M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463"/></svg> Otestovať odkaz</h3>
@@ -3476,6 +3443,55 @@
           odkaz. Prázdne = odkazy bez provízie.
         </p>
       </div>
+      </div>
+      </div>
+      <div id="dg-provizie" hidden></div>
+    </section>
+
+    <!-- ── Sekcia: Heureka ───────────────────────────────────────────── -->
+    <section class="admin-section admin-page" data-page="heureka">
+      <h2 class="section-title">Heureka</h2>
+      <p class="page-desc">Porovnanie cien a odkazy na Heureku, ktoré zarábajú cez partnerský program.</p>
+
+      <div class="af-card">
+        <h3>Heureka</h3>
+        <label class="switch-label">
+          <span>Odkazy na Heureku</span>
+          <label class="switch"><input type="checkbox" id="hk-enabled" onchange="saveHeureka({ enabled: this.checked })"><span class="slider"></span></label>
+        </label>
+        <div class="aff-row">
+          <label for="hk-haff">Číslo pozície (haff)</label>
+          <input id="hk-haff" type="text" inputmode="numeric" placeholder="napr. 74596" spellcheck="false" autocomplete="off"
+                 onchange="saveHeureka({ haff: this.value.replace(/\D/g, '') })">
+        </div>
+        <label class="switch-label" style="margin-top:10px;">
+          <span>„Porovnať ceny na Heureke" v detaile dealu</span>
+          <label class="switch"><input type="checkbox" id="hk-detail" onchange="saveHeureka({ detail: this.checked })"><span class="slider"></span></label>
+        </label>
+        <label class="switch-label">
+          <span>„Hľadať na Heureke", keď hľadanie nič nenájde</span>
+          <label class="switch"><input type="checkbox" id="hk-hladanie" onchange="saveHeureka({ hladanie: this.checked })"><span class="slider"></span></label>
+        </label>
+        <label class="switch-label" style="margin-top:14px;">
+          <span>Box s produktmi v pravom stĺpci</span>
+          <label class="switch"><input type="checkbox" id="hk-box" onchange="saveHeureka({ box: this.checked })"><span class="slider"></span></label>
+        </label>
+        <div class="aff-row">
+          <label for="hk-box-poz">Pozícia boxu</label>
+          <input id="hk-box-poz" type="text" inputmode="numeric" placeholder="napr. 74597" spellcheck="false" autocomplete="off"
+                 onchange="saveHeureka({ boxPozicia: this.value.replace(/\D/g, '') })">
+        </div>
+        <div class="aff-row">
+          <label for="hk-box-prod">Produkty (ID)</label>
+          <input id="hk-box-prod" type="text" placeholder="729427756,791356862,…" spellcheck="false" autocomplete="off"
+                 onchange="saveHeureka({ boxProdukty: this.value.replace(/[^0-9,]/g, '') })">
+        </div>
+        <p class="settings-hint">Box: Heureka Affiliate → Formáty → Výber produktov → HTML bez štýlu. Pozícia je
+          <code>data-trixam-positionid</code>, produkty <code>data-trixam-productselection</code> (najviac 6).
+          Box sa ukáže len návštevníkom, ktorí povolili reklamné cookies.</p>
+        <p class="settings-hint">Heureka Affiliate → Formáty → Priamy odkaz → hodnota za <code>haff=</code>.
+          Ak si v Heureke vytvoríš pre každé miesto vlastnú pozíciu, uvidíš v ich štatistikách, ktoré zarába viac.
+          Ukážka: <a id="hk-ukazka" href="#" target="_blank" rel="noopener">hľadanie „slúchadlá"</a></p>
       </div>
     </section>
 

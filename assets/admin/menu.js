@@ -17,9 +17,10 @@
     letenky: 'M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7',
     ucty: 'M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2 M16 3.13a4 4 0 0 1 0 7.75 M21 21v-2a4 4 0 0 0 -3 -3.85',
     reklamy: 'M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z M7 15v-4a2 2 0 0 1 4 0v4 M7 13l4 0 M17 9v6h-1.5a1.5 1.5 0 1 1 1.5 -1.5',
-    affiliate: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1 M12 7v10',
+    dognet: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1 M12 7v10',
     provizie: 'M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2 M14 8h-2.5a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3h-2.5 M12 7v1 M12 14v1',
     prijmy: 'M4 19l16 0 M4 15l4 -6l4 2l4 -5l4 4',
+    heureka: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M9 8v8 M9 12h6 M15 8v8',
     ehub: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M12 3a9 9 0 0 1 0 18 M3.6 9h16.8 M3.6 15h16.8',
     predajcovia: 'M3 21l18 0 M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4 M5 21l0 -10.15 M19 21l0 -10.15 M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4',
     facebook: 'M7 10v4h3v7h4v-7h3l1 -4h-4v-2a1 1 0 0 1 1 -1h3v-4h-3a5 5 0 0 0 -5 5v2h-3',
@@ -62,10 +63,10 @@
       { id: 'reklamy', n: 'Reklamné miesta', d: 'Bannery na stránke: zapni, vypni, striedaj a sleduj kliky.', k: 'banner reklama sledovanietv sponzor' },
     ] },
     { g: 'Zarábanie', p: [
-      { id: 'affiliate', n: 'Affiliate', k: 'dognet chid kampane partnerské odkazy' },
-      { id: 'provizie', n: 'Provízie', d: 'Import provízií z Dognetu (CSV) – zárobok podľa obchodu a mesiaca.', k: 'dognet csv import zárobok obchody' },
-      { id: 'ehub', n: 'eHUB', d: 'Kampane, transakcie a provízie z partnerskej siete eHUB.', k: 'ehub affiliate provizie kampane transakcie prekliky' },
       { id: 'prijmy', n: 'Príjmy', d: 'Affiliate a AdSense po mesiacoch v jednom grafe.', k: 'adsense peniaze graf mesiac zisk' },
+      { id: 'dognet', n: 'Dognet', k: 'dognet affiliate chid kampane partnerské odkazy provízie csv import zárobok obchody' },
+      { id: 'ehub', n: 'eHUB', d: 'Kampane, transakcie a provízie z partnerskej siete eHUB.', k: 'ehub affiliate provizie kampane transakcie prekliky' },
+      { id: 'heureka', n: 'Heureka', k: 'heureka porovnanie cien haff box affiliate' },
       { id: 'predajcovia', n: 'Predajcovia', k: 'obchody odkazy agent merchant' },
     ] },
     { g: 'Marketing', p: [
@@ -111,6 +112,21 @@
     sec.innerHTML = `<h2 class="section-title">${esc(p.n)}</h2><p class="page-desc">${esc(p.d || '')}</p>
       <div class="pg" id="pg-${p.id}"><div class="pg-nacitavam">Načítavam…</div></div>`;
     main.appendChild(sec);
+  });
+
+  // Provízie z CSV sú teraz záložka v stránke Dognet (nie samostatná položka menu).
+  const dgProv = document.getElementById('dg-provizie');
+  if (dgProv && !document.getElementById('pg-provizie')) {
+    dgProv.innerHTML = '<div class="pg" id="pg-provizie"><div class="pg-nacitavam">Načítavam…</div></div>';
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-dg]');
+    if (!b) return;
+    document.querySelectorAll('[data-dg]').forEach(x => x.classList.toggle('on', x === b));
+    document.getElementById('dg-nastavenia').hidden = b.dataset.dg !== 'nastavenia';
+    document.getElementById('dg-provizie').hidden = b.dataset.dg !== 'provizie';
+    window.HK_DOGNET_TAB = b.dataset.dg;
+    if (b.dataset.dg === 'provizie' && window.HKU) window.HKU._skus('provizie');
   });
 
   // ── Menu ──
@@ -192,6 +208,11 @@
     return !!p && (rola === 'admin' || p.m);
   }
   function ukaz(k) {
+    if (k === 'affiliate') k = 'dognet';
+    if (k === 'provizie') {
+      k = 'dognet';
+      setTimeout(() => { const b = document.querySelector('[data-dg="provizie"]'); if (b) b.click(); }, 0);
+    }
     if (!povolena(k)) k = 'prehlad';
     document.querySelectorAll('.admin-page').forEach(s => s.classList.toggle('on', s.dataset.page === k));
     nav.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.page === k));
@@ -226,7 +247,7 @@
       karta('kody', 'Kupóny na schválenie', kody, 'kupóny od návštevníkov', kody > 0) +
       karta('komentare', 'Komentáre na schválenie', kom, 'komentáre pri dealoch', kom > 0) +
       (admin ? karta('navstevnost', 'Návštevy dnes', txt('visits-today') || '–', `za 7 dní: <b>${txt('visits-7d') || '–'}</b>`) +
-        karta('affiliate', 'Affiliate', aff.zap ? 'Zapnuté' : 'Vypnuté',
+        karta('dognet', 'Dognet', aff.zap ? 'Zapnuté' : 'Vypnuté',
           `zarába <b>${aff.zarabaju ?? '–'} / ${aff.spolu ?? '–'}</b> dealov · kampaní: <b>${aff.domen ?? '–'}</b>`) +
         `<a class="ph-card" href="#planovac"><div class="ph-lab">${ikona('planovac')}Automatizácia</div>
           <div class="ph-list">${plan.length ? plan.map(u => `${u.zap ? '' : '⏸ '}<b>${u.nazov}</b> <span>· ${u.kedy}</span>`).join('<br>') : 'načítavam…'}</div></a>` : '');
@@ -306,7 +327,7 @@
     { n: 'Naplánovať príspevok na Facebook', h: '#facebook', k: 'fb' },
     { n: 'Stiahnuť zálohu', h: '#zaloha', k: 'export' },
     { n: 'Vytvoriť UTM odkaz', h: '#utm', k: 'kampaň' },
-    { n: 'Importovať provízie z Dognetu', h: '#provizie', k: 'csv' },
+    { n: 'Importovať provízie z Dognetu', h: '#dognet', k: 'csv provizie' },
   ];
   let pal = null, palVysl = [], palI = 0;
   function otvorPaletu() {

@@ -68,7 +68,9 @@ const U = window.HKU = {
   _el: id => document.getElementById('pg-' + id),
   async _skus(id) {
     const s = U._stranky[id];
-    if (!s || window.HK_STRANKA !== id || !window.HK || !window.HK.rola) return;
+    // Provízie sú záložka v stránke Dognet: načítajú sa, až keď je záložka otvorená.
+    const vidna = window.HK_STRANKA === id || (id === 'provizie' && window.HK_STRANKA === 'dognet' && window.HK_DOGNET_TAB === 'provizie');
+    if (!s || !vidna || !window.HK || !window.HK.rola) return;
     const el = U._el(id);
     if (!el) return;
     try {
