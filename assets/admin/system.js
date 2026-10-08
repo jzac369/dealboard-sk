@@ -131,7 +131,7 @@ const PREDVOLENE_AGENT = {
   maxNaKategoriu: 3, podielObmedzenych: 0.2, feedMinPokles: 20, obmedzeneKategorie: ['Jedlo & Nápoje'], blokovaneKategorie: [],
   vylucenaSlova: ['vzorka', 'vzorky', 'sample'],
 };
-const NAZVY_ZDROJOV = { zlacnene: 'zlacnene.sk – letáky a akcie', feeds: 'Produktové feedy (Dognet)', shop_feeds: 'Feedy e-shopov', web_hunt: 'Hľadanie na webe (Brave/Claude) - dealy a freebies', sitemap: 'Prehľadávanie obchodov cez sitemap (zadarmo)' };
+const NAZVY_ZDROJOV = { zlacnene: 'zlacnene.sk – letáky a akcie', feeds: 'Produktové feedy (Dognet)', shop_feeds: 'Feedy e-shopov', sitemap: 'Prehľadávanie obchodov cez sitemap (zadarmo)' };
 const CISLA = [
   ['minZlava', 'Minimálna zľava', '%', 0, 95, 'Pod touto zľavou agent položku ani nezváži.'],
   ['maxZlava', 'Maximálna zľava', '%', 5, 100, 'Nad ňou to býva chyba v dátach, nie deal.'],
@@ -190,6 +190,19 @@ U.stranka('agent', {
             <button class="btn btn-save" type="button" id="fd-pridaj"><svg class="ix"><use href="#ix-plus"></use></svg> Pridať</button>
           </div>
           <div id="fd-stav"></div>
+        </div>
+        <div class="karta" id="sm-karta">
+          <h3 class="karta-nadpis">Obchody pre prehľadávanie sitemap</h3>
+          <p class="settings-hint">Agent z <b>sitemap.xml</b> týchto obchodov vyberie náhodnú vzorku produktov a zľavu prijme len vtedy,
+            keď ju ukazuje sama stránka (prečiarknutá cena). Funguje zadarmo, bez feedu. Zdroj sa zapína vyššie v zozname zdrojov.
+            Adresu sitemapy nájdeš v <code>obchod.sk/robots.txt</code> (riadok Sitemap:). Treba tú, ktorá obsahuje produkty.</p>
+          <div id="sm-zoznam"></div>
+          <div class="riadok-pole" style="margin-top:10px">
+            <input type="text" id="sm-domena" placeholder="doména obchodu (napr. houseland.sk)" style="max-width:240px">
+            <input type="url" id="sm-url" placeholder="https://… sitemapa produktov (.xml alebo .xml.gz)">
+            <input type="number" id="sm-strana" min="1" max="300" placeholder="stránok na beh" style="max-width:130px">
+            <button class="btn btn-save" type="button" id="sm-pridaj"><svg class="ix"><use href="#ix-plus"></use></svg> Pridať</button>
+          </div>
         </div>
         <div class="karta"><h3 class="karta-nadpis">Kategórie</h3>
           <div class="tab-wrap"><table class="tab"><thead><tr><th>Kategória</th><th>Obmedzená (strop podielu)</th><th>Zakázaná</th></tr></thead><tbody>
@@ -272,6 +285,68 @@ U.stranka('agent', {
       vlastneFeedy = (d.exists() && Array.isArray(d.data().feedy)) ? d.data().feedy : [];
     } catch (err) { /* prvé otvorenie */ }
     fdKresli();
+
+    // ── Obchody pre prehľadávanie sitemap ──
+    const smRef = U.ref('nastavenia_admin', 'sitemap_obchody');
+    let smObchody = [];
+    const smKresli = () => {
+      el.querySelector('#sm-zoznam').innerHTML = smObchody.length ? smObchody.map(o => `<div class="fd-r${o.zap === false ? ' vyp' : ''}">
+          <label class="switch" title="${o.zap === false ? 'Zapnúť' : 'Vypnúť'}"><input type="checkbox" data-sm="zap" data-id="${esc(o.id)}"${o.zap === false ? '' : ' checked'}><span class="slider"></span></label>
+          <div class="fd-i"><b>${esc(o.domena)}</b>${(o.sitemapy || []).map(u => `<small>${esc(u)}</small>`).join('')}</div>
+          <label class="ag-in" title="Koľko produktových stránok sa pri jednom behu pozrie"><input type="number" data-sm="strana" data-id="${esc(o.id)}" min="1" max="300" value="${esc(o.strana || '')}" placeholder="40" style="width:70px"><em>str./beh</em></label>
+          <div class="tl-rad"><button class="btn btn-ic btn-delete" data-sm="zmaz" data-id="${esc(o.id)}" title="Odstrániť"><svg class="ix"><use href="#ix-trash"></use></svg></button></div>
+        </div>`).join('') : '<p class="vis-empty">Zatiaľ žiadny obchod. Agent použije predvolený zoznam.</p>';
+    };
+    const smUloz = async (popis) => {
+      await fs.setDoc(smRef, { obchody: smObchody, upravene: fs.serverTimestamp() }, { merge: true });
+      HK().logChange('agent', 'agent', 'Sitemap: ' + popis);
+    };
+    el.querySelector('#sm-pridaj').addEventListener('click', async () => {
+      const domena = el.querySelector('#sm-domena').value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+      const url = el.querySelector('#sm-url').value.trim();
+      const strana = parseInt(el.querySelector('#sm-strana').value, 10);
+      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domena)) { window.toast('Vlož doménu obchodu, napr. houseland.sk.', 'chyba'); return; }
+      if (!/^https:\/\//i.test(url)) { window.toast('Sitemapa musí byť adresa https://…', 'chyba'); return; }
+      const jestvuje = smObchody.find(o => o.domena === domena);
+      if (jestvuje) {
+        if ((jestvuje.sitemapy || []).includes(url)) { window.toast('Táto sitemapa už je v zozname.', 'chyba'); return; }
+        jestvuje.sitemapy = [...(jestvuje.sitemapy || []), url];
+      } else {
+        smObchody = [...smObchody, { id: Math.random().toString(36).slice(2, 10), domena, sitemapy: [url], zap: true,
+          ...(strana >= 1 && strana <= 300 ? { strana } : {}) }];
+      }
+      await smUloz(`pridaný ${domena}`);
+      ['#sm-domena', '#sm-url', '#sm-strana'].forEach(s => { el.querySelector(s).value = ''; });
+      smKresli();
+      window.toast('Obchod pridaný. Agent ho použije pri najbližšom behu.');
+    });
+    el.addEventListener('click', async e => {
+      const b = e.target.closest('[data-sm="zmaz"]');
+      if (!b) return;
+      const o = smObchody.find(x => x.id === b.dataset.id);
+      if (!o || !await window.potvrd(`Odstrániť ${o.domena} zo zoznamu? Agent ho prestane prehľadávať.`)) return;
+      smObchody = smObchody.filter(x => x.id !== o.id);
+      await smUloz(`odstránený ${o.domena}`);
+      smKresli();
+    });
+    el.addEventListener('change', async e => {
+      const b = e.target.closest('[data-sm]');
+      if (!b || b.dataset.sm === 'zmaz') return;
+      if (b.dataset.sm === 'zap') {
+        smObchody = smObchody.map(x => x.id === b.dataset.id ? { ...x, zap: b.checked } : x);
+        await smUloz(`${b.checked ? 'zapnutý' : 'vypnutý'} obchod`);
+      } else {
+        const n = parseInt(b.value, 10);
+        smObchody = smObchody.map(x => { if (x.id !== b.dataset.id) return x; const { strana, ...zvysok } = x; return n >= 1 && n <= 300 ? { ...zvysok, strana: n } : zvysok; });
+        await smUloz('zmena počtu stránok');
+      }
+      smKresli();
+    });
+    try {
+      const d = await fs.getDoc(smRef);
+      smObchody = (d.exists() && Array.isArray(d.data().obchody)) ? d.data().obchody : [];
+    } catch (err) { /* prvé otvorenie */ }
+    smKresli();
 
     const form = el.querySelector('#ag-form');
     const zaskrtnute = n => [...form.querySelectorAll(`[name="${n}"]:checked`)].map(x => x.value);

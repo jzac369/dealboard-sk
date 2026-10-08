@@ -5,7 +5,7 @@ Každý e-shop zverejňuje sitemap.xml so zoznamom všetkých produktových str�
 Agent z nej vyberie náhodnú vzorku, stiahne produktové stránky a z
 štruktúrovaných dát (JSON-LD) prečíta cenu a prečiarknutú pôvodnú cenu.
 Zľavu prijme len keď ju stránka sama ukazuje - rovnaké overenie ako pri
-hľadaní cez vyhľadávač (scrapers/web_hunt.py).
+hľadaní cez vyhľadávač (scrapers/overenie.py).
 
 Vzorka je malá (SITEMAP_STRANA_NA_OBCHOD stránok na obchod a beh), aby
 sme obchody nezaťažovali: pauzu medzi požiadavkami a robots.txt rieši
@@ -26,7 +26,7 @@ import config
 import http_client
 from models import DealCandidate
 from scrapers.base import BaseScraper
-from scrapers.web_hunt import over_stranku
+from scrapers.overenie import over_stranku
 
 logger = logging.getLogger(__name__)
 

@@ -445,6 +445,8 @@ def main() -> int:
         # Feedy obchodov pridané v admine (obsahujú partnerské ID, preto
         # sú v dokumente, ktorý verejná stránka nečíta).
         config.pouzi_feedy(_db0.document("nastavenia_admin/feedy").get().to_dict() or {})
+        # Obchody pre prehľadávanie sitemap (spravuje sa v admine).
+        config.pouzi_sitemap(_db0.document("nastavenia_admin/sitemap_obchody").get().to_dict() or {})
         # Pre admin: ktoré zdroje a feedy existujú (feed len doménou).
         _db0.document("admin_info/agent").set({**config.info_pre_admin(),
                                                 "aktualizovane": _fs.SERVER_TIMESTAMP})

@@ -24,7 +24,7 @@ STRANKA_JSONLD = (
 
 
 def test_prijme_deal_len_ked_ceny_potvrdi_stranka():
-    from scrapers.web_hunt import over_navrh
+    from scrapers.overenie import over_navrh
 
     n = {"typ": "deal", "skupina": "technológie a gaming", "url": "https://shop.sk/p/1",
          "cena": 79.90, "povodna_cena": 129.90}
@@ -37,7 +37,7 @@ def test_prijme_deal_len_ked_ceny_potvrdi_stranka():
 
 
 def test_zahodi_agregator_nezabezpeceny_odkaz_a_zakazany_obsah():
-    from scrapers.web_hunt import over_navrh
+    from scrapers.overenie import over_navrh
 
     n = {"typ": "deal", "skupina": "móda", "url": "https://shop.sk/p/1", "cena": 79.90, "povodna_cena": 129.90}
     assert over_navrh({**n, "url": "http://shop.sk/p/1"}, STRANKA_DEAL) is None
@@ -46,7 +46,7 @@ def test_zahodi_agregator_nezabezpeceny_odkaz_a_zakazany_obsah():
 
 
 def test_freebie_vyzaduje_slovo_zadarmo_na_stranke():
-    from scrapers.web_hunt import over_navrh
+    from scrapers.overenie import over_navrh
 
     n = {"typ": "freebie", "skupina": "knihy a vzdelávanie", "url": "https://kniha.sk/e"}
     ano = over_navrh(n, "<html><title>E-kniha Spánok</title><body>Stiahni si e-knihu zadarmo.</body></html>")
@@ -57,10 +57,8 @@ def test_freebie_vyzaduje_slovo_zadarmo_na_stranke():
 
 
 def test_json_a_cena_v_texte():
-    from scrapers.web_hunt import cena_v_texte, vytiahni_json
+    from scrapers.overenie import cena_v_texte
 
-    assert vytiahni_json('Tu je výsledok: [{"url": "https://a.sk"}] hotovo')[0]["url"] == "https://a.sk"
-    assert vytiahni_json("nič nenašiel") == [] and vytiahni_json("[nie json]") == []
     assert cena_v_texte("teraz 12,99 € s dph", 12.99) and cena_v_texte("len 12 €", 12.0)
     assert not cena_v_texte("cena 112,99 €", 12.99) and not cena_v_texte("od 12,990", 12.99)
 
@@ -77,7 +75,7 @@ def test_freebie_prejde_kontrolou_zmysluplnosti_a_ma_vlastnu_skupinu():
 
 
 def test_bez_ai_vytiahne_zlavu_zo_strukturovanych_dat():
-    from scrapers.web_hunt import extrahuj_ponuku, over_stranku
+    from scrapers.overenie import extrahuj_ponuku, over_stranku
 
     e = extrahuj_ponuku(STRANKA_JSONLD)
     assert e["cena"] == 89.9 and e["povodna"] == 149.0
@@ -89,7 +87,7 @@ def test_bez_ai_vytiahne_zlavu_zo_strukturovanych_dat():
 
 
 def test_bez_ai_freebie_nesmie_mat_cenu():
-    from scrapers.web_hunt import over_stranku
+    from scrapers.overenie import over_stranku
 
     zdarma = "<html><title>Vzorka krému | Kozmetika.sk</title><body>Vzorka zadarmo k objednávke.</body></html>"
     assert over_stranku("https://kozmetika.sk/vzorka", zdarma, "freebie", "kozmetika a starostlivosť").zadarmo
@@ -112,3 +110,21 @@ def test_sitemap_parsuje_stranky_aj_index_a_vybera_vzorku():
     v = vyber_vzorku([f"u{i}" for i in range(100)], 10, random.Random(1))
     assert len(v) == len(set(v)) == 10
     assert len(vyber_vzorku(["a", "b"], 10)) == 2
+
+
+def test_obchody_pre_sitemap_z_admina_nahradia_predvolene_a_preskocia_zle():
+    import config
+
+    povodne = list(config.SITEMAP_OBCHODY)
+    try:
+        n = config.pouzi_sitemap({"obchody": [
+            {"domena": "www.Shop.sk", "sitemapy": ["https://shop.sk/sm.xml"], "strana": 25},
+            {"domena": "vypnuty.sk", "sitemapy": ["https://vypnuty.sk/sm.xml"], "zap": False},
+            {"domena": "bez-sitemapy.sk", "sitemapy": []},
+            {"domena": "http.sk", "sitemapy": ["http://http.sk/sm.xml"]},
+        ]})
+        assert n == 1
+        assert config.SITEMAP_OBCHODY == [{"domena": "shop.sk", "sitemapy": ["https://shop.sk/sm.xml"], "strana": 25}]
+        assert config.pouzi_sitemap({}) == 0 and len(config.SITEMAP_OBCHODY) == 1   # bez dokumentu sa nič nemení
+    finally:
+        config.SITEMAP_OBCHODY = povodne

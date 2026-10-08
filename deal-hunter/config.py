@@ -163,21 +163,6 @@ USER_AGENT = os.environ.get(
     "USER_AGENT",
     "HenKukajDealHunter/1.0 (+https://henkukaj.sk; kontakt: info@henkukaj.sk)",
 )
-# ── Hľadanie na webe (Claude + vyhľadávanie), pozri scrapers/web_hunt.py ──
-# Zdroj "web_hunt" sa zapína v admine (Agent -> zdroje) a potrebuje secret
-# ANTHROPIC_API_KEY. Každý beh stojí peniaze, preto najviac raz za interval.
-WEB_HUNT_MODEL = os.environ.get("WEB_HUNT_MODEL", "claude-opus-5-5")
-WEB_HUNT_INTERVAL_HOURS = _env_int("WEB_HUNT_INTERVAL_HOURS", 20)
-WEB_HUNT_MAX_VYHLADAVANI = _env_int("WEB_HUNT_MAX_VYHLADAVANI", 12)
-WEB_HUNT_MAX_NAVRHOV = _env_int("WEB_HUNT_MAX_NAVRHOV", 20)
-# Bezplatný režim (Brave): koľko vyhľadávaní za beh. Free plán dáva ~2000 mesačne.
-WEB_HUNT_DOTAZOV_NA_BEH = _env_int("WEB_HUNT_DOTAZOV_NA_BEH", 16)
-WEB_HUNT_SKUPINY = _env_list("WEB_HUNT_SKUPINY") or [
-    "technológie a gaming", "domácnosť a záhrada", "deti a rodina", "kozmetika a starostlivosť",
-    "šport a outdoor", "cestovanie", "móda", "knihy a vzdelávanie", "jedlo a nápoje",
-    "auto-moto", "domáce zvieratá", "softvér a predplatné",
-]
-
 # ── Vlastné prehľadávanie obchodov cez sitemap.xml (scrapers/sitemap_hunt.py) ──
 # Zdroj "sitemap". Obchody sú vybrané tak, že majú sitemapu aj produktové
 # stránky so štruktúrovanými dátami (overené 8. 10. 2026). Doplnenie
@@ -192,6 +177,34 @@ SITEMAP_OBCHODY = [
     {"domena": "nay.sk", "sitemapy": ["https://www.nay.sk/sitemap/sitemap-products-1.xml"]},
     {"domena": "mountfield.sk", "sitemapy": ["https://www.mountfield.sk/content/sitemaps/domain_2_sitemap.2.xml"]},
 ]
+
+def pouzi_sitemap(data: dict) -> int:
+    """Obchody pre prehľadávanie sitemap z admina (nastavenia_admin/sitemap_obchody).
+    Zoznam z admina nahradí predvolený; vypnuté a nesprávne záznamy sa preskočia."""
+    zoznam = data.get("obchody")
+    if not isinstance(zoznam, list):
+        return 0
+    obchody = []
+    for o in zoznam:
+        if not isinstance(o, dict) or o.get("zap") is False:
+            continue
+        domena = str(o.get("domena") or "").strip().lower().removeprefix("www.")
+        sm = [u.strip() for u in (o.get("sitemapy") or []) if isinstance(u, str) and u.strip().startswith("https://")]
+        if not domena or not sm:
+            continue
+        zaznam = {"domena": domena, "sitemapy": sm}
+        try:
+            n = int(o.get("strana") or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if 1 <= n <= 300:
+            zaznam["strana"] = n
+        obchody.append(zaznam)
+    import logging
+    globals()["SITEMAP_OBCHODY"] = obchody
+    logging.getLogger("config").info("Obchody pre sitemap z admina: %d", len(obchody))
+    return len(obchody)
+
 
 REQUEST_TIMEOUT_SECONDS = _env_int("REQUEST_TIMEOUT_SECONDS", 25)
 # Pauza medzi requestmi na ten istý web. zlacnene.sk v robots.txt
