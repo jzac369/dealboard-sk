@@ -7278,9 +7278,18 @@ Chcete zvýšiť komfort pri používaní m</p></article>
   function affiliateUrl(raw, kind) {
     const a = window.AFFILIATE || {};
     const url = (raw || '').trim();
-    if (!a.enabled || !/^https?:\/\//i.test(url)) return url;
+    if (!/^https?:\/\//i.test(url)) return url;
     let host;
     try { host = new URL(url).hostname.toLowerCase(); } catch (e) { return url; }
+    // eHUB: kampane schválené v eHUB (settings/affiliate.ehubKampane = doména -> a_bid).
+    // Má prednosť pred Dognetom; odkaz už vedie cez eHUB/Dognet -> nechať tak.
+    if (/(^|\.)ehub\.cz$/.test(host)) return url;
+    const eh = a.ehubKampane || {};
+    if (a.ehubAid && a.ehubZap !== false) {
+      const dom = Object.keys(eh).find(d => host === d || host.endsWith('.' + d));
+      if (dom) return `https://ehub.cz/system/scripts/click.php?a_aid=${encodeURIComponent(a.ehubAid)}&a_bid=${encodeURIComponent(eh[dom])}&data1=henkukaj-${encodeURIComponent(kind || 'deal')}&desturl=${encodeURIComponent(url)}`;
+    }
+    if (!a.enabled) return url;
     if (/(^|\.)go\.dognet\.(com|sk)$/.test(host)) return url;
     const domeny = Array.isArray(a.domains) ? a.domains : [];
     if (!domeny.some(d => host === d || host.endsWith('.' + d))) return url;
