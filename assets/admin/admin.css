@@ -403,3 +403,10 @@ body.okno-otvorene { overflow: hidden; }
 .pr-aff-r { display: flex; gap: 8px; }
 .pr-aff-r input { flex: 1; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: .75rem; }
 .pr-aff small { display: block; margin-top: 4px; color: var(--muted, #707070); font-size: .75rem; }
+
+.pr-provizia { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px;
+  background: #F1F1F1; border: 1px solid #DADADA; color: #444; font-size: .875rem; }
+.pr-provizia b { font-size: 1rem; }
+.pr-provizia.ano { background: #E3F5E8; border-color: #8CCB9B; color: #14532D; }
+.pr-provizia.nie { background: #FDE8DC; border-color: #F2A57A; color: #7C2D12; }
+.pr-provizia.info { background: #E6F0FB; border-color: #9CC0EC; color: #1E3A5F; }

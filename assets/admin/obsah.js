@@ -33,6 +33,7 @@ U.stranka('pridat', {
       </div>
       <div class="pr-mriezka">
         <form class="karta" id="pr-form" autocomplete="off">
+          <div class="pr-provizia" id="pr-provizia"><b>Provízia</b><span>Vlož odkaz na produkt a uvidíš, či z neho budeš mať províziu.</span></div>
           <div class="form-mriezka">
             <label class="cela">Názov<input type="text" name="title" maxlength="199" required></label>
             <label>Obchod<input type="text" name="store" maxlength="60" required></label>
@@ -114,8 +115,25 @@ U.stranka('pridat', {
     const aff = el.querySelector('#pr-aff');
     const kresliAff = () => {
       const u = (f('url').value || '').trim();
-      if (!/^https?:\/\//i.test(u) || !HK().affOdkaz) { aff.hidden = true; return; }
+      const ban = el.querySelector('#pr-provizia');
+      if (!/^https?:\/\//i.test(u) || !HK().affOdkaz) {
+        aff.hidden = true;
+        ban.className = 'pr-provizia';
+        ban.innerHTML = '<b>Provízia</b><span>Vlož odkaz na produkt a uvidíš, či z neho budeš mať províziu.</span>';
+        return;
+      }
       const v = HK().affOdkaz(u, 'deal');
+      if (v.ok) {
+        ban.className = 'pr-provizia ano';
+        ban.innerHTML = `<b>✔ Z tohto produktu budeš mať províziu</b><span>Návštevník pôjde cez ${esc(v.siet)}.</span>`;
+      } else if (v.siet === 'uz') {
+        ban.className = 'pr-provizia info';
+        ban.innerHTML = '<b>Odkaz už je affiliate odkaz</b><span>Použije sa tak, ako je. Skontroluj, že je to tvoj odkaz.</span>';
+      } else {
+        ban.className = 'pr-provizia nie';
+        ban.innerHTML = `<b>✖ Z tohto produktu NEBUDEŠ mať províziu</b><span>${esc(v.dovod || 'Odkaz pôjde priamo.')}
+          Provízia je len pri obchodoch so schválenou kampaňou (Dognet, eHUB).</span>`;
+      }
       aff.hidden = false;
       el.querySelector('#pr-aff-url').value = v.url || '';
       el.querySelector('#pr-aff-siet').textContent = v.ok ? `(${v.siet})` : (v.siet === 'uz' ? '' : '(priamy odkaz)');
