@@ -211,3 +211,16 @@ def test_import_z_odkazu_nacita_aj_povodnu_cenu():
     assert r["dealPrice"] == 89.9 and r["originalPrice"] == 149.0 and r["title"] == "Kreslo"
     bez = h.replace("<del>149,00 €</del>", "")
     assert a._rozober(bez, "https://shop.sk/kreslo")["originalPrice"] is None
+
+
+def test_import_vyberie_prvu_fotku_ktora_sa_naozaj_nacita(monkeypatch):
+    import admin_ulohy as a
+
+    html = ('<html><head><meta property="og:image" content="https://cdn.shop.sk/ok.png">'
+            '<script type="application/ld+json">{"@type":"Product","name":"P","image":"https://cdn.shop.sk/mrtva.png",'
+            '"offers":{"price":"5"}}</script></head></html>')
+    # JSON-LD má prednosť, ale jeho adresa vracia 404 - berie sa og:image.
+    monkeypatch.setattr(a, "_je_obrazok", lambda u: u.endswith("ok.png"))
+    assert a._rozober(html, "https://shop.sk/p", overit_fotku=True)["imageUrl"] == "https://cdn.shop.sk/ok.png"
+    monkeypatch.setattr(a, "_je_obrazok", lambda u: False)
+    assert a._rozober(html, "https://shop.sk/p", overit_fotku=True)["imageUrl"] is None

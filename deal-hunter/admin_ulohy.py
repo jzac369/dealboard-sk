@@ -114,7 +114,7 @@ def nacitaj_url(db, vstup: dict) -> dict:
     if r.status_code >= 400:
         raise ValueError(f"E-shop odpovedal chybou {r.status_code} - automatické čítanie asi nepovoľuje. "
                          "Údaje doplň ručne.")
-    return _rozober(r.text[:2_000_000], r.url)
+    return _rozober(r.text[:2_000_000], r.url, overit_fotku=True)
 
 
 def _absolutna(url, zaklad: str) -> str | None:
@@ -127,9 +127,10 @@ def _absolutna(url, zaklad: str) -> str | None:
     return url if url.startswith("http") else None
 
 
-def _obrazok(html: str, zaklad: str, produkt: dict, objekty: list[dict]) -> str | None:
+def _obrazky(html: str, zaklad: str, produkt: dict, objekty: list[dict]) -> list[str]:
     """Fotka produktu: JSON-LD, og:image, link image_src, itemprop=image, potom
-    prvý rozumný <img> v stránke. Relatívne adresy sa dopĺňajú podľa stránky."""
+    prvý rozumný <img> v stránke. Relatívne adresy sa dopĺňajú podľa stránky.
+    Vracia všetkých kandidátov v poradí dôveryhodnosti (bez duplicít)."""
     kandidati: list = []
     img = produkt.get("image")
     for x in (img if isinstance(img, list) else [img]):
@@ -148,11 +149,12 @@ def _obrazok(html: str, zaklad: str, produkt: dict, objekty: list[dict]) -> str 
     kandidati.append(m.group(1) if m else None)
     m = re.search(r'<[^>]+itemprop=["\']image["\'][^>]*(?:content|src|href)=["\']([^"\']+)["\']', html, re.I)
     kandidati.append(m.group(1) if m else None)
+    vysledok: list[str] = []
     for x in kandidati:
         u = _absolutna(x, zaklad)
-        if u:
-            return u
-    # Posledná záchrana: prvý obrázok, ktorý vyzerá ako fotka produktu.
+        if u and u not in vysledok:
+            vysledok.append(u)
+    # Posledná záchrana: obrázky, ktoré vyzerajú ako fotka produktu.
     for tag in re.findall(r"<img\b[^>]*>", html, re.I):
         trieda = " ".join(re.findall(r'(?:class|id|alt)=["\']([^"\']*)["\']', tag, re.I)).lower()
         if re.search(r"logo|icon|sprite|banner|avatar|flag|payment|badge", trieda):
@@ -162,12 +164,30 @@ def _obrazok(html: str, zaklad: str, produkt: dict, objekty: list[dict]) -> str 
         for atribut in ("data-zoom-image", "data-large", "data-src", "data-lazy-src", "data-original", "src"):
             m = re.search(rf'{atribut}=["\']([^"\']+)["\']', tag, re.I)
             u = _absolutna(m.group(1), zaklad) if m else None
-            if u and not re.search(r"\.svg(\?|$)|pixel|spacer|blank|placeholder", u, re.I):
-                return u
-    return None
+            if u and u not in vysledok and not re.search(r"\.svg(\?|$)|pixel|spacer|blank|placeholder", u, re.I):
+                vysledok.append(u)
+                break
+    return vysledok
 
 
-def _rozober(html: str, url: str) -> dict:
+def _obrazok(html: str, zaklad: str, produkt: dict, objekty: list[dict]) -> str | None:
+    zoz = _obrazky(html, zaklad, produkt, objekty)
+    return zoz[0] if zoz else None
+
+
+def _je_obrazok(url: str) -> bool:
+    """Naozaj sa dá adresa stiahnuť ako obrázok? Obchody majú v štruktúrovaných
+    dátach občas mŕtve odkazy (404), hoci og:image funguje."""
+    try:
+        r = requests.get(url, headers={"User-Agent": UA}, timeout=10, stream=True, allow_redirects=True)
+        ok = r.status_code < 400 and r.headers.get("content-type", "").lower().startswith("image/")
+        r.close()
+        return ok
+    except requests.RequestException:
+        return False
+
+
+def _rozober(html: str, url: str, overit_fotku: bool = False) -> dict:
     """Z HTML produktovej stránky vytiahne názov, cenu, pôvodnú cenu, fotku a popis."""
     objekty = _json_ld(html)
     produkt = next((x for x in objekty
@@ -179,7 +199,11 @@ def _rozober(html: str, url: str) -> dict:
     titul = (produkt.get("name") or _meta(html, "og:title", "twitter:title")
              or (re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I) or [None, None])[1] or "")
     titul = re.sub(r"\s+", " ", _html.unescape(str(titul))).strip()
-    obrazok = _obrazok(html, url, produkt, objekty)
+    kandidati = _obrazky(html, url, produkt, objekty)
+    obrazok = kandidati[0] if kandidati else None
+    if overit_fotku:
+        # Prvá adresa, ktorá sa naozaj načíta (ostatné sú mŕtve alebo nie sú obrázok).
+        obrazok = next((u for u in kandidati[:6] if _je_obrazok(u)), None)
     cena = (_cena(ponuka.get("price") or ponuka.get("lowPrice"))
             or _cena(_meta(html, "product:price:amount", "og:price:amount", "price")))
     # Pôvodná (prečiarknutá) cena, ak ju stránka ukazuje.
