@@ -225,7 +225,8 @@ def strazcovia(db, nasucho: bool = False) -> int:
     import komunita
 
     n = nastavenia(db)
-    if not n["strazcaZap"] or not os.environ.get("SMTP_PASSWORD"):
+    smtp = bool(os.environ.get("SMTP_PASSWORD"))
+    if not n["strazcaZap"]:
         return 0
     stav_ref = db.document("nastavenia_admin/strazcovia_stav")
     try:
@@ -264,6 +265,20 @@ def strazcovia(db, nasucho: bool = False) -> int:
         if not najdene:
             continue
         co = ", ".join(sorted({str(s.get("q", "")).strip() for _, s in najdene}))[:60]
+        if not nasucho:
+            try:
+                import push_dealy
+                d0 = najdene[0][0]
+                cena0 = "zadarmo" if d0.get("zadarmo") else f"{float(d0.get('dealPrice') or 0):.2f} €".replace(".", ",")
+                if push_dealy.posli_pouzivatelovi(
+                        p, f"Stráž ceny: {co}", f"{d0.get('title', '')} · {cena0}"[:180],
+                        f"https://henkukaj.sk/?deal={d0['id']}"):
+                    for d, _ in najdene:
+                        db.collection("push_log").document(f"strazca-{uid}-{d['id']}").set({"ok": True})
+            except Exception as ex:
+                logger.warning("Push zo Stráže ceny zlyhal: %s", ex)
+        if not smtp:
+            continue
         riadky = [f"Ahoj{(' ' + p['meno']) if p.get('meno') else ''},", "",
                   "našli sme dealy, ktoré si dal strážiť:", ""]
         for d, _ in najdene:
@@ -295,7 +310,8 @@ def letenky(db, nasucho: bool = False) -> int:
     from pathlib import Path
 
     n = nastavenia(db)
-    if not n["letenkyZap"] or not os.environ.get("SMTP_PASSWORD"):
+    smtp = bool(os.environ.get("SMTP_PASSWORD"))
+    if not n["letenkyZap"]:
         return 0
     subor = Path(__file__).resolve().parent.parent / "assets" / "letenky" / "ceny.json"
     try:
@@ -347,6 +363,16 @@ def letenky(db, nasucho: bool = False) -> int:
                    .replace("{cena}", f"{prva[0]:.0f}"))
         if nasucho:
             logger.info("Poslal by som letenky %s (%d letov)", p["email"], len(najdene))
+            continue
+        try:
+            import push_dealy
+            c0, k0, kam0, den0 = najdene[0]
+            push_dealy.posli_pouzivatelovi(
+                p, predmet, f"{(odkial.get(k0) or {}).get('n', k0)} → {(letiska.get(kam0) or {}).get('n', kam0)} za {c0:.0f} €",
+                "https://henkukaj.sk/#letenky")
+        except Exception as ex:
+            logger.warning("Push s letenkami zlyhal: %s", ex)
+        if not smtp:
             continue
         try:
             posli(n, p["email"], predmet, "\n".join(riadky),

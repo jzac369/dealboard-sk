@@ -9,4 +9,9 @@
         <item name="windowSplashScreenAnimatedIcon">@drawable/logo_mark</item>
         <item name="postSplashScreenTheme">@style/Theme.HenKukaj</item>
     </style>
+    <style name="Theme.HenKukaj.Nastavenia" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">@color/oranzova</item>
+        <item name="colorPrimaryDark">#C44C0A</item>
+        <item name="colorAccent">@color/oranzova</item>
+    </style>
 </resources>

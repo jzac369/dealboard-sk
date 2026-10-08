@@ -11,8 +11,8 @@ android {
         applicationId = "sk.henkukaj.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.2"
+        versionCode = 3
+        versionName = "1.3"
     }
     buildTypes {
         release {
@@ -28,6 +28,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-messaging-ktx")

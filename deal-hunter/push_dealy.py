@@ -56,16 +56,46 @@ def _telo(d: dict) -> str:
 
 
 def sprava(deal_id: str, d: dict) -> dict:
-    notif = {"title": (d.get("title") or "Nový deal")[:100], "body": _telo(d)}
+    """Správa len s "data": notifikáciu skladá a filtruje appka (témy, minimálna
+    zľava), takže ju vie prispôsobiť nastaveniam človeka."""
+    data = {
+        "typ": "dealy",
+        "title": (d.get("title") or "Nový deal")[:100],
+        "body": _telo(d),
+        "kategoria": d.get("category") or "",
+        "zlava": str(int(d.get("discountPercent") or 0)),
+        "url": f"https://henkukaj.sk/?deal={deal_id}",
+    }
     img = d.get("imageUrl") or ""
     if img.startswith("https://"):
-        notif["image"] = img
-    return {"message": {
-        "topic": TEMA,
-        "notification": notif,
-        "data": {"dealId": deal_id, "url": f"https://henkukaj.sk/?deal={deal_id}"},
-        "android": {"priority": "HIGH", "notification": {"channel_id": "dealy"}},
-    }}
+        data["image"] = img
+    return {"message": {"topic": TEMA, "data": data, "android": {"priority": "HIGH"}}}
+
+
+def posli_pouzivatelovi(p: dict, title: str, body: str, url: str) -> int:
+    """Push zo Stráže ceny / letenky na zariadenia z profilu (users/{uid}.fcmTokens).
+    Vráti počet odoslaných; človek, ktorý ich v appke vypol, nič nedostane."""
+    tokeny = p.get("fcmTokens") or []
+    if not tokeny or p.get("pushStraz") is False:
+        return 0
+    try:
+        token, projekt = _token()
+    except Exception as e:
+        logger.warning("Push: prihlásenie do FCM zlyhalo: %s", e)
+        return 0
+    n = 0
+    for t in tokeny:
+        r = requests.post(
+            f"https://fcm.googleapis.com/v1/projects/{projekt}/messages:send",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"message": {"token": t, "android": {"priority": "HIGH"},
+                              "data": {"typ": "straz", "title": title[:100], "body": body[:200], "url": url}}},
+            timeout=20)
+        if r.status_code == 200:
+            n += 1
+        else:
+            logger.warning("Push používateľovi zlyhal (%s)", r.status_code)
+    return n
 
 
 def _token() -> tuple[str, str]:

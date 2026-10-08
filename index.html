@@ -244,7 +244,7 @@
       window.recordVisitNow = function () { recordVisit(user.uid); };
       // Súhlas mohol doraziť skôr, než sa dokončilo prihlásenie.
       if (window.hasAnalyticsConsent()) recordVisit(user.uid);
-      if (!user.isAnonymous) nacitajProfil(user);
+      if (!user.isAnonymous) { nacitajProfil(user); if (window.hkPushToken) window.hkPushToken(); }
       else ucetOdhlaseny();
     } else {
       ucetOdhlaseny();
@@ -322,6 +322,26 @@
 
   const PROFIL_ZAKLAD = { meno: '', newsletter: false, temy: [], frekvencia: 'tyzden', letiska: [], kraj: '', ulozene: [],
     strazcovia: [], letenkyMax: 0, historiaDealy: [], historiaHladania: [] };
+
+  // Android appka (WebView) vystavuje objekt HenKukajApp. Po prihlásení
+  // zapíšeme token zariadenia k profilu, aby sa dalo poslať push zo Stráže
+  // ceny a letenky. Appka túto funkciu volá aj pri zmene nastavení.
+  window.hkPushToken = async function () {
+    try {
+      const u = auth.currentUser;
+      if (!u || u.isAnonymous || !window.HenKukajApp) return;
+      const token = window.HenKukajApp.getToken();
+      if (!token) return;
+      const stav = !!window.HenKukajApp.pushStraz();
+      const ref = doc(db, 'users', u.uid);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return;
+      const cur = snap.data().fcmTokens || [];
+      if (cur.includes(token) && snap.data().pushStraz === stav) return;
+      await updateDoc(ref, { fcmTokens: [token, ...cur.filter(t => t !== token)].slice(0, 10),
+                             pushStraz: stav, upravene: serverTimestamp() });
+    } catch (e) { /* push je len bonus - stránka funguje aj bez neho */ }
+  };
 
   async function nacitajProfil(user) {
     const ref = doc(db, "users", user.uid);

@@ -16,7 +16,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ImageButton
 import android.widget.TextView
+import androidx.biometric.BiometricPrompt
+import android.webkit.JavascriptInterface
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -31,6 +34,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var uvod: FrameLayout
     private var stranka = false
     private var animaciaHotova = false
+    private lateinit var zamok: FrameLayout
+    private var odomknute = false
+    private var casOdchodu = 0L
 
     private val povolenie = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -43,10 +49,16 @@ class MainActivity : AppCompatActivity() {
         web = findViewById(R.id.web)
         obnov = findViewById(R.id.obnov)
         uvod = findViewById(R.id.uvod)
+        zamok = findViewById(R.id.zamok)
+        findViewById<ImageButton>(R.id.nastavenia).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        findViewById<android.view.View>(R.id.odomkni).setOnClickListener { pytajOdtlacok() }
 
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
-        web.settings.userAgentString = web.settings.userAgentString + " HenKukajApp/1.0"
+        web.settings.userAgentString = web.settings.userAgentString + " HenKukajApp/1.3"
+        web.addJavascriptInterface(Most(), "HenKukajApp")
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                 val host = r.url.host ?: return false
@@ -57,6 +69,7 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onPageFinished(v: WebView, url: String?) {
                 obnov.isRefreshing = false
+                synchronizujPush()
                 stranka = true
                 skryUvod()
             }
@@ -120,6 +133,10 @@ class MainActivity : AppCompatActivity() {
     private fun zapniNotifikacie() {
         PushService.vytvorKanal(this)
         FirebaseMessaging.getInstance().subscribeToTopic("dealy")
+        FirebaseMessaging.getInstance().token.addOnSuccessListener {
+            Prefs.setToken(this, it)
+            synchronizujPush()
+        }
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             povolenie.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -129,5 +146,56 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (web.canGoBack()) web.goBack() else super.onBackPressed()
+    }
+
+    // Stránka (po prihlásení) si vypýta token a zapíše ho k profilu, aby sme
+    // vedeli poslať push zo Stráže ceny a letenky.
+    inner class Most {
+        @JavascriptInterface fun getToken(): String = Prefs.token(this@MainActivity)
+        @JavascriptInterface fun pushStraz(): Boolean = Prefs.pushStraz(this@MainActivity)
+    }
+
+    private fun synchronizujPush() {
+        web.post { web.evaluateJavascript("window.hkPushToken && window.hkPushToken()", null) }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        casOdchodu = System.currentTimeMillis()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        synchronizujPush()
+        if (!Prefs.zamok(this)) {
+            odomknute = true
+            zamok.visibility = View.GONE
+            return
+        }
+        if (odomknute && System.currentTimeMillis() - casOdchodu > 30_000) odomknute = false
+        if (!odomknute) {
+            zamok.visibility = View.VISIBLE
+            pytajOdtlacok()
+        } else {
+            zamok.visibility = View.GONE
+        }
+    }
+
+    private fun pytajOdtlacok() {
+        val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) {
+                    odomknute = true
+                    zamok.visibility = View.GONE
+                }
+            })
+        prompt.authenticate(
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle("HenKukaj.sk")
+                .setSubtitle("Odomkni appku odtlačkom")
+                .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                .setNegativeButtonText("Zrušiť")
+                .build()
+        )
     }
 }

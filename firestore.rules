@@ -238,7 +238,9 @@ service cloud.firestore {
                                'kraj', 'ulozene', 'overeny', 'suhlasPodmienky', 'suhlasNewsletter',
                                'vytvorene', 'upravene',
                                // výhody pre registrovaných: strážca dealov, letenky, história
-                               'strazcovia', 'letenkyMax', 'historiaDealy', 'historiaHladania'])
+                               'strazcovia', 'letenkyMax', 'historiaDealy', 'historiaHladania',
+                               // push do Android appky
+                               'fcmTokens', 'pushStraz'])
         && d.email == request.auth.token.email
         && d.newsletter is bool
         && (!('meno' in d) || (d.meno is string && d.meno.size() <= 40))
@@ -251,6 +253,8 @@ service cloud.firestore {
         && (!('strazcovia' in d) || (d.strazcovia is list && d.strazcovia.size() <= 10))
         && (!('letenkyMax' in d) || (d.letenkyMax is number && d.letenkyMax >= 0 && d.letenkyMax <= 200))
         && (!('historiaDealy' in d) || (d.historiaDealy is list && d.historiaDealy.size() <= 40))
+        && (!('fcmTokens' in d) || (d.fcmTokens is list && d.fcmTokens.size() <= 10))
+        && (!('pushStraz' in d) || d.pushStraz is bool)
         && (!('historiaHladania' in d) || (d.historiaHladania is list && d.historiaHladania.size() <= 20));
     }
     match /users/{uid} {

@@ -14,6 +14,17 @@
             android:layout_height="match_parent" />
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
+    <ImageButton
+        android:id="@+id/nastavenia"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="14dp"
+        android:alpha="0.85"
+        android:background="@drawable/gear_bg"
+        android:contentDescription="Nastavenia"
+        android:src="@android:drawable/ic_menu_preferences" />
+
     <FrameLayout
         android:id="@+id/uvod"
         android:layout_width="match_parent"
@@ -37,5 +48,35 @@
             android:alpha="0"
             android:textColor="#B3FFFFFF"
             android:textSize="13sp" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/zamok"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/tmava"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Appka je zamknutá"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp" />
+            <Button
+                android:id="@+id/odomkni"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Odomknúť odtlačkom"
+                android:textSize="13sp" />
+        </LinearLayout>
     </FrameLayout>
 </FrameLayout>

@@ -1186,4 +1186,5 @@ def test_push_vyber_preskoci_oznamene_stare_a_expirovane():
     out = push_dealy.vyber_na_odoslanie(dealy, {"b"}, teraz)
     assert [i for i, _ in out] == ["a", "e", "f"]
     m = push_dealy.sprava("a", {"title": "X", "dealPrice": 5, "store": "Lidl", "discountPercent": 30})
-    assert m["message"]["topic"] == "dealy" and "5,00" in m["message"]["notification"]["body"]
+    assert m["message"]["topic"] == "dealy" and "5,00" in m["message"]["data"]["body"]
+    assert m["message"]["data"]["zlava"] == "30" and "notification" not in m["message"]
