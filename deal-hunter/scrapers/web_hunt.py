@@ -12,8 +12,12 @@ AKO TO FUNGUJE
 3. Overené návrhy idú ďalej rovnako ako ostatné zdroje: výber, deduplikácia a
    schválenie v adminovi/Telegrame. Nič sa nezverejní samo.
 
-Potrebuje ANTHROPIC_API_KEY (GitHub secret). Bez kľúča sa zdroj preskočí.
-Beh sa platí, preto ide najviac raz za WEB_HUNT_INTERVAL_HOURS.
+REŽIMY (zapnú sa tým, aký kľúč je nastavený; oba sa dajú spojiť)
+- BRAVE_API_KEY (BEZPLATNÉ): bežné vyhľadávanie Brave Search API (free plán,
+  ~2000 dopytov mesačne). Výsledky stránku po stránke overí agent sám cez
+  štruktúrované dáta (JSON-LD Product/Offer) a prečiarknutú cenu.
+- ANTHROPIC_API_KEY (PLATENÉ): Claude s vyhľadávaním, rozumnejšie výsledky.
+Bez kľúča sa zdroj preskočí. Beh ide najviac raz za WEB_HUNT_INTERVAL_HOURS.
 """
 
 from __future__ import annotations
@@ -196,24 +200,170 @@ def over_navrh(n: dict, html: str) -> DealCandidate | None:
     return DealCandidate(deal_price=cena, original_price=povodna, **spolocne)
 
 
+# ── bezplatný režim: extrakcia ponuky priamo zo stránky ───────────────
+
+def _jsonld_produkty(html: str) -> list[dict]:
+    from bs4 import BeautifulSoup
+    out: list[dict] = []
+
+    def chod(x):
+        if isinstance(x, list):
+            for i in x:
+                chod(i)
+        elif isinstance(x, dict):
+            t = x.get("@type")
+            ts = t if isinstance(t, list) else [t]
+            if "Product" in ts:
+                out.append(x)
+            for v in x.values():
+                if isinstance(v, (list, dict)):
+                    chod(v)
+
+    for sc in BeautifulSoup(html, "html.parser").find_all("script", type="application/ld+json"):
+        try:
+            chod(json.loads(sc.string or sc.get_text() or ""))
+        except (json.JSONDecodeError, TypeError):
+            continue
+    return out
+
+
+def extrahuj_ponuku(html: str) -> dict | None:
+    """Z produktovej stránky vytiahne názov, cenu a pôvodnú (prečiarknutú) cenu.
+    Vracia None, ak stránka nie je produkt s cenou v eurách a skladom."""
+    from bs4 import BeautifulSoup
+    for prod in _jsonld_produkty(html):
+        ponuky = prod.get("offers")
+        ponuky = ponuky if isinstance(ponuky, list) else [ponuky]
+        for o in [x for x in ponuky if isinstance(x, dict)]:
+            mena = str(o.get("priceCurrency") or "EUR").upper()
+            cena = parse_price(str(o.get("price") if o.get("price") is not None else o.get("lowPrice")))
+            if mena != "EUR" or cena is None:
+                continue
+            dost = str(o.get("availability") or "")
+            if dost and "InStock" not in dost and "LimitedAvailability" not in dost and "PreOrder" not in dost:
+                continue
+            povodna = None
+            specs = o.get("priceSpecification")
+            for sp in (specs if isinstance(specs, list) else [specs]):
+                if isinstance(sp, dict) and re.search(r"list|strike|msrp", str(sp.get("priceType") or ""), re.I):
+                    povodna = parse_price(str(sp.get("price")))
+            if povodna is None:
+                soup = BeautifulSoup(html, "html.parser")
+                kandidati = soup.find_all(["del", "s", "strike"]) + soup.find_all(
+                    class_=re.compile(r"old[-_]?price|price[-_]?old|was[-_]?price|original[-_]?price|"
+                                      r"price[-_]?before|crossed|strike", re.I))
+                for el in kandidati:
+                    v = parse_price(el.get_text(" ", strip=True)[:40])
+                    if v and v > cena and (povodna is None or v > povodna):
+                        povodna = v
+            return {"nazov": str(prod.get("name") or "").strip(), "cena": cena, "povodna": povodna,
+                    "platnost": str(o.get("priceValidUntil") or "")[:10] or None}
+    return None
+
+
+def over_stranku(url: str, html: str, typ: str, skupina: str) -> DealCandidate | None:
+    """Overí stránku z vyhľadávania BEZ pomoci AI - len podľa toho, čo je na nej."""
+    if typ == "freebie":
+        c = over_navrh({"typ": "freebie", "url": url, "skupina": skupina}, html)
+        if not c:
+            return None
+        # Zadarmo musí potvrdiť aj štruktúra, nielen náhodné slovo v texte.
+        e = extrahuj_ponuku(html)
+        if e and e["cena"] > 0:
+            return None
+        if not e and not re.search(
+                r"vzork\w* zadarmo|zadarmo na vyskúšanie|produkt zadarmo|zdarma k objednávke|gratis",
+                text_stranky(html)):
+            return None
+        return c
+    e = extrahuj_ponuku(html)
+    if not e or not e["povodna"] or e["povodna"] <= e["cena"]:
+        return None
+    n = {"typ": "deal", "url": url, "skupina": skupina, "cena": e["cena"], "povodna_cena": e["povodna"],
+         "platnost_do": e["platnost"]}
+    return over_navrh(n, html)
+
+
+SABLONY_DEALOV = ("{s} zľava výpredaj akcia", "{s} zľava až 50 % akciová ponuka", "{s} zľavnený tovar eshop SK")
+SABLONY_FREEBIES = ("vzorka zadarmo {s}", "{s} produkt zadarmo vyskúšať bez nákupu")
+
+
+def brave_hladaj(dotaz: str, kluc: str, freshness: str = "pm") -> list[str]:
+    import requests
+    try:
+        r = requests.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            params={"q": dotaz, "country": "SK", "search_lang": "sk", "count": 10, "freshness": freshness},
+            headers={"X-Subscription-Token": kluc, "Accept": "application/json"}, timeout=20)
+        if r.status_code != 200:
+            logger.warning("web-hunt: Brave HTTP %s", r.status_code)
+            return []
+        return [x["url"] for x in (r.json().get("web") or {}).get("results", []) if x.get("url")]
+    except Exception as e:
+        logger.warning("web-hunt: Brave zlyhal (%s)", e)
+        return []
+
+
 class WebHuntScraper(BaseScraper):
     source_name = "web-hunt"
 
     def fetch_candidates(self) -> list[DealCandidate]:
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            logger.info("web-hunt: chýba ANTHROPIC_API_KEY, preskakujem.")
+        brave = os.environ.get("BRAVE_API_KEY")
+        claude = os.environ.get("ANTHROPIC_API_KEY")
+        if not (brave or claude):
+            logger.info("web-hunt: chýba BRAVE_API_KEY aj ANTHROPIC_API_KEY, preskakujem.")
             return []
         db = self._db()
         if db is not None and not self._je_cas(db):
             logger.info("web-hunt: bežal pred menej než %d h, preskakujem.", config.WEB_HUNT_INTERVAL_HOURS)
             return []
 
+        out: list[DealCandidate] = []
+        if brave:
+            out += self._brave(brave)
+        if claude:
+            out += self._claude()
+        if db is not None:
+            self._zapis_beh(db)
+        return out
+
+    def _stiahni(self, url: str) -> str | None:
+        try:
+            return http_client.get(url, check_robots=True)
+        except Exception as e:
+            logger.warning("web-hunt: stiahnutie zlyhalo (%s)", e)
+            return None
+
+    def _brave(self, kluc: str) -> list[DealCandidate]:
+        import random
+        skupiny = list(config.WEB_HUNT_SKUPINY)
+        random.shuffle(skupiny)      # každý deň iná sada, nech sa oblasti obmieňajú
+        dotazy: list[tuple[str, str, str]] = []
+        for i, sk in enumerate(skupiny):
+            dotazy.append((SABLONY_DEALOV[i % len(SABLONY_DEALOV)].format(s=sk), "deal", sk))
+        for sk in skupiny[:max(2, config.WEB_HUNT_DOTAZOV_NA_BEH // 5)]:
+            dotazy.append((random.choice(SABLONY_FREEBIES).format(s=sk), "freebie", sk))
+        out: list[DealCandidate] = []
+        videne: set[str] = set()
+        for dotaz, typ, sk in dotazy[: config.WEB_HUNT_DOTAZOV_NA_BEH]:
+            for url in brave_hladaj(dotaz, kluc, "pm" if typ == "deal" else "py"):
+                if url in videne or len(videne) >= config.WEB_HUNT_MAX_NAVRHOV * 4:
+                    continue
+                videne.add(url)
+                html = self._stiahni(url)
+                c = over_stranku(url, html, typ, sk) if html else None
+                if c:
+                    out.append(c)
+        logger.info("web-hunt (Brave): overených %d z %d stránok", len(out), len(videne))
+        return out
+
+    def _claude(self) -> list[DealCandidate]:
         navrhy = self._hladaj()
         logger.info("web-hunt: Claude navrhol %d ponúk", len(navrhy))
         out: list[DealCandidate] = []
         for n in navrhy[: config.WEB_HUNT_MAX_NAVRHOV]:
+            html = self._stiahni(str(n.get("url") or ""))
             try:
-                html = http_client.get(str(n.get("url") or ""), check_robots=True)
                 c = over_navrh(n, html) if html else None
             except Exception as e:
                 logger.warning("web-hunt: overenie zlyhalo (%s)", e)
@@ -222,9 +372,7 @@ class WebHuntScraper(BaseScraper):
                 out.append(c)
             else:
                 logger.info("web-hunt: nepotvrdené, zahadzujem: %s", str(n.get("url"))[:70])
-        logger.info("web-hunt: overených %d z %d", len(out), len(navrhy))
-        if db is not None:
-            self._zapis_beh(db)
+        logger.info("web-hunt (Claude): overených %d z %d", len(out), len(navrhy))
         return out
 
     # ── siete a stav ─────────────────────────────────────────────────

@@ -170,6 +170,8 @@ WEB_HUNT_MODEL = os.environ.get("WEB_HUNT_MODEL", "claude-opus-5-5")
 WEB_HUNT_INTERVAL_HOURS = _env_int("WEB_HUNT_INTERVAL_HOURS", 20)
 WEB_HUNT_MAX_VYHLADAVANI = _env_int("WEB_HUNT_MAX_VYHLADAVANI", 12)
 WEB_HUNT_MAX_NAVRHOV = _env_int("WEB_HUNT_MAX_NAVRHOV", 20)
+# Bezplatný režim (Brave): koľko vyhľadávaní za beh. Free plán dáva ~2000 mesačne.
+WEB_HUNT_DOTAZOV_NA_BEH = _env_int("WEB_HUNT_DOTAZOV_NA_BEH", 16)
 WEB_HUNT_SKUPINY = _env_list("WEB_HUNT_SKUPINY") or [
     "technológie a gaming", "domácnosť a záhrada", "deti a rodina", "kozmetika a starostlivosť",
     "šport a outdoor", "cestovanie", "móda", "knihy a vzdelávanie", "jedlo a nápoje",
