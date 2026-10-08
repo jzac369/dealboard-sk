@@ -5,6 +5,7 @@ deduplikácia s ním pracujú univerzálne.
 
 from scrapers.feeds import FeedsScraper
 from scrapers.shop_feeds import ShopFeedsScraper
+from scrapers.sitemap_hunt import SitemapHuntScraper
 from scrapers.web_hunt import WebHuntScraper
 from scrapers.zlacnene import ZlacneneScraper
 
@@ -14,4 +15,5 @@ AVAILABLE_SCRAPERS = {
     "feeds": FeedsScraper,
     "shop_feeds": ShopFeedsScraper,
     "web_hunt": WebHuntScraper,
+    "sitemap": SitemapHuntScraper,
 }

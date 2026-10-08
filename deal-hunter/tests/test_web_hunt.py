@@ -95,3 +95,20 @@ def test_bez_ai_freebie_nesmie_mat_cenu():
     assert over_stranku("https://kozmetika.sk/vzorka", zdarma, "freebie", "kozmetika a starostlivosť").zadarmo
     platena = STRANKA_JSONLD + " zadarmo"
     assert over_stranku("https://nabytok.sk/kreslo", platena, "freebie", "móda") is None
+
+
+def test_sitemap_parsuje_stranky_aj_index_a_vybera_vzorku():
+    import gzip
+    import random
+    from scrapers.sitemap_hunt import parsuj_sitemapu, vyber_vzorku
+
+    xml = ('<?xml version="1.0"?><urlset><url><loc>https://s.sk/p/1</loc></url>'
+           '<url><loc>https://s.sk/p/2?a=1&amp;b=2</loc></url></urlset>').encode()
+    stranky, dalsie = parsuj_sitemapu(xml)
+    assert stranky == ["https://s.sk/p/1", "https://s.sk/p/2?a=1&b=2"] and dalsie == []
+    assert parsuj_sitemapu(gzip.compress(xml))[0] == stranky
+    idx = b'<sitemapindex><sitemap><loc>https://s.sk/sm1.xml</loc></sitemap></sitemapindex>'
+    assert parsuj_sitemapu(idx) == ([], ["https://s.sk/sm1.xml"])
+    v = vyber_vzorku([f"u{i}" for i in range(100)], 10, random.Random(1))
+    assert len(v) == len(set(v)) == 10
+    assert len(vyber_vzorku(["a", "b"], 10)) == 2

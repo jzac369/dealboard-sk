@@ -131,7 +131,7 @@ const PREDVOLENE_AGENT = {
   maxNaKategoriu: 3, podielObmedzenych: 0.2, feedMinPokles: 20, obmedzeneKategorie: ['Jedlo & Nápoje'], blokovaneKategorie: [],
   vylucenaSlova: ['vzorka', 'vzorky', 'sample'],
 };
-const NAZVY_ZDROJOV = { zlacnene: 'zlacnene.sk – letáky a akcie', feeds: 'Produktové feedy (Dognet)', shop_feeds: 'Feedy e-shopov', web_hunt: 'Hľadanie na webe (Claude) - dealy a freebies' };
+const NAZVY_ZDROJOV = { zlacnene: 'zlacnene.sk – letáky a akcie', feeds: 'Produktové feedy (Dognet)', shop_feeds: 'Feedy e-shopov', web_hunt: 'Hľadanie na webe (Brave/Claude) - dealy a freebies', sitemap: 'Prehľadávanie obchodov cez sitemap (zadarmo)' };
 const CISLA = [
   ['minZlava', 'Minimálna zľava', '%', 0, 95, 'Pod touto zľavou agent položku ani nezváži.'],
   ['maxZlava', 'Maximálna zľava', '%', 5, 100, 'Nad ňou to býva chyba v dátach, nie deal.'],

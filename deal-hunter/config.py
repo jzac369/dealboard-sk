@@ -178,6 +178,21 @@ WEB_HUNT_SKUPINY = _env_list("WEB_HUNT_SKUPINY") or [
     "auto-moto", "domáce zvieratá", "softvér a predplatné",
 ]
 
+# ── Vlastné prehľadávanie obchodov cez sitemap.xml (scrapers/sitemap_hunt.py) ──
+# Zdroj "sitemap". Obchody sú vybrané tak, že majú sitemapu aj produktové
+# stránky so štruktúrovanými dátami (overené 8. 10. 2026). Doplnenie
+# ďalšieho = nový záznam so sitemapami produktov.
+SITEMAP_STRANA_NA_OBCHOD = _env_int("SITEMAP_STRANA_NA_OBCHOD", 40)
+SITEMAP_OBCHODY = [
+    {"domena": "houseland.sk", "sitemapy": ["https://www.houseland.sk/sitemap-products1.xml",
+                                            "https://www.houseland.sk/sitemap-products2.xml"]},
+    {"domena": "bonprix.sk", "sitemapy": ["https://www.bonprix.sk/sitemaps/woman_products.xml.gz"]},
+    {"domena": "notino.sk", "sitemapy": ["https://www.notino.sk/export/sitemap/sitemap_detail_reviews_sk_1.xml"]},
+    {"domena": "pilulka.sk", "sitemapy": ["https://www.pilulka.sk/sitemaps/products-0.xml"]},
+    {"domena": "nay.sk", "sitemapy": ["https://www.nay.sk/sitemap/sitemap-products-1.xml"]},
+    {"domena": "mountfield.sk", "sitemapy": ["https://www.mountfield.sk/content/sitemaps/domain_2_sitemap.2.xml"]},
+]
+
 REQUEST_TIMEOUT_SECONDS = _env_int("REQUEST_TIMEOUT_SECONDS", 25)
 # Pauza medzi requestmi na ten istý web. zlacnene.sk v robots.txt
 # žiada Crawl-delay: 1 — držíme sa toho s rezervou.
