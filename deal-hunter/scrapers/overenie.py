@@ -195,7 +195,10 @@ def extrahuj_ponuku(html: str) -> dict | None:
                                       r"price[-_]?before|crossed|strike", re.I))
                 for el in kandidati:
                     v = parse_price(el.get_text(" ", strip=True)[:40])
-                    if v and v > cena and (povodna is None or v > povodna):
+                    # Prečiarknutá cena na stránke môže patriť inému produktu
+                    # (podobné, kusová cena, iná mena). Viac ako 4-násobok
+                    # ceny je takmer vždy chyba, nie zľava 75 %+.
+                    if v and v > cena and v <= cena * 4 and (povodna is None or v > povodna):
                         povodna = v
             return {"nazov": str(prod.get("name") or "").strip(), "cena": cena, "povodna": povodna,
                     "platnost": str(o.get("priceValidUntil") or "")[:10] or None}
