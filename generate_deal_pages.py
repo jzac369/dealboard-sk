@@ -271,6 +271,7 @@ def render_deal_page(deal_id: str, d: dict, suvisiace: list | None = None) -> st
   .btn {{ display:inline-block; background:#C44C0A; color:#fff; text-decoration:none; font-weight:700;
     padding:12px 22px; border-radius:22px; margin-top:16px; margin-right:10px; }}
   .btn.secondary {{ background:#2E8B3D; }}
+  .btn.more {{ background:#fff; color:#2E8B3D; border:2px solid #2E8B3D; }}
   a.home {{ color:#707070; font-size:.85rem; }}
   .rel-wrap {{ max-width:640px; margin:14px auto 0; }}
   .rel-h {{ font-size:1rem; margin:0 0 10px; color:#1A1A1A; }}
@@ -293,6 +294,7 @@ def render_deal_page(deal_id: str, d: dict, suvisiace: list | None = None) -> st
       <p>{escape(description)}</p>
       <a class="btn" href="{escape(target_url)}" target="_blank" rel="nofollow sponsored noopener">Zobraziť ponuku v e-shope →</a>
       <a class="btn secondary" href="{spa_url}">Hlasovať / komentovať na HenKukaj.sk</a>
+      <a class="btn more" href="{SITE_URL}/?utm_source=dealstranka&utm_medium=tlacidlo&utm_campaign=viac_dealov">Pozrieť viac dealov na HenKukaj.sk</a>
       <p style="margin-top:24px;"><a class="home" href="{SITE_URL}/">← Späť na HenKukaj.sk</a></p>
     </div>
   </div>
