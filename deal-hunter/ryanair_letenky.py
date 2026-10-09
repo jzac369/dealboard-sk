@@ -45,7 +45,7 @@ API = "https://services-api.ryanair.com/farfnd/v4"
 LETISKO = os.environ.get("RYANAIR_ORIGIN", "BTS")
 
 MAX_SPIATOCNE = float(os.environ.get("RYANAIR_MAX_RETURN", 50))
-KOLKO_PONUK = int(os.environ.get("RYANAIR_DAILY_PICKS", 3))
+KOLKO_PONUK = int(os.environ.get("RYANAIR_DAILY_PICKS", 1))
 
 # Ako ďaleko dopredu sa pozeráme.
 DNI_DOPREDU = int(os.environ.get("RYANAIR_HORIZON_DAYS", 120))
@@ -400,9 +400,22 @@ def main() -> int:
         logger.info("Nič nové oproti minulým dňom - nič neposielam.")
         return 0
 
-    # Tri najlacnejšie. Bežnú cenu dopĺňame až tu, aby sme nerobili
+    # Letenky nesmú zaplaviť stránku: ak už dnes nejaká letenka navrhnutá je,
+    # dnes ďalšiu nepridávame (dealy majú byť z rôznych obchodov).
+    if firestore_client.obchody_dnes(db).get(OBCHOD, 0) >= KOLKO_PONUK:
+        logger.info("Letenka už dnes navrhnutá - ďalšiu nepridávam.")
+        return 0
+
+    # Najlacnejšie (z každej destinácie len jedna). Bežnú cenu dopĺňame až tu, aby sme nerobili
     # desiatky volaní navyše pre lety, ktoré aj tak neposielame.
-    vybrane = sorted(nove, key=lambda x: x["cena"])[:KOLKO_PONUK]
+    vybrane, kam_videne = [], set()
+    for x in sorted(nove, key=lambda x: x["cena"]):
+        if x["kam"] in kam_videne:
+            continue
+        kam_videne.add(x["kam"])
+        vybrane.append(x)
+        if len(vybrane) >= KOLKO_PONUK:
+            break
     vybrane = [dopln_beznu_cenu(x) for x in vybrane]
 
     dealy = [na_deal(x) for x in vybrane]

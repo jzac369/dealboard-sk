@@ -52,7 +52,7 @@ _OBCHODY = {
     "iprobio.sk": "iProbio", "lieky24.sk": "Lieky24",
     "benulekaren.sk": "BENU lekáreň", "pantarhei.sk": "Panta Rhei",
     "inlibri.online": "inLibri", "knihyprekazdeho.sk": "Knihy pre každého",
-    "preskoly.sk": "PreŠkoly", "chutnekytice.sk": "Chutné kytice",
+    "chutnekytice.sk": "Chutné kytice",
     "faxcopy.sk": "Faxcopy", "colorland.com": "Colorland",
 }
 

@@ -132,7 +132,7 @@ U.stranka('facebook', {
     const plan = fb.posty.filter(p => p.stav === 'naplanovany').sort((a, b) => U.naDatum(a.sendAt) - U.naDatum(b.sendAt));
     el.querySelector('#fb-plan').innerHTML = plan.length ? plan.map(p => `<div class="fb-riadok">
         <div class="fb-kedy"><b>${esc(U.casDlhy(p.sendAt))}</b><small>${za(p.sendAt)}</small></div>
-        <div class="fb-obs"><b>${esc(p.title || '')}</b><small>${esc((p.text || '').split('\n').slice(1, 3).join(' · '))}</small></div>
+        <div class="fb-obs"><b>${esc(p.title || '')}</b><small>${esc((p.text || '').split('\n').slice(1, 3).join(' · '))}</small>${p.chyba ? `<small class="chyba-t">⚠ ${esc(p.chyba)}</small>` : ''}</div>
         <div class="tl-rad"><button class="btn" data-fba="uprav" data-id="${esc(p.id)}">Upraviť</button>
           <button class="btn btn-reject" data-fba="zrus" data-id="${esc(p.id)}">Zrušiť</button></div></div>`).join('')
       : '<p class="vis-empty">Nič nie je naplánované.</p>';

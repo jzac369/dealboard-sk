@@ -320,7 +320,15 @@ def posli_naplanovane(db) -> int:
         return 0
     token = token_stranky()
     if not token:
-        return 0
+        # Príspevky ostávajú naplánované (po obnove tokenu odídu), ale
+        # admin musí vidieť prečo nechodia - nie len "odosiela sa…".
+        for d in na_rade:
+            try:
+                d.reference.update({"chyba": "Facebook odmietol prístupový token (pravdepodobne vypršal) - "
+                                             "treba obnoviť FB_PAGE_TOKEN v GitHub secrets."})
+            except Exception as e:
+                logger.warning("Chybu tokenu sa nepodarilo zapísať: %s", e)
+        raise SystemExit(1)
     poslane = 0
     for d in na_rade:
         p = d.to_dict() or {}
@@ -343,7 +351,7 @@ def posli_naplanovane(db) -> int:
             logger.error("Facebook odmietol naplánovaný príspevok: %s", chyba)
             d.reference.update({"stav": "chyba", "chyba": chyba})
             continue
-        d.reference.update({"stav": "odoslany", "postId": post_id, "odoslane": firestore.SERVER_TIMESTAMP,
+        d.reference.update({"stav": "odoslany", "chyba": None, "postId": post_id, "odoslane": firestore.SERVER_TIMESTAMP,
                             "link": odkaz})
         if p.get("dealId"):
             try:
