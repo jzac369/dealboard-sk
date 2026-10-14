@@ -70,8 +70,14 @@ service cloud.firestore {
       // Verejnosť vidí len schválené dealy. Admin vidí všetko.
       allow read: if resource.data.status == 'approved' || isModerator();
 
-      // Admin môže vytvoriť čokoľvek (obnova zo zálohy, pridanie z odkazu).
-      allow create: if isAdmin();
+      // Admin môže vytvoriť deal (pridanie z odkazu), ale len s autorom a
+      // názvom. Ukážkové dáta z prototypu (bez autora) sa takto nedajú zapísať
+      // ani z prehliadača prihláseného ako admin - presne to sa raz stalo.
+      allow create: if isAdmin()
+                    && request.resource.data.author is string
+                    && request.resource.data.author.size() > 0
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() > 0;
       // Nový deal od návštevníka. Zverejniť ho rovno ("approved") smie len
       // dôveryhodný prispievateľ - koho tam plánovač zapíše, určujú
       // pravidlá v admine. Inak deal čaká na schválenie.
