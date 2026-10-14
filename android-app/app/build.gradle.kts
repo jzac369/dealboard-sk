@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+}
+
+// Podpisovanie vydania: údaje o kľúči sú v súbore keystore.properties
+// (mimo repozitára, je v .gitignore). Bez neho sa vydanie nepodpíše.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -14,10 +23,20 @@ android {
         versionCode = 3
         versionName = "1.3"
     }
+    signingConfigs {
+        if (keystoreProps.containsKey("storeFile")) {
+            create("vydanie") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Podpisovanie: vlastný keystore sa pridá pri zverejnení v Google Play.
+            signingConfigs.findByName("vydanie")?.let { signingConfig = it }
         }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
