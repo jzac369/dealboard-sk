@@ -95,7 +95,16 @@ class SettingsActivity : AppCompatActivity() {
 
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.WHITE)
+            clipToPadding = false
             addView(col)
+            // Od Androidu 15 kreslí obsah aj pod navigačnú lištu - odsadíme ho zospodu a zboku
+            // (horný okraj rieši panel nástrojov).
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
+                val b = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+                    androidx.core.view.WindowInsetsCompat.Type.displayCutout())
+                v.setPadding(b.left, 0, b.right, b.bottom)
+                insets
+            }
         })
     }
 

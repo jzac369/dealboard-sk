@@ -45,6 +45,14 @@ class MainActivity : AppCompatActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        // Od Androidu 15 (cieľová verzia 35+) sa obsah kreslí aj pod stavový riadok
+        // a navigačné tlačidlá - odsadíme ho, aby ich neprekrýval.
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { v, insets ->
+            val b = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+                androidx.core.view.WindowInsetsCompat.Type.displayCutout())
+            v.setPadding(b.left, b.top, b.right, b.bottom)
+            androidx.core.view.WindowInsetsCompat.CONSUMED
+        }
 
         web = findViewById(R.id.web)
         obnov = findViewById(R.id.obnov)
@@ -57,7 +65,7 @@ class MainActivity : AppCompatActivity() {
 
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
-        web.settings.userAgentString = web.settings.userAgentString + " HenKukajApp/1.3"
+        web.settings.userAgentString = web.settings.userAgentString + " HenKukajApp/1.4"
         web.addJavascriptInterface(Most(), "HenKukajApp")
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
