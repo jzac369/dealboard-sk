@@ -679,88 +679,7 @@
   }
 
   // ── Ukážkové dealy pre demo (vložia sa len raz pri prvom spustení) ──
-  const DEMO_DEALS = [
-    {
-      title: "Apple AirPods Pro 2 – bezdrôtové slúchadlá",
-      store: "Alza.sk",
-      category: "Elektronika",
-      originalPrice: 299,
-      dealPrice: 199,
-      currency: "€",
-      url: "https://alza.sk",
-      imageUrl: "https://images.unsplash.com/photo-1606741965429-02919b0ebf22?w=400&q=80",
-      description: "Bezdrôtové slúchadlá s aktívnym potláčaním hluku. Historické minimum na Alza.sk!",
-      votes: 47,
-      comments: 0,
-      discountPercent: 33,
-      status: "approved",
-      timestamp: serverTimestamp()
-    },
-    {
-      title: "Samsung Galaxy S24 128GB – smartfón",
-      store: "Mall.cz",
-      category: "Elektronika",
-      originalPrice: 899,
-      dealPrice: 649,
-      currency: "€",
-      url: "https://mall.cz",
-      imageUrl: "https://images.unsplash.com/photo-1610945264803-c22b62d2a7b3?w=400&q=80",
-      description: "Vlajkový smartfón Samsungu za skvelú cenu. Zľava 28% oproti bežnej cene.",
-      votes: 83,
-      comments: 0,
-      discountPercent: 28,
-      status: "approved",
-      timestamp: serverTimestamp()
-    },
-    {
-      title: "LEGO Creator 3-v-1 Divoké zvieratá",
-      store: "Heureka.sk",
-      category: "Hračky",
-      originalPrice: 79,
-      dealPrice: 49,
-      currency: "€",
-      url: "https://heureka.sk",
-      imageUrl: "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&q=80",
-      description: "Obľúbená LEGO sada pre deti. Skvelý darček za výbornú cenu.",
-      votes: 31,
-      comments: 0,
-      discountPercent: 38,
-      status: "approved",
-      timestamp: serverTimestamp()
-    },
-    {
-      title: "Nike Air Max 90 – tenisky veľ. 40–46",
-      store: "Footshop.sk",
-      category: "Móda",
-      originalPrice: 149,
-      dealPrice: 89,
-      currency: "€",
-      url: "https://footshop.sk",
-      imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
-      description: "Klasické tenisky Nike s 40% zľavou. Výpredaj sezónnych modelov.",
-      votes: 56,
-      comments: 0,
-      discountPercent: 40,
-      status: "approved",
-      timestamp: serverTimestamp()
-    },
-    {
-      title: "Philips Airfryer XXL – horúcovzdušná fritéza",
-      store: "Datart.sk",
-      category: "Dom & Záhrada",
-      originalPrice: 249,
-      dealPrice: 159,
-      currency: "€",
-      url: "https://datart.sk",
-      imageUrl: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
-      description: "Fritéza bez oleja pre celú rodinu. 7,3 litra – ideál pre väčšie domácnosti.",
-      votes: 44,
-      comments: 0,
-      discountPercent: 36,
-      status: "approved",
-      timestamp: serverTimestamp()
-    }
-  ];
+
 
   // ── Dealy: stránkované načítavanie (20 na stranu) + infinite scroll ────────
   // Stav je na `window`, pretože ho potrebuje aj druhý (klasický, nie-modulový)
@@ -830,9 +749,6 @@
       qy = window.dealsLastDoc ? query(qy, startAfter(window.dealsLastDoc), limit(DEALS_PAGE_SIZE)) : query(qy, limit(DEALS_PAGE_SIZE));
       const snap = await getDocs(qy);
       const newItems = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-      if (reset && newItems.length === 0 && window.activeCat === 'Všetky' && window.activeSort === 'new') {
-        await insertDemoIfEmpty([]);
-      }
       window.allDeals = window.allDeals.concat(newItems);
       // Bočný panel letákov ukazuje najhorúcejšie dealy z tohto zoznamu.
       // Pri priamom otvorení odkazu #letaky sa vykreslil skôr, než dealy
@@ -936,17 +852,6 @@
   };
 
   let firstSnapshot = true;
-  let demoInserted = false;
-
-  async function insertDemoIfEmpty(deals) {
-    if (demoInserted || deals.length > 0) return;
-    demoInserted = true;
-    for (const d of DEMO_DEALS) {
-      await addDoc(collection(db, "deals"), d);
-    }
-    window.loadDealsPage(true);
-  }
-
   // Prvotné načítanie + globálna kontrola Firebase chyby (zobrazí demo dáta, ak Firebase nie je nastavený)
   (async () => {
     try {
@@ -954,9 +859,10 @@
       await window.loadDealsPage(true);
     } catch (e) {
       console.error("Firebase error:", e);
-      document.getElementById("fb-banner").style.display = 'block';
-      window.allDeals = DEMO_DEALS.map((d, i) => ({ ...d, id: "demo-" + i, timestamp: { seconds: Date.now() / 1000 } }));
-      window.renderDealsList();
+      // Ukážkové (demo) dealy sa už nikdy nezobrazujú ani nezapisujú - pri chybe
+      // radšej ukážeme prázdny stav ako vymyslené ponuky.
+      document.getElementById('deals-list').innerHTML =
+        '<div class="empty">Dealy sa teraz nepodarilo načítať. Skús to prosím o chvíľu.</div>';
     }
     window.refreshHottestSidebar();
     startLiveDealWatch();
