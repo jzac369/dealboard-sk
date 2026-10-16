@@ -227,7 +227,7 @@ def dopln_beznu_cenu(let: dict) -> dict:
 # ── zostavenie dealu ──────────────────────────────────────────────────
 
 def _odkaz(let: dict) -> str:
-    return ("https://www.ryanair.com/sk/sk/trip/flights/select?adults=1"
+    return ("https://www.ryanair.com/cz/cs/trip/flights/select?adults=1"
             f"&dateOut={let['odlet'][:10]}&dateIn={let['navrat'][:10]}&isReturn=true"
             f"&originIata={LETISKO}&destinationIata={let['kam']}")
 

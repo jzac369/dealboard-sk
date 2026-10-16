@@ -5926,7 +5926,7 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     let url;
     if (LETENKY_NAST.odkazy === 'kayak') url = `https://www.kayak.com/flights/${trasa}?sort=price_a`;
     else if (LETENKY_NAST.odkazy === 'momondo') url = `https://www.momondo.com/flight-search/${trasa}?sort=price_a`;
-    else url = 'https://www.ryanair.com/sk/sk/trip/flights/select?adults=1&teens=0&children=0&infants=0'
+    else url = 'https://www.ryanair.com/cz/cs/trip/flights/select?adults=1&teens=0&children=0&infants=0'
       + `&dateOut=${tam}${spat ? '&dateIn=' + spat : ''}&isReturn=${spat ? 'true' : 'false'}`
       + `&originIata=${o.z}&destinationIata=${kam}`;
     const sab = (LETENKY_NAST.affiliate || '').trim();
@@ -6109,7 +6109,7 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     let url;
     if (LETENKY_NAST.odkazy === 'kayak') url = `https://www.kayak.com/flights/${z}-${kam}/${den}?sort=price_a`;
     else if (LETENKY_NAST.odkazy === 'momondo') url = `https://www.momondo.com/flight-search/${z}-${kam}/${den}?sort=price_a`;
-    else url = 'https://www.ryanair.com/sk/sk/trip/flights/select?adults=1&teens=0&children=0&infants=0'
+    else url = 'https://www.ryanair.com/cz/cs/trip/flights/select?adults=1&teens=0&children=0&infants=0'
       + `&dateOut=${den}&isReturn=false&originIata=${z}&destinationIata=${kam}`;
     const sab = (LETENKY_NAST.affiliate || '').trim();
     if (sab.includes('{url}')) url = sab.replace('{url}', encodeURIComponent(url));
