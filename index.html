@@ -2589,52 +2589,90 @@
   .skel-line.w30 { height: 22px; width: 30%; margin-top: 4px; }
   @keyframes skel-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
-  /* Letenky na presný dátum */
+  /* Letenky na presný dátum – dizajn „palubný lístok" */
   .ltd-btn { display: inline-flex; align-items: center; gap: 6px; border: 1.5px dashed var(--orange) !important;
     color: var(--orange-dk) !important; background: #FFF6EF !important; }
   .ltd-btn.on { background: var(--orange) !important; color: #fff !important; border-style: solid !important; }
   .ltd-btn .ic { width: 16px; height: 16px; }
-  .ltd-panel { margin: 12px 0 0; border: 1px solid #f3c9ad; background: linear-gradient(180deg, #FFF8F2, #fff);
-    border-radius: 16px; padding: 16px; }
+  .ltd-panel { margin: 12px 0 0; }
   .ltd-panel[hidden] { display: none; }
-  .ltd-hlava { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .ltd-hlava b { font-size: 1rem; }
-  .ltd-zavriet { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--muted);
-    font: inherit; font-size: .85rem; cursor: pointer; padding: 4px; }
+  .ltd-box { background: linear-gradient(135deg, #14213D 0%, #22345C 100%); border-radius: 22px; padding: 20px; color: #fff;
+    position: relative; overflow: hidden; box-shadow: 0 16px 36px rgba(20, 33, 61, .22); }
+  .ltd-box::after { content: ""; position: absolute; right: -70px; top: -70px; width: 260px; height: 260px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 138, 61, .35), transparent 70%); pointer-events: none; }
+  .ltd-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; position: relative; z-index: 1; flex-wrap: wrap; }
+  .ltd-titul { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.02rem; }
+  .ltd-titul-ik { width: 34px; height: 34px; border-radius: 10px; background: rgba(255, 255, 255, .12); display: grid; place-items: center; flex: none; }
+  .ltd-titul-ik .ic { width: 18px; height: 18px; }
+  .ltd-top-r { display: flex; align-items: center; gap: 8px; }
+  .ltd-seg { display: inline-flex; background: rgba(255, 255, 255, .1); border-radius: 999px; padding: 4px; }
+  .ltd-seg button { border: 0; background: none; color: #cfd6e6; font: inherit; font-size: .82rem; font-weight: 600;
+    padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+  .ltd-seg button.on { background: #fff; color: #14213D; }
+  .ltd-zavriet { width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .1); color: #fff;
+    display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .ltd-zavriet:hover { background: rgba(255, 255, 255, .2); }
   .ltd-zavriet .ic { width: 16px; height: 16px; }
-  .ltd-form { display: grid; grid-template-columns: 1.3fr 1.3fr 1fr auto; gap: 10px; align-items: end; }
-  .ltd-pole { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .ltd-pole > span:first-child { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .ltd-vstup { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 12px;
-    background: #fff; padding: 0 12px; min-height: 44px; }
-  .ltd-vstup:focus-within { border-color: var(--orange); }
-  .ltd-vstup .ic { width: 18px; height: 18px; color: var(--muted); flex: none; }
-  .ltd-vstup input { border: 0; outline: 0; font: inherit; font-size: .95rem; width: 100%; min-width: 0; background: transparent; padding: 10px 0; }
-  .ltd-hladat { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 12px;
-    min-height: 44px; padding: 0 22px; font: inherit; font-weight: 800; color: #fff; cursor: pointer;
-    background: linear-gradient(180deg, #F06A1D, var(--orange-dk)); }
+  .ltd-form { display: grid; grid-template-columns: minmax(0, 1.25fr) 40px minmax(0, 1.25fr) minmax(0, 1fr) auto; gap: 8px;
+    align-items: stretch; position: relative; z-index: 1; }
+  .ltd-form.spat { grid-template-columns: minmax(0, 1.2fr) 40px minmax(0, 1.2fr) minmax(0, .9fr) minmax(0, .9fr) auto; }
+  .ltd-pole { background: #fff; color: var(--text, #1A1F2B); border-radius: 14px; padding: 8px 12px; display: flex; flex-direction: column;
+    justify-content: center; min-height: 58px; min-width: 0; cursor: text; }
+  .ltd-pole[hidden] { display: none; }
+  .ltd-pole small { display: flex; align-items: center; gap: 6px; font-size: .68rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em; }
+  .ltd-pole small .ic { width: 14px; height: 14px; }
+  .ltd-pole input { border: 0; outline: 0; font: inherit; font-size: .95rem; font-weight: 700; color: inherit; background: transparent;
+    width: 100%; min-width: 0; padding: 3px 0 0; }
+  .ltd-pole:focus-within { box-shadow: 0 0 0 3px rgba(255, 138, 61, .55); }
+  .ltd-swap { align-self: center; justify-self: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: var(--orange);
+    color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: 0 4px 12px rgba(232, 89, 12, .45); padding: 0; }
+  .ltd-swap:hover { background: var(--orange-dk); }
+  .ltd-swap .ic { width: 18px; height: 18px; }
+  .ltd-hladat { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 14px;
+    padding: 0 24px; font: inherit; font-weight: 800; color: #fff; cursor: pointer; background: linear-gradient(180deg, #FF8A3D, var(--orange-dk)); }
   .ltd-hladat .ic { width: 18px; height: 18px; }
   .ltd-hladat:disabled { opacity: .6; cursor: wait; }
-  .ltd-vysl { display: grid; gap: 8px; margin-top: 14px; }
-  .ltd-pocet { font-size: .8rem; font-weight: 700; color: var(--muted); }
-  .ltd-info { margin: 0; color: var(--muted); font-size: .9rem; }
-  .ltd-let { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
-    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #fff; }
-  .ltd-kod { font-weight: 800; color: #1B2A4A; background: #eef2f8; border-radius: 10px; text-align: center; padding: 8px 0; font-size: .85rem; }
-  .ltd-mesto { min-width: 0; }
-  .ltd-mesto b { display: block; }
-  .ltd-mesto small { color: var(--muted); }
-  .ltd-cena { font-weight: 800; color: #2f9e44; font-size: 1.05rem; white-space: nowrap; }
-  .ltd-rez { background: var(--orange); color: #fff; text-decoration: none; border-radius: 10px; padding: 8px 12px;
-    font-weight: 700; font-size: .82rem; white-space: nowrap; }
-  .ltd-rez:hover { background: var(--orange-dk); }
+  .ltd-vysl { display: grid; gap: 12px; margin-top: 16px; }
+  .ltd-pocet { font-size: .82rem; font-weight: 700; color: var(--muted); }
+  .ltd-info { margin: 0; color: var(--muted); font-size: .92rem; }
+  .ltd-pass { display: grid; grid-template-columns: minmax(0, 1fr) 176px; background: #fff; border-radius: 18px;
+    box-shadow: 0 6px 18px rgba(20, 33, 61, .08); border: 1px solid var(--line); overflow: hidden; position: relative; }
+  .ltd-pass::before, .ltd-pass::after { content: ""; position: absolute; right: 164px; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--bg, #F3F4F7); border: 1px solid var(--line); }
+  .ltd-pass::before { top: -13px; } .ltd-pass::after { bottom: -13px; }
+  .ltd-pass-l { padding: 16px 20px; border-right: 2px dashed var(--line); min-width: 0; }
+  .ltd-trasa { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto; gap: 14px; align-items: center; }
+  .ltd-iata { font-size: 1.65rem; font-weight: 800; color: #14213D; line-height: 1; letter-spacing: .02em; min-width: 0; }
+  .ltd-iata small { display: block; font-size: .76rem; color: var(--muted); font-weight: 600; letter-spacing: 0; margin-top: 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .ltd-iata.ciel { text-align: right; }
+  .ltd-iata.ciel small { margin-left: auto; }
+  .ltd-linka { position: relative; height: 2px; background: repeating-linear-gradient(90deg, #C9CFDB 0 6px, transparent 6px 11px); }
+  .ltd-linka .ic { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #fff; padding: 0 4px;
+    width: 28px; height: 22px; color: var(--orange); }
+  .ltd-meta { display: flex; gap: 18px; margin-top: 16px; font-size: .8rem; color: var(--muted); flex-wrap: wrap; }
+  .ltd-meta b { color: var(--text, #1A1F2B); font-weight: 600; }
+  .ltd-pass-r { padding: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; text-align: center; }
+  .ltd-pass-r .ltd-typ { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+  .ltd-cena { font-size: 1.5rem; font-weight: 800; color: #1F9D55; line-height: 1; white-space: nowrap; }
+  .ltd-cena small { display: block; font-size: .7rem; color: var(--muted); font-weight: 600; margin-top: 5px; }
+  .ltd-rez { background: #14213D; color: #fff; text-decoration: none; border-radius: 10px; padding: 9px 16px; font-weight: 700;
+    font-size: .84rem; white-space: nowrap; }
+  .ltd-rez:hover { background: var(--orange); }
   .ltd-pozn { margin: 10px 0 0; font-size: .75rem; color: var(--muted); }
-  @media (max-width: 760px) {
-    .ltd-form { grid-template-columns: 1fr 1fr; }
-    .ltd-form .ltd-pole { grid-column: 1 / -1; }
-    .ltd-hladat { grid-column: 1 / -1; }
-    .ltd-let { grid-template-columns: 44px minmax(0, 1fr) auto; }
-    .ltd-rez { grid-column: 2 / -1; text-align: center; }
+  @media (max-width: 820px) {
+    .ltd-form, .ltd-form.spat { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .ltd-swap { display: none; }
+    .ltd-p-odkial, .ltd-p-kam { grid-column: 1 / -1; }
+    .ltd-form:not(.spat) .ltd-pole:nth-of-type(3) { grid-column: 1 / -1; }
+    .ltd-hladat { grid-column: 1 / -1; min-height: 50px; }
+    .ltd-pass { grid-template-columns: 1fr; }
+    .ltd-pass::before, .ltd-pass::after { display: none; }
+    .ltd-pass-l { border-right: 0; border-bottom: 2px dashed var(--line); }
+    .ltd-pass-r { flex-direction: row; justify-content: space-between; text-align: left; }
+    .ltd-iata { font-size: 1.4rem; }
+    .ltd-iata small { max-width: 120px; }
   }
 
   @media (prefers-reduced-motion: reduce) { .skel-block { animation: none; } }
@@ -3716,7 +3754,7 @@ body.food-page { background: #FAF8F5; }
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-user" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10" /> <path d="M3 7l9 6l9 -6" /></symbol><symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" /> <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /> <path d="M8 11v-4a4 4 0 1 1 8 0v4" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /> <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /> <path d="M3 3l18 18" /></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /> <path d="M9 12h12l-3 -3" /> <path d="M18 15l3 -3" /></symbol><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /> <path d="M16 3v4" /> <path d="M8 3v4" /> <path d="M4 11h16" /></symbol><symbol id="i-plane-departure" viewBox="0 0 24 24"><path d="M14.639 10.258l4.83 -1.294a2 2 0 1 1 1.035 3.863l-14.489 3.883l-4.45 -5.02l2.897 -.776l2.45 1.414l2.897 -.776l-3.743 -6.244l2.898 -.777l5.675 5.727z" /> <path d="M3 21h18" /></symbol><symbol id="i-world" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M3.6 9h16.8" /> <path d="M3.6 15h16.8" /> <path d="M11.5 3a17 17 0 0 0 0 18" /> <path d="M12.5 3a17 17 0 0 1 0 18" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6l-12 12" /> <path d="M6 6l12 12" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /> <path d="M15 19l2 2l4 -4" /></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></symbol><symbol id="i-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /> <path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /> <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M3 7l6 6l4 -4l8 8" /> <path d="M21 10l0 7l-7 0" /></symbol><symbol id="i-trending-up" viewBox="0 0 24 24"><path d="M3 17l6 -6l4 4l8 -8" /> <path d="M14 7l7 0l0 7" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /> <path d="M4.012 16.737a2 2 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-user" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10" /> <path d="M3 7l9 6l9 -6" /></symbol><symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" /> <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /> <path d="M8 11v-4a4 4 0 1 1 8 0v4" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /> <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /> <path d="M3 3l18 18" /></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /> <path d="M9 12h12l-3 -3" /> <path d="M18 15l3 -3" /></symbol><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /> <path d="M16 3v4" /> <path d="M8 3v4" /> <path d="M4 11h16" /></symbol><symbol id="i-plane-departure" viewBox="0 0 24 24"><path d="M14.639 10.258l4.83 -1.294a2 2 0 1 1 1.035 3.863l-14.489 3.883l-4.45 -5.02l2.897 -.776l2.45 1.414l2.897 -.776l-3.743 -6.244l2.898 -.777l5.675 5.727z" /> <path d="M3 21h18" /></symbol><symbol id="i-world" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M3.6 9h16.8" /> <path d="M3.6 15h16.8" /> <path d="M11.5 3a17 17 0 0 0 0 18" /> <path d="M12.5 3a17 17 0 0 1 0 18" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6l-12 12" /> <path d="M6 6l12 12" /></symbol><symbol id="i-swap" viewBox="0 0 24 24"><path d="M21 17l-18 0" /> <path d="M6 10l-3 -3l3 -3" /> <path d="M3 7l18 0" /> <path d="M18 20l3 -3l-3 -3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /> <path d="M15 19l2 2l4 -4" /></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></symbol><symbol id="i-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /> <path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /> <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M3 7l6 6l4 -4l8 8" /> <path d="M21 10l0 7l-7 0" /></symbol><symbol id="i-trending-up" viewBox="0 0 24 24"><path d="M3 17l6 -6l4 4l8 -8" /> <path d="M14 7l7 0l0 7" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /> <path d="M4.012 16.737a2 2 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
 
 
 <!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
@@ -3842,25 +3880,33 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     <div class="lt-filters" id="lt-filters"></div>
 
     <div class="ltd-panel" id="ltd-panel" hidden>
-      <div class="ltd-hlava">
-        <b>Všetky lety Ryanair na presný dátum</b>
-        <button type="button" class="ltd-zavriet" onclick="ltdPrepni(false)" aria-label="Zavrieť"><svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg>Zavrieť</button>
+      <div class="ltd-box">
+        <div class="ltd-top">
+          <div class="ltd-titul"><span class="ltd-titul-ik"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg></span>Všetky lety Ryanair na presný dátum</div>
+          <div class="ltd-top-r">
+            <div class="ltd-seg" role="group" aria-label="Typ letu">
+              <button type="button" class="on" data-ltd-typ="tam" aria-pressed="true">Jednosmerný</button>
+              <button type="button" data-ltd-typ="spat" aria-pressed="false">Spiatočný</button>
+            </div>
+            <button type="button" class="ltd-zavriet" onclick="ltdPrepni(false)" aria-label="Zavrieť"><svg class="ic" aria-hidden="true"><use href="#i-x"></use></svg></button>
+          </div>
+        </div>
+        <form class="ltd-form" id="ltd-form" onsubmit="ltdHladaj(event)" autocomplete="off">
+          <label class="ltd-pole ltd-p-odkial"><small><svg class="ic" aria-hidden="true"><use href="#i-plane-departure"></use></svg>Odkiaľ</small>
+            <input id="ltd-odkial" list="ltd-zoznam" placeholder="Mesto alebo kód" required></label>
+          <button type="button" class="ltd-swap" onclick="ltdPrehod()" aria-label="Prehodiť odkiaľ a kam" title="Prehodiť smer"><svg class="ic" aria-hidden="true"><use href="#i-swap"></use></svg></button>
+          <label class="ltd-pole ltd-p-kam"><small><svg class="ic" aria-hidden="true"><use href="#i-world"></use></svg>Kam</small>
+            <input id="ltd-kam" list="ltd-zoznam" placeholder="Kamkoľvek"></label>
+          <label class="ltd-pole"><small><svg class="ic" aria-hidden="true"><use href="#i-calendar"></use></svg>Odlet</small>
+            <input id="ltd-datum" type="date" required></label>
+          <label class="ltd-pole ltd-p-navrat" hidden><small><svg class="ic" aria-hidden="true"><use href="#i-calendar"></use></svg>Návrat</small>
+            <input id="ltd-navrat" type="date"></label>
+          <button type="submit" class="ltd-hladat" id="ltd-hladat"><svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg>Hľadať</button>
+          <datalist id="ltd-zoznam"></datalist>
+        </form>
       </div>
-      <form class="ltd-form" onsubmit="ltdHladaj(event)" autocomplete="off">
-        <label class="ltd-pole"><span>Odkiaľ</span>
-          <span class="ltd-vstup"><svg class="ic" aria-hidden="true"><use href="#i-plane-departure"></use></svg>
-          <input id="ltd-odkial" list="ltd-zoznam" placeholder="Mesto alebo kód letiska" required></span></label>
-        <label class="ltd-pole"><span>Kam</span>
-          <span class="ltd-vstup"><svg class="ic" aria-hidden="true"><use href="#i-world"></use></svg>
-          <input id="ltd-kam" list="ltd-zoznam" placeholder="Kamkoľvek (alebo mesto, krajina)"></span></label>
-        <label class="ltd-pole"><span>Dátum</span>
-          <span class="ltd-vstup"><svg class="ic" aria-hidden="true"><use href="#i-calendar"></use></svg>
-          <input id="ltd-datum" type="date" required></span></label>
-        <button type="submit" class="ltd-hladat" id="ltd-hladat"><svg class="ic" aria-hidden="true"><use href="#i-search"></use></svg>Hľadať</button>
-        <datalist id="ltd-zoznam"></datalist>
-      </form>
       <div class="ltd-vysl" id="ltd-vysl" aria-live="polite"></div>
-      <p class="ltd-pozn">Ceny priamo od Ryanairu – najnižšia cena jednosmerného letu v daný deň. Pred kúpou si ich over na ryanair.com.</p>
+      <p class="ltd-pozn">Ceny priamo od Ryanairu – najnižšia cena v daný deň za jednu osobu. Pred kúpou si ich over na ryanair.com.</p>
     </div>
 
     <div class="lt-layout">
@@ -6033,11 +6079,12 @@ Chcete zvýšiť komfort pri používaní m</p></article>
   // ── Letenky na presný dátum (všetky letiská a trasy Ryanairu) ─────
   // Skrytý panel pod filtrami. Pri hľadaní sa prehliadač návštevníka opýta
   // priamo Ryanairu (verejné rozhranie farfnd, povoľuje CORS) - jedna
-  // požiadavka vráti všetky destinácie z letiska na daný deň. Nič sa
-  // neskenuje vopred a nezaťažuje to databázu ani agenta.
+  // požiadavka vráti všetky destinácie z letiska na daný deň (jednosmerne)
+  // alebo pre dvojicu dní (spiatočne). Nič sa neskenuje vopred a
+  // nezaťažuje to databázu ani agenta.
   // Zoznam letísk: assets/letenky/ryanair-letiska.json ([kód, letisko, mesto, krajina]).
-  const LTD_API = 'https://services-api.ryanair.com/farfnd/v4/oneWayFares';
-  let ltdLetiska = null, ltdKrajiny = null;
+  const LTD_API = 'https://services-api.ryanair.com/farfnd/v4/';
+  let ltdLetiska = null, ltdKrajiny = null, ltdSpat = false;
 
   function ltdKrajina(kod) {
     try {
@@ -6046,8 +6093,11 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     } catch (e) { return kod; }
   }
   // Slovenský názov mesta z mapy leteniek, ak ho máme; inak anglický od Ryanairu.
+  function ltdSk(kod) {
+    return (typeof ltData !== 'undefined' && ltData && ((ltData.letiska && ltData.letiska[kod]) || (ltData.odkial && ltData.odkial[kod]))) || null;
+  }
   function ltdMesto(kod, anglicky) {
-    const l = (typeof ltData !== 'undefined' && ltData && ((ltData.letiska && ltData.letiska[kod]) || (ltData.odkial && ltData.odkial[kod]))) || null;
+    const l = ltdSk(kod);
     return (l && l.n) || anglicky || kod;
   }
   function ltdNorm(s) {
@@ -6055,7 +6105,7 @@ Chcete zvýšiť komfort pri používaní m</p></article>
   }
   function ltdPopisLetiska(r) {
     const mesto = ltdMesto(r[0], r[2]);
-    return `${mesto}${r[1] && r[1] !== r[2] ? ' (' + r[1] + ')' : ''}, ${ltdKrajina(r[3])} – ${r[0]}`;
+    return `${mesto}${r[1] && r[1] !== r[2] && !ltdSk(r[0]) ? ' (' + r[1] + ')' : ''}, ${ltdKrajina(r[3])} – ${r[0]}`;
   }
   // Z textu v poli (napr. "Bratislava, Slovensko – BTS" alebo "bts") zistí kód letiska.
   function ltdKod(text) {
@@ -6077,10 +6127,37 @@ Chcete zvýšiť komfort pri používaní m</p></article>
       .map(r => `<option value="${escapeAttr(ltdPopisLetiska(r))}"></option>`).join('');
   }
 
-  function ltdIsoDnes(posun) {
-    const d = new Date(); d.setDate(d.getDate() + (posun || 0));
+  function ltdIso(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
+  function ltdIsoDnes(posun) {
+    const d = new Date(); d.setDate(d.getDate() + (posun || 0)); return ltdIso(d);
+  }
+  function ltdIsoPlus(iso, dni) {
+    const d = new Date(iso + 'T12:00'); d.setDate(d.getDate() + dni); return ltdIso(d);
+  }
+
+  function ltdNastavTyp(spat) {
+    ltdSpat = spat;
+    document.querySelectorAll('[data-ltd-typ]').forEach(b => {
+      const on = (b.dataset.ltdTyp === 'spat') === spat;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on));
+    });
+    document.getElementById('ltd-form').classList.toggle('spat', spat);
+    const navrat = document.querySelector('.ltd-p-navrat');
+    navrat.hidden = !spat;
+    const n = document.getElementById('ltd-navrat'), d = document.getElementById('ltd-datum');
+    n.required = spat;
+    if (spat && d.value) {
+      n.min = d.value;
+      if (!n.value || n.value < d.value) n.value = ltdIsoPlus(d.value, 3);
+    }
+  }
+
+  window.ltdPrehod = function () {
+    const a = document.getElementById('ltd-odkial'), b = document.getElementById('ltd-kam');
+    [a.value, b.value] = [b.value, a.value];
+  };
 
   window.ltdPrepni = async function (otvor) {
     const panel = document.getElementById('ltd-panel');
@@ -6091,6 +6168,14 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     });
     if (!otvorit) return;
     if (window.hkUdalost) window.hkUdalost('letenky_presny_otvorit');
+    if (!panel.dataset.pripojene) {
+      panel.dataset.pripojene = '1';
+      panel.addEventListener('click', e => {
+        const b = e.target.closest('[data-ltd-typ]');
+        if (b) ltdNastavTyp(b.dataset.ltdTyp === 'spat');
+      });
+      document.getElementById('ltd-datum').addEventListener('change', () => ltdNastavTyp(ltdSpat));
+    }
     try { await ltdNacitajLetiska(); }
     catch (e) { document.getElementById('ltd-vysl').innerHTML = '<p class="ltd-info">Zoznam letísk sa nepodarilo načítať. Skús to o chvíľu.</p>'; return; }
     const odkial = document.getElementById('ltd-odkial');
@@ -6099,21 +6184,26 @@ Chcete zvýšiť komfort pri používaní m</p></article>
       const r = ltdLetiska.find(x => x[0] === kod);
       if (r) odkial.value = ltdPopisLetiska(r);
     }
-    const datum = document.getElementById('ltd-datum');
-    datum.min = ltdIsoDnes(0);
-    datum.max = ltdIsoDnes(365);
+    const datum = document.getElementById('ltd-datum'), navrat = document.getElementById('ltd-navrat');
+    datum.min = ltdIsoDnes(0); datum.max = ltdIsoDnes(365); navrat.max = ltdIsoDnes(380);
     if (!datum.value) datum.value = ltdIsoDnes(7);
+    ltdNastavTyp(ltdSpat);
   };
 
-  function ltdOdkaz(z, kam, den) {
+  function ltdOdkaz(z, kam, den, navrat) {
     let url;
-    if (LETENKY_NAST.odkazy === 'kayak') url = `https://www.kayak.com/flights/${z}-${kam}/${den}?sort=price_a`;
-    else if (LETENKY_NAST.odkazy === 'momondo') url = `https://www.momondo.com/flight-search/${z}-${kam}/${den}?sort=price_a`;
+    const trasa = `${z}-${kam}/${den}${navrat ? '/' + navrat : ''}`;
+    if (LETENKY_NAST.odkazy === 'kayak') url = `https://www.kayak.com/flights/${trasa}?sort=price_a`;
+    else if (LETENKY_NAST.odkazy === 'momondo') url = `https://www.momondo.com/flight-search/${trasa}?sort=price_a`;
     else url = 'https://www.ryanair.com/cz/cs/trip/flights/select?adults=1&teens=0&children=0&infants=0'
-      + `&dateOut=${den}&isReturn=false&originIata=${z}&destinationIata=${kam}`;
+      + `&dateOut=${den}${navrat ? '&dateIn=' + navrat : ''}&isReturn=${navrat ? 'true' : 'false'}&originIata=${z}&destinationIata=${kam}`;
     const sab = (LETENKY_NAST.affiliate || '').trim();
     if (sab.includes('{url}')) url = sab.replace('{url}', encodeURIComponent(url));
     return url;
+  }
+
+  function ltdDen(iso) {
+    return new Date(iso.slice(0, 10) + 'T12:00').toLocaleDateString('sk-SK', { weekday: 'short', day: 'numeric', month: 'numeric' });
   }
 
   window.ltdHladaj = async function (e) {
@@ -6121,24 +6211,28 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     const vysl = document.getElementById('ltd-vysl');
     const z = ltdKod(document.getElementById('ltd-odkial').value);
     const den = document.getElementById('ltd-datum').value;
+    const navrat = ltdSpat ? document.getElementById('ltd-navrat').value : '';
     const kamText = document.getElementById('ltd-kam').value.trim();
     if (!z) { vysl.innerHTML = '<p class="ltd-info">Vyber odletové letisko zo zoznamu (napíš mesto alebo kód, napr. BTS).</p>'; return; }
     if (!den) { vysl.innerHTML = '<p class="ltd-info">Vyber dátum odletu.</p>'; return; }
-    if (window.hkUdalost) window.hkUdalost('letenky_presny_hladat');
+    if (ltdSpat && (!navrat || navrat < den)) { vysl.innerHTML = '<p class="ltd-info">Dátum návratu musí byť v deň odletu alebo neskôr.</p>'; return; }
+    if (window.hkUdalost) window.hkUdalost(ltdSpat ? 'letenky_presny_spat' : 'letenky_presny_tam');
     vysl.innerHTML = '<p class="ltd-info">Hľadám lety…</p>';
     const btn = document.getElementById('ltd-hladat'); btn.disabled = true;
     try {
       const q = new URLSearchParams({ departureAirportIataCode: z, outboundDepartureDateFrom: den,
         outboundDepartureDateTo: den, currency: 'EUR', market: 'sk-sk' });
-      const r = await fetch(`${LTD_API}?${q}`);
+      if (ltdSpat) { q.set('inboundDepartureDateFrom', navrat); q.set('inboundDepartureDateTo', navrat); }
+      const r = await fetch(LTD_API + (ltdSpat ? 'roundTripFares' : 'oneWayFares') + '?' + q);
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
-      let lety = (d.fares || []).map(f => f.outbound).filter(o => o && o.arrivalAirport && o.price);
+      let lety = (d.fares || []).filter(f => f.outbound && f.outbound.arrivalAirport && (ltdSpat ? f.inbound && f.summary : f.outbound.price))
+        .map(f => ({ tam: f.outbound, spat: f.inbound || null, cena: ltdSpat ? f.summary.price.value : f.outbound.price.value }));
       // Filter "Kam": kód, mesto, letisko alebo krajina (napr. "Taliansko").
       if (kamText) {
         const kamKod = ltdKod(kamText), n = ltdNorm(kamText);
-        lety = lety.filter(o => {
-          const a = o.arrivalAirport;
+        lety = lety.filter(l => {
+          const a = l.tam.arrivalAirport;
           if (kamKod && a.iataCode === kamKod) return true;
           const r2 = ltdLetiska.find(x => x[0] === a.iataCode);
           const text = ltdNorm([a.iataCode, a.name, a.city && a.city.name, a.countryName,
@@ -6146,24 +6240,41 @@ Chcete zvýšiť komfort pri používaní m</p></article>
           return text.includes(n);
         });
       }
-      lety.sort((a, b) => a.price.value - b.price.value);
-      const dnesText = new Date(den + 'T12:00').toLocaleDateString('sk-SK', { weekday: 'short', day: 'numeric', month: 'numeric' });
+      lety.sort((a, b) => a.cena - b.cena);
+      const kedy = ltdSpat ? `${ltdDen(den)} – ${ltdDen(navrat)}` : ltdDen(den);
       if (!lety.length) {
-        vysl.innerHTML = `<p class="ltd-info">Na ${escapeHtml(dnesText)} sme ${kamText ? 'do tohto cieľa ' : ''}z tohto letiska nenašli žiadny let Ryanair. Skús iný deň.</p>`;
+        vysl.innerHTML = `<p class="ltd-info">Na ${escapeHtml(kedy)} sme ${kamText ? 'do tohto cieľa ' : ''}z tohto letiska nenašli žiadny ${ltdSpat ? 'spiatočný ' : ''}let Ryanair. Skús iný deň.</p>`;
         return;
       }
-      vysl.innerHTML = `<div class="ltd-pocet">${lety.length} ${lety.length === 1 ? 'let' : (lety.length < 5 ? 'lety' : 'letov')} · ${escapeHtml(dnesText)}</div>`
-        + lety.map(o => {
-          const a = o.arrivalAirport, r2 = ltdLetiska.find(x => x[0] === a.iataCode);
+      const odkialR = ltdLetiska.find(x => x[0] === z);
+      const odkialMesto = odkialR ? ltdMesto(z, odkialR[2]) : z;
+      const slovo = n => n === 1 ? 'let' : (n < 5 ? 'lety' : 'letov');
+      vysl.innerHTML = `<div class="ltd-pocet">${lety.length} ${ltdSpat ? 'spiatočných ' : ''}${slovo(lety.length)} · ${escapeHtml(kedy)}</div>`
+        + lety.map(l => {
+          const a = l.tam.arrivalAirport, r2 = ltdLetiska.find(x => x[0] === a.iataCode);
           const mesto = ltdMesto(a.iataCode, (a.city && a.city.name) || a.name);
+          const letisko = a.name && a.name !== mesto && !ltdSk(a.iataCode) ? a.name : '';
           const krajina = r2 ? ltdKrajina(r2[3]) : (a.countryName || '');
-          const cas = (o.departureDate || '').slice(11, 16);
-          const cena = Number(o.price.value).toFixed(2).replace('.', ',');
-          return `<div class="ltd-let">
-            <div class="ltd-kod">${escapeHtml(a.iataCode)}</div>
-            <div class="ltd-mesto"><b>${escapeHtml(mesto)}</b><small>${escapeHtml(a.name && a.name !== mesto && !(ltData && ltData.letiska && ltData.letiska[a.iataCode]) ? a.name + ' · ' : '')}${escapeHtml(krajina)}${cas ? ' · odlet ' + escapeHtml(cas) : ''}</small></div>
-            <div class="ltd-cena">${cena} €</div>
-            <a class="ltd-rez" href="${escapeAttr(ltdOdkaz(z, a.iataCode, den))}" target="_blank" rel="nofollow sponsored noopener">Rezervovať</a>
+          const cas = x => (x && x.departureDate || '').slice(11, 16);
+          const cena = Number(l.cena).toFixed(2).replace('.', ',');
+          return `<div class="ltd-pass">
+            <div class="ltd-pass-l">
+              <div class="ltd-trasa">
+                <div class="ltd-iata">${escapeHtml(z)}<small>${escapeHtml(odkialMesto)}</small></div>
+                <div class="ltd-linka"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg></div>
+                <div class="ltd-iata ciel">${escapeHtml(a.iataCode)}<small>${escapeHtml(mesto)}${letisko ? ' (' + escapeHtml(letisko) + ')' : ''}</small></div>
+              </div>
+              <div class="ltd-meta">
+                <span>Tam <b>${escapeHtml(ltdDen(l.tam.departureDate || den))}${cas(l.tam) ? ' · ' + escapeHtml(cas(l.tam)) : ''}</b></span>
+                ${l.spat ? `<span>Späť <b>${escapeHtml(ltdDen(l.spat.departureDate || navrat))}${cas(l.spat) ? ' · ' + escapeHtml(cas(l.spat)) : ''}</b></span>` : ''}
+                <span>${escapeHtml(krajina)}</span>
+              </div>
+            </div>
+            <div class="ltd-pass-r">
+              <span class="ltd-typ">${l.spat ? 'tam aj späť' : 'jedným smerom'}</span>
+              <div class="ltd-cena">${cena} €<small>za osobu</small></div>
+              <a class="ltd-rez" href="${escapeAttr(ltdOdkaz(z, a.iataCode, den, l.spat ? navrat : ''))}" target="_blank" rel="nofollow sponsored noopener">Rezervovať</a>
+            </div>
           </div>`;
         }).join('');
     } catch (err) {
