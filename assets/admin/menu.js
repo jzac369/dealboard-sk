@@ -16,6 +16,7 @@
     platnost: 'M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06 M15 19l2 2l4 -4',
     letenky: 'M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7',
     ucty: 'M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2 M16 3.13a4 4 0 0 1 0 7.75 M21 21v-2a4 4 0 0 0 -3 -3.85',
+    tipy: 'M9 18h6 M10 21h4 M12 3a6 6 0 0 0 -3.5 10.9c.6 .5 1 1.2 1 2.1h5c0 -.9 .4 -1.6 1 -2.1a6 6 0 0 0 -3.5 -10.9z',
     reklamy: 'M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z M7 15v-4a2 2 0 0 1 4 0v4 M7 13l4 0 M17 9v6h-1.5a1.5 1.5 0 1 1 1.5 -1.5',
     dognet: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1 M12 7v10',
     provizie: 'M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2 M14 8h-2.5a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3h-2.5 M12 7v1 M12 14v1',
@@ -57,6 +58,7 @@
     ] },
     { g: 'Stránka', p: [
       { id: 'letenky', n: 'Letenky', k: 'mapa lety ryanair' },
+      { id: 'tipy', n: 'Tipy medzi dealmi', d: 'Obrázky s radami, kde a ako ušetriť. Nahraj ich a stránka ich strieda medzi dealmi.', k: 'rady bannery dávkovač obrázky ušetriť' },
       { id: 'ucty', n: 'Účty a newsletter', k: 'registrácia používatelia odberatelia e-mail' },
       { id: 'emaily', n: 'E-maily', d: 'Odosielanie e-mailov z vlastnej schránky @henkukaj.sk: registrácia, uvítanie, upozornenia a skúšobný e-mail.', k: 'smtp email pošta registrácia overenie uvítanie heslo hostcreators' },
       { id: 'komunita', n: 'Komunita', d: 'Body, odznaky a rebríček prispievateľov. Komu dealy pôjdu na stránku bez čakania.', k: 'body odznaky rebríček prispievatelia dôvera overení používatelia gamifikácia' },

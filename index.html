@@ -1037,6 +1037,12 @@
     .then(d => { if (d && window.hkReklamy) window.hkReklamy(d); })
     .catch(() => {});
 
+  // Tipy medzi dealmi (settings/tipy). Klasický skript môže byť načítaný skôr
+  // alebo neskôr než táto odpoveď, preto sa dáta odložia aj do window.
+  cachedSettingsDoc('settings', 'tipy')
+    .then(d => { if (!d) return; window.__tipyData = d; if (window.hkTipy) window.hkTipy(d); })
+    .catch(() => {});
+
   // Topované dealy (settings/topovane: { dealy: { id: čas do } }).
   // Samotnú mapu cachujeme len krátko (sú to promo termíny, majú byť
   // čerstvé), ale aspoň sa neopakuje čítanie tohto dokumentu pri každom
@@ -2073,6 +2079,27 @@
     border: 1px solid var(--line); width: 100%; max-width: 100%; min-width: 0;
   }
   .deal-card:hover { box-shadow: var(--shadow-lg); }
+  /* Tipy medzi dealmi */
+  .tip-karta { position: relative; background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; width: 100%; max-width: 100%; }
+  .tip-karta img { display: block; width: 100%; height: auto; }
+  .tip-karta a { display: block; }
+  .tip-zavriet { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border: 0;
+    border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 20px; line-height: 28px;
+    cursor: pointer; padding: 0; }
+  .tip-zavriet:hover { background: rgba(0,0,0,.75); }
+  .tip-pata { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 6px 12px; font-size: .75rem; color: var(--muted); }
+  .tip-znacka { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  .tip-znacka img { width: 20px; height: 20px; border-radius: 50%; display: block; }
+  .tip-akcie { display: inline-flex; align-items: center; gap: 12px; }
+  .tip-zdielat { border: 1px solid var(--line); background: var(--card); color: var(--text, inherit); font: inherit;
+    border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+  .tip-zdielat:hover { border-color: var(--muted); }
+  .tip-skryt { border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer;
+    text-decoration: underline; padding: 2px 0; }
+  .tip-skryt:hover { color: var(--text, inherit); }
+
 
   .deal-main-row { display: flex; align-items: stretch; gap: 0; padding: 14px 16px; }
 
@@ -4452,6 +4479,135 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     return list;
   }
 
+  // ── Tipy medzi dealmi ("dávkovač") ───────────────────────────────
+  // Zoznam tipov spravuje admin (settings/tipy: { prvy, kazdych, tipy: [{ id,
+  // alt, url, obrazok, mobil, zap, vaha, od, do }] }), obrázky sú v assets/tipy/.
+  //
+  // Algoritmus výberu: z platných tipov (zapnuté, v termíne, s obrázkom, nie
+  // zavreté návštevníkom) sa poradie losuje podľa váhy bez opakovania.
+  // Váha = váha z adminu / (1 + koľkokrát ho návštevník už videl), takže
+  // sa tipy striedajú a už videný ustupuje nevideným. Poradie sa určí raz
+  // za návštevu, aby sa pri donačítavaní dealov nepreskupovalo.
+  const TIPY_SKRYTE = 'hk_tipy_skryte', TIPY_VIDENE = 'hk_tipy_videne';
+  window.tipyPool = [];
+  const tipyPocitane = new Set();   // tipy započítané ako videné v tejto návšteve
+
+  function lsJson(kluc, prazdne) {
+    try { return JSON.parse(localStorage.getItem(kluc) || 'null') || prazdne; } catch (e) { return prazdne; }
+  }
+  function tipySkryte() { return new Set(lsJson(TIPY_SKRYTE, [])); }
+  function tipySkryt(id) {
+    const s = tipySkryte(); s.add(id);
+    try { localStorage.setItem(TIPY_SKRYTE, JSON.stringify([...s])); } catch (e) {}
+  }
+  function tipVidene(id) {
+    if (tipyPocitane.has(id)) return;
+    tipyPocitane.add(id);
+    const m = lsJson(TIPY_VIDENE, {}); m[id] = (m[id] || 0) + 1;
+    try { localStorage.setItem(TIPY_VIDENE, JSON.stringify(m)); } catch (e) {}
+  }
+
+  const TIPY_IKONA = 'assets/icon-192.png';
+  function tipKarta(t) {
+    const alt = escapeHtml(t.alt || 'Tip, ako ušetriť');
+    const obr = `<picture>${t.mobil ? `<source media="(max-width:600px)" srcset="${escapeHtml(t.mobil)}">` : ''}`
+      + `<img src="${escapeHtml(t.obrazok)}" alt="${alt}" loading="lazy" decoding="async"></picture>`;
+    const telo = t.url && /^(https:\/\/(www\.)?henkukaj\.sk\/|\/|#)/.test(t.url)
+      ? `<a href="${escapeHtml(t.url)}">${obr}</a>` : obr;
+    return `<div class="tip-karta" data-tip="${escapeHtml(t.id)}">${telo}`
+      + `<button type="button" class="tip-zavriet" aria-label="Zavrieť tip a už ho nezobrazovať" title="Už viac nezobrazovať">×</button>`
+      + `<div class="tip-pata"><span class="tip-znacka"><img src="${TIPY_IKONA}" alt="" width="20" height="20">HenKukaj.sk · Tip</span>`
+      + `<span class="tip-akcie"><button type="button" class="tip-zdielat">Zdieľať</button>`
+      + `<button type="button" class="tip-skryt">Už viac nezobrazovať</button></span></div></div>`;
+  }
+
+  // Vloží tipy do zoznamu kariet. Počíta sa len s dealmi, nie s reklamou.
+  function vlozTipy(karty) {
+    if (window.dealsSearchMode || window.savedOnly || !window.tipyPool.length) return karty;
+    const skryte = tipySkryte();
+    const volne = window.tipyPool.filter(t => !skryte.has(t.id));
+    if (!volne.length) return karty;
+    const cfg = window.tipyCfg || {};
+    const PRVY = cfg.prvy || 5, KAZDYCH = cfg.kazdych || 8;
+    const out = []; let deali = 0, pouzite = 0;
+    for (const k of karty) {
+      out.push(k);
+      if (/class="(ad-slot|hk-box-slot)/.test(k)) continue;
+      deali++;
+      if (pouzite < volne.length && (deali === PRVY || (deali > PRVY && (deali - PRVY) % KAZDYCH === 0))) {
+        out.push(tipKarta(volne[pouzite++]));
+      }
+    }
+    return out;
+  }
+
+  // Zoradí tipy: vážené náhodné poradie bez opakovania, útlm podľa videných.
+  function tipyZorad(zoznam) {
+    const dnes = new Date().toISOString().slice(0, 10);
+    const videne = lsJson(TIPY_VIDENE, {});
+    const zdroj = zoznam.filter(t => t && t.id && t.obrazok && t.zap !== false
+      && (!t.od || t.od <= dnes) && (!t.do || t.do >= dnes))
+      .map(t => ({ t, w: Math.max(1, Math.min(10, Number(t.vaha) || 1)) / (1 + (videne[t.id] || 0)) }));
+    const out = [];
+    while (zdroj.length) {
+      let r = Math.random() * zdroj.reduce((a, x) => a + x.w, 0), i = 0;
+      for (; i < zdroj.length - 1; i++) { r -= zdroj[i].w; if (r <= 0) break; }
+      out.push(zdroj.splice(i, 1)[0].t);
+    }
+    return out;
+  }
+
+  window.hkTipy = function (d) {
+    window.tipyCfg = { prvy: Number(d && d.prvy) || 5, kazdych: Number(d && d.kazdych) || 8 };
+    window.tipyPool = tipyZorad((d && d.tipy) || []);
+    if (window.tipyPool.length && window.allDeals && window.allDeals.length) window.renderDealsList();
+  };
+  if (window.__tipyData) window.hkTipy(window.__tipyData);
+
+  // Tip sa počíta ako videný, až keď sa naozaj ukáže na obrazovke.
+  const tipyPozorovatel = 'IntersectionObserver' in window ? new IntersectionObserver((zaznamy) => {
+    zaznamy.forEach(z => { if (z.isIntersecting) { tipVidene(z.target.dataset.tip); tipyPozorovatel.unobserve(z.target); } });
+  }, { threshold: 0.5 }) : null;
+  window.tipyPozoruj = function () {
+    if (!tipyPozorovatel) return;
+    document.querySelectorAll('.tip-karta').forEach(k => { if (!tipyPocitane.has(k.dataset.tip)) tipyPozorovatel.observe(k); });
+  };
+
+  // Zdieľanie: obrázok + odkaz, kde to prehliadač dovolí (mobil), inak len odkaz.
+  async function tipZdielaj(k) {
+    const t = window.tipyPool.find(x => x.id === k.dataset.tip) || {};
+    const url = 'https://henkukaj.sk/?utm_source=zdielanie&utm_medium=tip&utm_campaign=' + encodeURIComponent(k.dataset.tip);
+    const text = (t.alt || 'Tip, ako ušetriť') + ' – HenKukaj.sk';
+    if (window.hkUdalost) window.hkUdalost('tip_zdielanie');
+    try {
+      if (navigator.share) {
+        try {
+          const img = k.querySelector('.tip-karta > a img, .tip-karta > picture img');
+          const r = await fetch(img.currentSrc || img.src);
+          const subor = new File([await r.blob()], 'henkukaj-tip.jpg', { type: 'image/jpeg' });
+          if (navigator.canShare && navigator.canShare({ files: [subor] })) {
+            await navigator.share({ files: [subor], title: 'HenKukaj.sk', text: text + ' ' + url });
+            return;
+          }
+        } catch (e) { if (e && e.name === 'AbortError') return; }
+        await navigator.share({ title: 'HenKukaj.sk', text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      window.hkToast('Odkaz na tip je skopírovaný.');
+    } catch (e) { /* zdieľanie zrušené */ }
+  }
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.tip-zavriet, .tip-skryt, .tip-zdielat');
+    if (!b) return;
+    const k = b.closest('.tip-karta');
+    if (!k) return;
+    if (b.classList.contains('tip-zdielat')) { tipZdielaj(k); return; }
+    tipySkryt(k.dataset.tip);
+    k.remove();
+  });
+
   function renderDealsList() {
     const el = document.getElementById('deals-list');
     const shown = visibleDeals();
@@ -4488,7 +4644,7 @@ Chcete zvýšiť komfort pri používaní m</p></article>
       // zoznamom, ktorý sa donačítava donekonečna - box by nik nevidel.
       const HK_PO = 3;
       if (karty.length > HK_PO) karty.splice(HK_PO, 0, '<div class="hk-box-slot"></div>');
-      let html = karty.join('');
+      let html = vlozTipy(karty).join('');
       if (!window.dealsSearchMode && window.dealsHasMore) {
         html += `<div id="deals-load-sentinel" class="loading" style="padding:24px 0;">${window.dealsLoading ? 'Načítavam ďalšie dealy…' : ''}</div>`;
       } else if (window.dealsSearchMode && window.allDeals.length >= window.DEALS_SEARCH_CAP) {
@@ -4499,6 +4655,7 @@ Chcete zvýšiť komfort pri používaní m</p></article>
       if (window.hkZaparkujBox) window.hkZaparkujBox();
       el.innerHTML = html;
       if (window.hkUmiestni) window.hkUmiestni();
+      if (window.tipyPozoruj) window.tipyPozoruj();
       if (window.refreshAdSlots) window.refreshAdSlots();
       if (!window.dealsSearchMode && window.dealsHasMore) {
         window.ensureDealsSentinelObserver();

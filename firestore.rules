@@ -272,6 +272,12 @@ service cloud.firestore {
     }
 
     // Nastavenia moderácie – verejné čítanie, zápis len admin.
+    // Obrázky tipov nahrané v admine, kým ich plánovač nepremení na súbory
+    // na stránke (tipy_publikuj.py). Verejnosť ich nikdy nečíta.
+    match /tipy_cakaren/{tipId} {
+      allow read, write: if isAdmin();
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();

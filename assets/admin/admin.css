@@ -410,3 +410,6 @@ body.okno-otvorene { overflow: hidden; }
 .pr-provizia.ano { background: #E3F5E8; border-color: #8CCB9B; color: #14532D; }
 .pr-provizia.nie { background: #FDE8DC; border-color: #F2A57A; color: #7C2D12; }
 .pr-provizia.info { background: #E6F0FB; border-color: #9CC0EC; color: #1E3A5F; }
+
+.tp-stav { font-weight: 600; }
+.tp-ok { color: #2f9e44; } .tp-caka { color: #b36400; } .tp-vyp { color: var(--muted); } .tp-chyba { color: #c92a2a; }

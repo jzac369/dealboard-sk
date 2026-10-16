@@ -37,7 +37,7 @@ logger = logging.getLogger("admin_ulohy")
 # do úlohy vpísal.
 POVOLENE_WORKFLOW = {
     "deal-hunter.yml", "letenky.yml", "denny-ziar.yml", "facebook.yml",
-    "letenky-mapa.yml", "generate-deal-pages.yml", "telegram-approve.yml",
+    "letenky-mapa.yml", "generate-deal-pages.yml", "telegram-approve.yml", "tipy-publikuj.yml",
 }
 
 # Prehliadačový identifikátor so stránkou a kontaktom. Nič sa tu
