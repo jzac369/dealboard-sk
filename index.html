@@ -2661,6 +2661,38 @@
     font-size: .84rem; white-space: nowrap; }
   .ltd-rez:hover { background: var(--orange); }
   .ltd-pozn { margin: 10px 0 0; font-size: .75rem; color: var(--muted); }
+  .ltd-pass-b .ltd-pass-l { padding: 0; }
+  .ltd-seg-b { padding: 14px 20px; }
+  .ltd-seg-b + .ltd-seg-b { border-top: 1px solid var(--line); }
+  .ltd-hl { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .ltd-smer { display: inline-flex; align-items: center; gap: 7px; font-size: .72rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted); }
+  .ltd-smer i { width: 22px; height: 22px; border-radius: 6px; background: #FFF1E7; color: var(--orange); display: inline-grid; place-items: center; }
+  .ltd-smer i .ic { width: 13px; height: 13px; }
+  .ltd-smer.spat i { background: #EAF0FB; color: #2B5BB5; }
+  .ltd-smer.spat i .ic { transform: scaleX(-1); }
+  .ltd-cp { font-weight: 800; font-size: 1rem; white-space: nowrap; }
+  .ltd-zlacnelo { display: inline-flex; background: #E8F6EE; color: #1F9D55; border-radius: 999px; padding: 2px 8px; font-size: .7rem; font-weight: 700; margin-left: 4px; vertical-align: middle; }
+  .ltd-rows { display: grid; gap: 4px; }
+  .ltd-row { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto 118px; gap: 14px; align-items: center; padding: 6px 8px; border-radius: 10px; }
+  .ltd-row.naj { background: #FFF8F2; }
+  .ltd-row:not(.naj) .ltd-t b { font-size: 1.02rem; color: #3b4660; }
+  .ltd-t { min-width: 0; }
+  .ltd-t b { display: block; font-size: 1.2rem; font-weight: 800; color: #14213D; line-height: 1.1; }
+  .ltd-t small { color: var(--muted); font-size: .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 170px; }
+  .ltd-t.c { text-align: right; }
+  .ltd-t.c small { margin-left: auto; }
+  .ltd-mid { text-align: center; font-size: .72rem; color: var(--muted); min-width: 0; }
+  .ltd-mid .l { height: 2px; background: repeating-linear-gradient(90deg, #C9CFDB 0 6px, transparent 6px 11px); margin: 6px 0; position: relative; }
+  .ltd-mid .l .ic { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #fff; padding: 0 3px; width: 24px; height: 18px; color: var(--orange); }
+  .ltd-row.naj .ltd-mid .l .ic { background: #FFF8F2; }
+  .ltd-mid.spat .l .ic { color: #2B5BB5; transform: translate(-50%, -50%) scaleX(-1); }
+  .ltd-rc { text-align: right; font-size: .72rem; }
+  .ltd-rc a { color: var(--muted); text-decoration: underline; }
+  .ltd-naj { display: inline-block; background: var(--orange); color: #fff; border-radius: 999px; padding: 3px 9px; font-weight: 700; font-size: .7rem; }
+  .ltd-noci { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; color: var(--muted); background: var(--bg, #F3F4F7);
+    border-radius: 999px; padding: 4px 10px; }
+  .ltd-noci .ic { width: 13px; height: 13px; flex: none; }
   @media (max-width: 820px) {
     .ltd-form, .ltd-form.spat { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .ltd-swap { display: none; }
@@ -2673,6 +2705,13 @@
     .ltd-pass-r { flex-direction: row; justify-content: space-between; text-align: left; }
     .ltd-iata { font-size: 1.4rem; }
     .ltd-iata small { max-width: 120px; }
+    .lt-f-btns { flex-wrap: wrap; }
+    .lt-f-btns .ltd-btn { flex: 1 1 100%; justify-content: center; }
+    .ltd-seg-b { padding: 12px 14px; }
+    .ltd-row { grid-template-columns: auto minmax(30px, 1fr) auto; gap: 10px; padding: 6px 4px; }
+    .ltd-rc { grid-column: 1 / -1; text-align: left; margin-top: -2px; }
+    .ltd-t small { max-width: 110px; }
+    .ltd-pass-r { flex-wrap: wrap; }
   }
 
   @media (prefers-reduced-motion: reduce) { .skel-block { animation: none; } }
@@ -3754,7 +3793,7 @@ body.food-page { background: #FAF8F5; }
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-user" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10" /> <path d="M3 7l9 6l9 -6" /></symbol><symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" /> <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /> <path d="M8 11v-4a4 4 0 1 1 8 0v4" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /> <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /> <path d="M3 3l18 18" /></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /> <path d="M9 12h12l-3 -3" /> <path d="M18 15l3 -3" /></symbol><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /> <path d="M16 3v4" /> <path d="M8 3v4" /> <path d="M4 11h16" /></symbol><symbol id="i-plane-departure" viewBox="0 0 24 24"><path d="M14.639 10.258l4.83 -1.294a2 2 0 1 1 1.035 3.863l-14.489 3.883l-4.45 -5.02l2.897 -.776l2.45 1.414l2.897 -.776l-3.743 -6.244l2.898 -.777l5.675 5.727z" /> <path d="M3 21h18" /></symbol><symbol id="i-world" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M3.6 9h16.8" /> <path d="M3.6 15h16.8" /> <path d="M11.5 3a17 17 0 0 0 0 18" /> <path d="M12.5 3a17 17 0 0 1 0 18" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6l-12 12" /> <path d="M6 6l12 12" /></symbol><symbol id="i-swap" viewBox="0 0 24 24"><path d="M21 17l-18 0" /> <path d="M6 10l-3 -3l3 -3" /> <path d="M3 7l18 0" /> <path d="M18 20l3 -3l-3 -3" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /> <path d="M15 19l2 2l4 -4" /></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></symbol><symbol id="i-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /> <path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /> <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M3 7l6 6l4 -4l8 8" /> <path d="M21 10l0 7l-7 0" /></symbol><symbol id="i-trending-up" viewBox="0 0 24 24"><path d="M3 17l6 -6l4 4l8 -8" /> <path d="M14 7l7 0l0 7" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /> <path d="M4.012 16.737a2 2 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-user" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /> <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10" /> <path d="M3 7l9 6l9 -6" /></symbol><symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" /> <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /> <path d="M8 11v-4a4 4 0 1 1 8 0v4" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" /></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.585 10.587a2 2 0 0 0 2.829 2.828" /> <path d="M16.681 16.673a8.717 8.717 0 0 1 -4.681 1.327c-3.6 0 -6.6 -2 -9 -6c1.272 -2.12 2.712 -3.678 4.32 -4.674m2.86 -1.146a9.055 9.055 0 0 1 1.82 -.18c3.6 0 6.6 2 9 6c-.666 1.11 -1.379 2.067 -2.138 2.87" /> <path d="M3 3l18 18" /></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /> <path d="M9 12h12l-3 -3" /> <path d="M18 15l3 -3" /></symbol><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235" /></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M15 5l0 2" /> <path d="M15 11l0 2" /> <path d="M15 17l0 2" /> <path d="M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2" /></symbol><symbol id="i-news" viewBox="0 0 24 24"><path d="M16 6h3a1 1 0 0 1 1 1v11a2 2 0 0 1 -4 0v-13a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1v12a3 3 0 0 0 3 3h11" /> <path d="M8 8l4 0" /> <path d="M8 12l4 0" /> <path d="M8 16l4 0" /></symbol><symbol id="i-apps" viewBox="0 0 24 24"><path d="M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" /> <path d="M14 7l6 0" /> <path d="M17 4l0 6" /></symbol><symbol id="i-device-mobile" viewBox="0 0 24 24"><path d="M6 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-14" /> <path d="M11 4h2" /> <path d="M12 17v.01" /></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M5 12l-2 0l9 -9l9 9l-2 0" /> <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" /> <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" /></symbol><symbol id="i-shirt" viewBox="0 0 24 24"><path d="M15 4l6 2v5h-3v8a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-8h-3v-5l6 -2a3 3 0 0 0 6 0" /></symbol><symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1" /></symbol><symbol id="i-ball-football" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M12 7l4.76 3.45l-1.76 5.55h-6l-1.76 -5.55l4.76 -3.45" /> <path d="M12 7v-4m3 13l2.5 3m-.74 -8.55l3.74 -1.45m-11.44 7.05l-2.56 2.95m.74 -8.55l-3.74 -1.45" /></symbol><symbol id="i-tools-kitchen-2" viewBox="0 0 24 24"><path d="M19 3v12h-5c-.023 -3.681 .184 -7.406 5 -12m0 12v6h-1v-3m-10 -14v17m-3 -17v3a3 3 0 1 0 6 0v-3" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /> <path d="M16 3v4" /> <path d="M8 3v4" /> <path d="M4 11h16" /></symbol><symbol id="i-plane-departure" viewBox="0 0 24 24"><path d="M14.639 10.258l4.83 -1.294a2 2 0 1 1 1.035 3.863l-14.489 3.883l-4.45 -5.02l2.897 -.776l2.45 1.414l2.897 -.776l-3.743 -6.244l2.898 -.777l5.675 5.727z" /> <path d="M3 21h18" /></symbol><symbol id="i-world" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M3.6 9h16.8" /> <path d="M3.6 15h16.8" /> <path d="M11.5 3a17 17 0 0 0 0 18" /> <path d="M12.5 3a17 17 0 0 1 0 18" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6l-12 12" /> <path d="M6 6l12 12" /></symbol><symbol id="i-swap" viewBox="0 0 24 24"><path d="M21 17l-18 0" /> <path d="M6 10l-3 -3l3 -3" /> <path d="M3 7l18 0" /> <path d="M18 20l3 -3l-3 -3" /></symbol><symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M16 10h4a2 2 0 0 1 0 4h-4l-4 7h-3l2 -7h-4l-2 2h-3l2 -4l-2 -4h3l2 2h4l-2 -7h3l4 7" /></symbol><symbol id="i-dots" viewBox="0 0 24 24"><path d="M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /> <path d="M12 7v5l3 3" /></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="M6 15l6 -6l6 6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol><symbol id="i-building-store" viewBox="0 0 24 24"><path d="M3 21l18 0" /> <path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4" /> <path d="M5 21l0 -10.15" /> <path d="M19 21l0 -10.15" /> <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" /></symbol><symbol id="i-clock-off" viewBox="0 0 24 24"><path d="M5.633 5.64a9 9 0 1 0 12.735 12.72m1.674 -2.32a9 9 0 0 0 -12.082 -12.082" /> <path d="M12 7v1" /> <path d="M3 3l18 18" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12l14 0" /></symbol><symbol id="i-basket" viewBox="0 0 24 24"><path d="M10 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M5.001 8h13.999a2 2 0 0 1 1.977 2.304l-1.255 7.152a3 3 0 0 1 -2.966 2.544h-9.512a3 3 0 0 1 -2.965 -2.544l-1.255 -7.152a2 2 0 0 1 1.977 -2.304" /> <path d="M17 10l-2 -6" /> <path d="M7 10l2 -6" /></symbol><symbol id="i-cheese" viewBox="0 0 24 24"><path d="M4.519 20.008l16.481 -.008v-3.5a2 2 0 1 1 0 -4v-3.5h-16.722" /> <path d="M21 9l-9.385 -4.992c-2.512 .12 -4.758 1.42 -6.327 3.425c-1.423 1.82 -2.288 4.221 -2.288 6.854c0 2.117 .56 4.085 1.519 5.721" /> <path d="M15 13v.01" /> <path d="M8 13v.01" /> <path d="M11 16v.01" /></symbol><symbol id="i-milk" viewBox="0 0 24 24"><path d="M8 6h8v-2a1 1 0 0 0 -1 -1h-6a1 1 0 0 0 -1 1v2" /> <path d="M16 6l1.094 1.759a6 6 0 0 1 .906 3.17v8.071a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8.071a6 6 0 0 1 .906 -3.17l1.094 -1.759" /> <path d="M10 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /> <path d="M10 10h4" /></symbol><symbol id="i-bowl" viewBox="0 0 24 24"><path d="M4 8h16a1 1 0 0 1 1 1v.5c0 1.5 -2.517 5.573 -4 6.5v1a1 1 0 0 1 -1 1h-8a1 1 0 0 1 -1 -1v-1c-1.687 -1.054 -4 -5 -4 -6.5v-.5a1 1 0 0 1 1 -1" /></symbol><symbol id="i-bottle" viewBox="0 0 24 24"><path d="M10 5h4v-2a1 1 0 0 0 -1 -1h-2a1 1 0 0 0 -1 1v2" /> <path d="M14 3.5c0 1.626 .507 3.212 1.45 4.537l.05 .07a8.093 8.093 0 0 1 1.5 4.694v6.199a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-6.2c0 -1.682 .524 -3.322 1.5 -4.693l.05 -.07a7.823 7.823 0 0 0 1.45 -4.537" /> <path d="M7 14.803a2.4 2.4 0 0 0 1 -.803a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 1 -.805" /></symbol><symbol id="i-carrot" viewBox="0 0 24 24"><path d="M3 21s9.834 -3.489 12.684 -6.34a4.487 4.487 0 0 0 0 -6.344a4.483 4.483 0 0 0 -6.342 0c-2.86 2.861 -6.347 12.689 -6.347 12.689l.005 -.005" /> <path d="M9 13l-1.5 -1.5" /> <path d="M16 14l-2 -2" /> <path d="M22 8s-1.14 -2 -3 -2c-1.406 0 -3 2 -3 2s1.14 2 3 2s3 -2 3 -2" /> <path d="M16 2s-2 1.14 -2 3s2 3 2 3s2 -1.577 2 -3c0 -1.86 -2 -3 -2 -3" /></symbol><symbol id="i-bread" viewBox="0 0 24 24"><path d="M18 4a3 3 0 0 1 2 5.235v8.765a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-8.764a3 3 0 0 1 1.824 -5.231h12.176v-.005" /></symbol><symbol id="i-egg" viewBox="0 0 24 24"><path d="M19 14.083c0 4.154 -2.966 6.74 -7 6.917c-4.2 0 -7 -2.763 -7 -6.917c0 -5.538 3.5 -11.09 7 -11.083c3.5 .007 7 5.545 7 11.083" /></symbol><symbol id="i-candy" viewBox="0 0 24 24"><path d="M7.05 11.293l4.243 -4.243a2 2 0 0 1 2.828 0l2.829 2.83a2 2 0 0 1 0 2.828l-4.243 4.243a2 2 0 0 1 -2.828 0l-2.829 -2.831a2 2 0 0 1 0 -2.828" /> <path d="M16.243 9.172l3.086 -.772a1.5 1.5 0 0 0 .697 -2.516l-2.216 -2.217a1.5 1.5 0 0 0 -2.44 .47l-1.248 2.913" /> <path d="M9.172 16.243l-.772 3.086a1.5 1.5 0 0 1 -2.516 .697l-2.217 -2.216a1.5 1.5 0 0 1 .47 -2.44l2.913 -1.248" /></symbol><symbol id="i-meat" viewBox="0 0 24 24"><path d="M13.62 8.382l1.966 -1.967a2 2 0 1 1 3.414 -1.415a2 2 0 1 1 -1.413 3.414l-1.82 1.821" /> <path d="M5.904 18.596c2.733 2.734 5.9 4 7.07 2.829c1.172 -1.172 -.094 -4.338 -2.828 -7.071c-2.733 -2.734 -5.9 -4 -7.07 -2.829c-1.172 1.172 .094 4.338 2.828 7.071" /> <path d="M7.5 16l1 1" /> <path d="M12.975 21.425c3.905 -3.906 4.855 -9.288 2.121 -12.021c-2.733 -2.734 -8.115 -1.784 -12.02 2.121" /></symbol><symbol id="i-award" viewBox="0 0 24 24"><path d="M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0" /> <path d="M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889" /> <path d="M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" /> <path d="M9 17v1a3 3 0 0 0 6 0v-1" /></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /> <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /> <path d="M9.7 17l4.6 0" /></symbol><symbol id="i-pig" viewBox="0 0 24 24"><path d="M15 11v.01" /> <path d="M5.173 8.378a3 3 0 1 1 4.656 -1.377" /> <path d="M16 4v3.803a6.019 6.019 0 0 1 2.658 3.197h1.341a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-1.342c-.336 .95 -.907 1.8 -1.658 2.473v2.027a1.5 1.5 0 0 1 -3 0v-.583a6.04 6.04 0 0 1 -1 .083h-4a6.04 6.04 0 0 1 -1 -.083v.583a1.5 1.5 0 0 1 -3 0v-2.027a6 6 0 0 1 3.712 -10.973h2.288l3 -3z" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06" /> <path d="M15 19l2 2l4 -4" /></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></symbol><symbol id="i-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /> <path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /> <path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M3 7l6 6l4 -4l8 8" /> <path d="M21 10l0 7l-7 0" /></symbol><symbol id="i-trending-up" viewBox="0 0 24 24"><path d="M3 17l6 -6l4 4l8 -8" /> <path d="M14 7l7 0l0 7" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /> <path d="M4.012 16.737a2 2 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></symbol><symbol id="i-share" viewBox="0 0 24 24"><path d="M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M8.7 10.7l6.6 -3.4" /> <path d="M8.7 13.3l6.6 3.4" /></symbol></svg>
 
 
 <!-- ── Popup banner: "Pridaj deal" (1x denne na návštevníka) ──────────────── -->
@@ -6206,6 +6245,101 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     return new Date(iso.slice(0, 10) + 'T12:00').toLocaleDateString('sk-SK', { weekday: 'short', day: 'numeric', month: 'numeric' });
   }
 
+  // ── Dvojitý lístok: časové pásma, letový poriadok, rozpis ─────────
+  // Dĺžka letu: časy od Ryanairu sú miestne, preto ich prepočítame na UTC
+  // podľa časového pásma letiska (5. stĺpec v ryanair-letiska.json).
+  function ltdTzOff(ms, tz) {
+    try {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric',
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+      return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute) - Math.floor(ms / 60000) * 60000;
+    } catch (e) { return 0; }
+  }
+  function ltdUtc(isoLocal, tz) {
+    const [d, t] = String(isoLocal).split('T');
+    const [Y, M, D] = d.split('-').map(Number), [h, m] = (t || '00:00').split(':').map(Number);
+    const guess = Date.UTC(Y, M - 1, D, h, m);
+    if (!tz) return guess;
+    let ms = guess - ltdTzOff(guess, tz);
+    const off2 = ltdTzOff(ms, tz);
+    if (guess - off2 !== ms) ms = guess - off2;
+    return ms;
+  }
+  function ltdTz(kod) { const r = ltdLetiska && ltdLetiska.find(x => x[0] === kod); return r ? r[4] : ''; }
+  // Dĺžka letu v minútach; prílet "07:10" po odlete "23:30" je na druhý deň.
+  function ltdTrvanie(z, kam, den, odlet, prilet) {
+    const a = ltdUtc(`${den}T${odlet}`, ltdTz(z));
+    let b = ltdUtc(`${den}T${prilet}`, ltdTz(kam));
+    if (b <= a) b += 86400000;
+    const min = Math.round((b - a) / 60000);
+    return min > 0 && min < 20 * 60 ? min : null;
+  }
+  function ltdMin(min) {
+    if (!min) return '';
+    const h = Math.floor(min / 60), m = min % 60;
+    return h ? `${h} h${m ? ' ' + String(m).padStart(2, '0') + ' min' : ''}` : `${m} min`;
+  }
+  function ltdCislo(c) { return String(c || '').replace(/^([A-Z0-9]{2})\s*0*(\d+)$/, '$1 $2'); }
+
+  // Letový poriadok (všetky lety na trase v mesiaci) - z prehliadača, pre každú
+  // trasu a mesiac len raz za návštevu.
+  const ltdPoriadky = new Map();
+  function ltdPoriadok(z, kam, den) {
+    const [Y, M] = den.split('-');
+    const kluc = `${z}-${kam}-${Y}-${M}`;
+    if (!ltdPoriadky.has(kluc)) {
+      ltdPoriadky.set(kluc, fetch(`https://services-api.ryanair.com/timtbl/3/schedules/${z}/${kam}/years/${Y}/months/${+M}`)
+        .then(r => r.ok ? r.json() : null).catch(() => null));
+    }
+    return ltdPoriadky.get(kluc).then(d => {
+      const day = d && (d.days || []).find(x => x.day === +den.slice(8, 10));
+      return day ? day.flights.map(f => ({ cislo: (f.carrierCode || 'FR') + f.number, odlet: f.departureTime, prilet: f.arrivalTime })) : null;
+    });
+  }
+
+  function ltdRiadok(f, z, kam, den, naj, odkaz, spat) {
+    const min = ltdTrvanie(z, kam, den, f.odlet, f.prilet);
+    const mz = ltdMesto(z, (ltdLetiska.find(x => x[0] === z) || [])[2]), mk = ltdMesto(kam, (ltdLetiska.find(x => x[0] === kam) || [])[2]);
+    return `<div class="ltd-row${naj ? ' naj' : ''}">
+      <div class="ltd-t"><b>${escapeHtml(f.odlet)}</b><small>${escapeHtml(z)} · ${escapeHtml(mz)}</small></div>
+      <div class="ltd-mid${spat ? ' spat' : ''}"><span>${escapeHtml(ltdMin(min))}</span><div class="l"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg></div>
+        <span>${escapeHtml(ltdCislo(f.cislo))} · priamy</span></div>
+      <div class="ltd-t c"><b>${escapeHtml(f.prilet)}</b><small>${escapeHtml(kam)} · ${escapeHtml(mk)}</small></div>
+      <div class="ltd-rc">${naj ? `<span class="ltd-naj">najlacnejší</span>` : `<a href="${escapeAttr(odkaz)}" target="_blank" rel="nofollow sponsored noopener">cena na ryanair.com</a>`}</div>
+    </div>`;
+  }
+
+  function ltdSegment(let1, z, kam, den, spat, odkaz) {
+    const cena = Number(let1.price.value).toFixed(2).replace('.', ',');
+    const zlacnelo = let1.previousPrice && let1.previousPrice.value > let1.price.value;
+    const naj = { cislo: let1.flightNumber, odlet: (let1.departureDate || '').slice(11, 16), prilet: (let1.arrivalDate || '').slice(11, 16) };
+    return `<div class="ltd-seg-b" data-z="${escapeAttr(z)}" data-kam="${escapeAttr(kam)}" data-den="${escapeAttr(den)}" data-naj="${escapeAttr(let1.flightNumber || '')}"
+        data-spat="${spat ? 1 : 0}" data-odkaz="${escapeAttr(odkaz)}">
+      <div class="ltd-hl"><span class="ltd-smer${spat ? ' spat' : ''}"><i><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg></i>${spat ? 'Späť' : 'Tam'} · ${escapeHtml(ltdDen(den))}</span>
+        <span class="ltd-cp">${cena} €${zlacnelo ? ' <span class="ltd-zlacnelo">zlacnelo</span>' : ''}</span></div>
+      <div class="ltd-rows">${ltdRiadok(naj, z, kam, den, true, odkaz, spat)}</div>
+    </div>`;
+  }
+
+  // Ďalšie lety v ten deň dopĺňame až pre lístky, ktoré sa ukážu na obrazovke.
+  const ltdPozor = 'IntersectionObserver' in window ? new IntersectionObserver(zaznamy => {
+    zaznamy.forEach(z => { if (z.isIntersecting) { ltdPozor.unobserve(z.target); ltdDoplnLety(z.target); } });
+  }, { rootMargin: '200px' }) : null;
+  async function ltdDoplnLety(seg) {
+    const { z, kam, den, naj, odkaz } = seg.dataset, spat = seg.dataset.spat === '1';
+    const lety = await ltdPoriadok(z, kam, den);
+    if (!lety || lety.length < 2) return;
+    lety.sort((a, b) => a.odlet.localeCompare(b.odlet));
+    seg.querySelector('.ltd-rows').innerHTML = lety.map(f => ltdRiadok(f, z, kam, den, f.cislo === naj, odkaz, spat)).join('');
+  }
+  function ltdPozorujLety() {
+    document.querySelectorAll('#ltd-vysl .ltd-seg-b').forEach(s => { if (ltdPozor) ltdPozor.observe(s); else ltdDoplnLety(s); });
+  }
+  function ltdNoci(a, b) {
+    const n = Math.round((ltdUtc(b + 'T12:00') - ltdUtc(a + 'T12:00')) / 86400000);
+    return n === 1 ? '1 noc' : (n >= 2 && n <= 4 ? `${n} noci` : `${n} nocí`);
+  }
+
   window.ltdHladaj = async function (e) {
     if (e) e.preventDefault();
     const vysl = document.getElementById('ltd-vysl');
@@ -6246,37 +6380,26 @@ Chcete zvýšiť komfort pri používaní m</p></article>
         vysl.innerHTML = `<p class="ltd-info">Na ${escapeHtml(kedy)} sme ${kamText ? 'do tohto cieľa ' : ''}z tohto letiska nenašli žiadny ${ltdSpat ? 'spiatočný ' : ''}let Ryanair. Skús iný deň.</p>`;
         return;
       }
-      const odkialR = ltdLetiska.find(x => x[0] === z);
-      const odkialMesto = odkialR ? ltdMesto(z, odkialR[2]) : z;
-      const slovo = n => n === 1 ? 'let' : (n < 5 ? 'lety' : 'letov');
-      vysl.innerHTML = `<div class="ltd-pocet">${lety.length} ${ltdSpat ? 'spiatočných ' : ''}${slovo(lety.length)} · ${escapeHtml(kedy)}</div>`
+      const slovo = n => ltdSpat ? (n === 1 ? 'spiatočný let' : (n < 5 ? 'spiatočné lety' : 'spiatočných letov'))
+        : (n === 1 ? 'let' : (n < 5 ? 'lety' : 'letov'));
+      vysl.innerHTML = `<div class="ltd-pocet">${lety.length} ${slovo(lety.length)} · ${escapeHtml(kedy)}</div>`
         + lety.map(l => {
-          const a = l.tam.arrivalAirport, r2 = ltdLetiska.find(x => x[0] === a.iataCode);
-          const mesto = ltdMesto(a.iataCode, (a.city && a.city.name) || a.name);
-          const letisko = a.name && a.name !== mesto && !ltdSk(a.iataCode) ? a.name : '';
+          const a = l.tam.arrivalAirport, kam = a.iataCode, r2 = ltdLetiska.find(x => x[0] === kam);
+          const mesto = ltdMesto(kam, (a.city && a.city.name) || a.name);
           const krajina = r2 ? ltdKrajina(r2[3]) : (a.countryName || '');
-          const cas = x => (x && x.departureDate || '').slice(11, 16);
+          const odkaz = ltdOdkaz(z, kam, den, l.spat ? navrat : '');
           const cena = Number(l.cena).toFixed(2).replace('.', ',');
-          return `<div class="ltd-pass">
-            <div class="ltd-pass-l">
-              <div class="ltd-trasa">
-                <div class="ltd-iata">${escapeHtml(z)}<small>${escapeHtml(odkialMesto)}</small></div>
-                <div class="ltd-linka"><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg></div>
-                <div class="ltd-iata ciel">${escapeHtml(a.iataCode)}<small>${escapeHtml(mesto)}${letisko ? ' (' + escapeHtml(letisko) + ')' : ''}</small></div>
-              </div>
-              <div class="ltd-meta">
-                <span>Tam <b>${escapeHtml(ltdDen(l.tam.departureDate || den))}${cas(l.tam) ? ' · ' + escapeHtml(cas(l.tam)) : ''}</b></span>
-                ${l.spat ? `<span>Späť <b>${escapeHtml(ltdDen(l.spat.departureDate || navrat))}${cas(l.spat) ? ' · ' + escapeHtml(cas(l.spat)) : ''}</b></span>` : ''}
-                <span>${escapeHtml(krajina)}</span>
-              </div>
-            </div>
+          return `<div class="ltd-pass ltd-pass-b">
+            <div class="ltd-pass-l">${ltdSegment(l.tam, z, kam, den, false, odkaz)}${l.spat ? ltdSegment(l.spat, kam, z, navrat, true, odkaz) : ''}</div>
             <div class="ltd-pass-r">
-              <span class="ltd-typ">${l.spat ? 'tam aj späť' : 'jedným smerom'}</span>
+              <span class="ltd-typ">${l.spat ? 'spolu tam aj späť' : 'jedným smerom'}</span>
               <div class="ltd-cena">${cena} €<small>za osobu</small></div>
-              <a class="ltd-rez" href="${escapeAttr(ltdOdkaz(z, a.iataCode, den, l.spat ? navrat : ''))}" target="_blank" rel="nofollow sponsored noopener">Rezervovať</a>
+              <span class="ltd-noci">${l.spat ? `<svg class="ic" aria-hidden="true"><use href="#i-moon"></use></svg>${escapeHtml(ltdNoci(den, navrat))} · ` : ''}${escapeHtml(mesto)}, ${escapeHtml(krajina)}</span>
+              <a class="ltd-rez" href="${escapeAttr(odkaz)}" target="_blank" rel="nofollow sponsored noopener">Rezervovať</a>
             </div>
           </div>`;
         }).join('');
+      ltdPozorujLety();
     } catch (err) {
       vysl.innerHTML = '<p class="ltd-info">Ryanair teraz neodpovedá. Skús to prosím o chvíľu.</p>';
     } finally { btn.disabled = false; }
