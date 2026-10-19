@@ -6652,11 +6652,21 @@ Chcete zvýšiť komfort pri používaní m</p></article>
 
   // ── Cenový kalendár (klik na deň = odlet, pri spiatočnom druhý klik = návrat) ──
   let ltdKalMesiac = null, ltdKalFaza = 'odlet';
-  function ltdKalCeny(z) {
+  // Cieľové letiská, ktoré zodpovedajú poľu "Kam" (kód, mesto alebo krajina); null = kamkoľvek.
+  function ltdKalCiele(kamText) {
+    const t = String(kamText || '').trim();
+    if (!t) return null;
+    const kod = ltdKod(t), n = ltdNorm(t), ciele = new Set();
+    Object.entries(ltData.letiska || {}).forEach(([k, L]) => {
+      if ((kod && k === kod) || ltdNorm([k, L.n, L.k].join(' ')).includes(n)) ciele.add(k);
+    });
+    return ciele;
+  }
+  function ltdKalCeny(z, ciele) {
     const m = {};
     if (!ltData || !LT_ODKIAL[z]) return m;
     ltData.trasy.forEach(r => {
-      if (r.z !== z) return;
+      if (r.z !== z || (ciele && !ciele.has(r.do))) return;
       r.t.forEach((p, i) => { if (p > 0) { const k = ltIso(i); if (m[k] === undefined || p < m[k]) m[k] = p; } });
     });
     return m;
@@ -6666,7 +6676,8 @@ Chcete zvýšiť komfort pri používaní m</p></article>
     const el = document.getElementById('ltd-kal');
     if (!el || !ltdLetiska) return;
     const z = ltdKod(document.getElementById('ltd-odkial').value);
-    const ceny = z ? ltdKalCeny(z) : {};
+    const kamText = document.getElementById('ltd-kam').value;
+    const ceny = z ? ltdKalCeny(z, ltdKalCiele(kamText)) : {};
     const dnes = ltdIsoDnes(0), max = ltdIsoDnes(365);
     if (!ltdKalMesiac) ltdKalMesiac = (document.getElementById('ltd-datum').value || dnes).slice(0, 7);
     const [Y, M] = ltdKalMesiac.split('-').map(Number);
@@ -6693,7 +6704,8 @@ Chcete zvýšiť komfort pri používaní m</p></article>
         <button type="button" class="ltd-kal-sip" data-kal="1" aria-label="Ďalší mesiac"><svg class="ic" aria-hidden="true"><use href="#i-chevron-right"></use></svg></button></div>
       <div class="ltd-kal-pomocka">${escapeHtml(pomocka)}</div>
       <div class="ltd-kal-m"><span class="dn">po</span><span class="dn">ut</span><span class="dn">st</span><span class="dn">št</span><span class="dn">pi</span><span class="dn">so</span><span class="dn">ne</span>${bunky}</div>
-      <div class="ltd-kal-leg">${z && LT_ODKIAL[z] ? '<span><i class="l"></i>do 25 €</span><span><i class="m"></i>do 45 €</span><span><i class="h"></i>viac</span><span class="ltd-kal-pozn">najnižšia cena letu z ' + escapeHtml(LT_ODKIAL[z][1]) + '</span>'
+      <div class="ltd-kal-leg">${z && LT_ODKIAL[z] ? '<span><i class="l"></i>do 25 €</span><span><i class="m"></i>do 45 €</span><span><i class="h"></i>viac</span><span class="ltd-kal-pozn">najnižšia cena letu z ' + escapeHtml(LT_ODKIAL[z][1])
+          + (kamText.trim() ? ' do cieľa „' + escapeHtml(kamText.split(',')[0]) + '“ <a href="#" data-kam-zrus>(zrušiť cieľ)</a>' : ' kamkoľvek') + '</span>'
         : '<span class="ltd-kal-pozn">Ceny v kalendári máme pre BTS, VIE, KSC, BRQ, PRG, BUD a KRK.</span>'}</div>`;
   };
   function ltdKalKlik(e) {
@@ -6728,6 +6740,11 @@ Chcete zvýšiť komfort pri používaní m</p></article>
       document.getElementById('ltd-datum').addEventListener('change', () => { ltdNastavTyp(ltdSpat); ltdKalMesiac = null; ltdKresliKal(); });
       document.getElementById('ltd-navrat').addEventListener('change', ltdKresliKal);
       document.getElementById('ltd-odkial').addEventListener('change', ltdKresliKal);
+      document.getElementById('ltd-kam').addEventListener('change', ltdKresliKal);
+      panel.addEventListener('click', e => {
+        if (!e.target.closest('[data-kam-zrus]')) return;
+        e.preventDefault(); document.getElementById('ltd-kam').value = ''; ltdKresliKal();
+      });
     }
     try { await ltdNacitajLetiska(); }
     catch (e) { document.getElementById('ltd-vysl').innerHTML = '<p class="ltd-info">Zoznam letísk sa nepodarilo načítať. Skús to o chvíľu.</p>'; return; }
