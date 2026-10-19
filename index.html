@@ -2589,45 +2589,6 @@
   .skel-line.w30 { height: 22px; width: 30%; margin-top: 4px; }
   @keyframes skel-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
-  /* Náhľad: filtre ako veta */
-  .veta { background: linear-gradient(135deg, #FFF8F2, #FFFFFF 60%); border: 1px solid var(--line); border-radius: 20px; padding: 20px 22px 18px; }
-  .veta-hl { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
-  .veta-spat { margin-left: auto; font-size: .8rem; font-weight: 600; color: var(--muted); }
-  .veta-text { font-size: 1.4rem; line-height: 2.2; font-weight: 600; letter-spacing: -.01em; color: #2a3247; }
-  .veta-ch { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 2px solid var(--orange); color: var(--orange-dk);
-    border-radius: 12px; padding: 0 10px; line-height: 1.75; font: inherit; font-weight: 800; cursor: pointer; vertical-align: middle;
-    box-shadow: 0 3px 0 rgba(232, 89, 12, .18); }
-  .veta-ch .ic { width: 18px; height: 18px; }
-  .veta-ch .veta-chev { width: 14px; height: 14px; opacity: .6; transition: transform .15s; }
-  .veta-ch.otv .veta-chev { transform: rotate(180deg); }
-  .veta-ch.n { border-color: #14213D; color: #14213D; box-shadow: 0 3px 0 rgba(20, 33, 61, .15); }
-  .veta-ch.otv { background: #FFF1E7; }
-  .veta-ch.n.otv { background: #EEF2F8; }
-  .veta-pop { margin-top: 10px; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 14px 34px rgba(20, 33, 61, .14);
-    padding: 12px; display: inline-block; max-width: 100%; }
-  .veta-pop-t { font-size: .74rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin: 2px 4px 8px; }
-  .veta-pop-ch { display: flex; gap: 6px; flex-wrap: wrap; }
-  .veta-o { border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 7px 13px; font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; }
-  .veta-o small { color: var(--muted); font-weight: 500; margin-left: 5px; }
-  .veta-o.on { background: #14213D; border-color: #14213D; color: #fff; }
-  .veta-o.on small { color: #cbd5e1; }
-  .veta-hotovo { margin-top: 10px; border: 0; background: var(--orange); color: #fff; border-radius: 999px; padding: 7px 16px; font: inherit; font-weight: 700; cursor: pointer; }
-  .veta-dole { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
-  .veta-vys { display: flex; align-items: center; gap: 8px; font-size: .95rem; color: var(--muted); }
-  .veta-vys .ic { width: 18px; height: 18px; color: #1F9D55; }
-  .veta-vys b { color: #1F9D55; }
-  .veta-akc { display: flex; gap: 8px; flex-wrap: wrap; }
-  .veta-btn { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: #fff; border-radius: 999px;
-    padding: 8px 14px; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
-  .veta-btn .ic { width: 16px; height: 16px; }
-  @media (max-width: 760px) {
-    .veta { padding: 16px; }
-    .veta-text { font-size: .98rem; line-height: 2.25; }
-    .veta-ch { padding: 0 8px; line-height: 1.65; border-width: 1.5px; }
-    .veta-ch .ic:not(.veta-chev) { display: none; }
-    .veta-spat { display: none; }
-  }
-
   /* Letenky na presný dátum – dizajn „palubný lístok" */
   .ltd-btn { display: inline-flex; align-items: center; gap: 6px; border: 1.5px dashed var(--orange) !important;
     color: var(--orange-dk) !important; background: #FFF6EF !important; }
@@ -6446,126 +6407,7 @@ Chcete zvýšiť komfort pri používaní m</p></article>
 
   function ltdOtvorene() { const p = document.getElementById('ltd-panel'); return !!(p && !p.hidden); }
 
-  // ── Náhľad: filtre ako veta (?nahlad=veta) ────────────────────────
-  // Skúšobná podoba rýchlych filtrov. Bežní návštevníci ju nevidia, kým
-  // sa nerozhodneme. Mení tie isté filtre (ltF) ako klasické karty.
-  const LT_VETA = new URLSearchParams(location.search).get('nahlad') === 'veta';
-  let ltVetaOtv = null;
-  const LT_MES_V = ['v januári', 'vo februári', 'v marci', 'v apríli', 'v máji', 'v júni', 'v júli', 'v auguste',
-    'v septembri', 'v októbri', 'v novembri', 'v decembri'];
-  const LT_VETA_OTAZKY = { z: 'Odkiaľ letíš? (môžeš vybrať viac)', druh: 'Kam?', typ: 'Na ako dlho?', kedy: 'Kedy?',
-    mesiac: 'V ktorom mesiaci?', cena: 'Koľko najviac?' };
-
-  function ltVetaText(k) {
-    if (k === 'z') {
-      const g = ltF.z.map(z => (LT_ODKIAL[z] || [z, z])[1]);
-      return 'z ' + (g.length > 1 ? g.slice(0, -1).join(', ') + ' alebo ' + g[g.length - 1] : g[0]);
-    }
-    if (k === 'druh') return { all: 'kamkoľvek', mesto: 'do mesta', more: 'k moru' }[ltF.druh] || 'kamkoľvek';
-    if (k === 'typ') return { kratky: 'na predĺžený víkend', tyzden: 'na týždeň', dlhsie: 'na dlhšiu dovolenku', tam: 'len jedným smerom' }[ltF.typ];
-    if (k === 'kedy') return { all: 'kedykoľvek', vikend: 'cez víkend', pracovne: 'cez pracovné dni' }[ltF.kedy] || 'kedykoľvek';
-    if (k === 'mesiac') return ltF.mesiac === 'all' ? 'v najbližších mesiacoch' : LT_MES_V[Number(ltF.mesiac.slice(5)) - 1];
-    if (k === 'cena') return `${ltF.cena} €`;
-    return '';
-  }
-
-  function ltVetaChip(k, ikona) {
-    const otv = ltVetaOtv === k;
-    return `<button type="button" class="veta-ch${k === 'z' ? ' n' : ''}${otv ? ' otv' : ''}" data-veta="${k}" aria-expanded="${otv}">`
-      + `${ikona ? icon(ikona) : ''}${escapeHtml(ltVetaText(k))}<svg class="ic veta-chev" aria-hidden="true"><use href="#i-chevron-down"></use></svg></button>`;
-  }
-
-  function ltVetaPopover(skupiny) {
-    if (!ltVetaOtv) return '';
-    const s = skupiny.find(x => x.k === ltVetaOtv);
-    if (!s) return '';
-    const text = (v, t) => {
-      if (s.k === 'typ') return { kratky: 'predĺžený víkend', tyzden: 'týždeň', dlhsie: 'dlhšiu dovolenku', tam: 'len jedným smerom' }[v] || t;
-      if (s.k === 'druh') return { all: 'kamkoľvek', mesto: 'do mesta', more: 'k moru' }[v] || t;
-      return t;
-    };
-    return `<div class="veta-pop" role="dialog" aria-label="${escapeAttr(LT_VETA_OTAZKY[s.k] || s.lab)}">
-      <div class="veta-pop-t">${escapeHtml(LT_VETA_OTAZKY[s.k] || s.lab)}</div>
-      <div class="veta-pop-ch">${s.moz.map(([v, t, pozn]) => {
-        const on = s.multi ? ltF[s.k].includes(v) : ltF[s.k] === v;
-        return `<button type="button" class="veta-o${on ? ' on' : ''}" data-vk="${s.k}" data-vv="${escapeAttr(String(v))}">${escapeHtml(text(v, t))}${pozn ? `<small>${escapeHtml(pozn)}</small>` : ''}</button>`;
-      }).join('')}</div>
-      ${s.multi ? '<button type="button" class="veta-hotovo" data-veta-hotovo>Hotovo</button>' : ''}
-    </div>`;
-  }
-
-  function ltKresliVetu() {
-    const skupiny = ltSkupiny();
-    document.getElementById('lt-filters').innerHTML = `
-      <div class="veta">
-        <div class="veta-hl"><span class="lt-f-ico">${icon('plane')}</span>Kam poletíš?
-          <a class="veta-spat" href="${escapeAttr(location.pathname + location.hash)}">Späť na klasické filtre</a></div>
-        <div class="veta-text">Chcem letieť ${ltVetaChip('z', 'plane-departure')} ${ltVetaChip('druh', 'world')}
-          ${ltVetaChip('typ', 'moon')} ${ltVetaChip('kedy')} ${ltVetaChip('mesiac', 'calendar')}
-          a minúť najviac ${ltVetaChip('cena')} ${ltF.typ === 'tam' ? 'jedným smerom' : 'tam aj späť'}.</div>
-        ${ltVetaPopover(skupiny)}
-        <div class="veta-dole">
-          <div class="veta-vys" id="veta-vys">${icon('bolt')}<span>Hľadám…</span></div>
-          <div class="veta-akc">
-            <button type="button" class="veta-btn" data-akcia="vymazat">Začať odznova</button>
-            <button type="button" class="veta-btn o ltd-btn${ltdOtvorene() ? ' on' : ''}" data-akcia="presny" aria-controls="ltd-panel"
-              aria-expanded="${ltdOtvorene()}">${icon('calendar')}Mám presný dátum</button>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  // Súhrn pod vetou: počet destinácií a najnižšia cena po každej zmene.
-  window.ltVetaSuhrn = function (zoz) {
-    const el = document.getElementById('veta-vys');
-    if (!el) return;
-    if (!zoz.length) { el.innerHTML = `${icon('bolt')}<span>Na túto kombináciu teraz nič nelieta – skús zmeniť niektoré slovo.</span>`; return; }
-    const naj = Math.min(...zoz.map(v => v.naj.p));
-    el.innerHTML = `${icon('bolt')}<span>Našli sme <b>${escapeHtml(ltDestinacie(zoz.length))}</b> od <b>${escapeHtml(ltCena(naj))}</b></span>`;
-  };
-
-  function ltVetaKlik(e) {
-    const akcia = e.target.closest('[data-akcia]');
-    if (akcia) {
-      if (akcia.dataset.akcia === 'presny') { ltdPrepni(); return; }
-      if (akcia.dataset.akcia === 'vymazat') {
-        Object.assign(ltF, JSON.parse(JSON.stringify(LT_PREDVOLENE)));
-        ltVetaOtv = null; ltVybrana = null;
-        ltKresliFiltre(); ltRender(true);
-      }
-      return;
-    }
-    if (e.target.closest('[data-veta-hotovo]')) { ltVetaOtv = null; ltKresliFiltre(); ltRender(false); return; }
-    const ch = e.target.closest('[data-veta]');
-    if (ch) { ltVetaOtv = ltVetaOtv === ch.dataset.veta ? null : ch.dataset.veta; ltKresliFiltre(); ltRender(false); return; }
-    const o = e.target.closest('[data-vk]');
-    if (!o) return;
-    const k = o.dataset.vk;
-    let v = o.dataset.vv;
-    if (k === 'cena') v = Number(v);
-    if (window.hkUdalost) window.hkUdalost('letenky_veta_' + k);
-    if (k === 'z') {
-      const i = ltF.z.indexOf(v);
-      if (i >= 0) { if (ltF.z.length > 1) ltF.z.splice(i, 1); } else ltF.z.push(v);
-    } else {
-      ltF[k] = v;
-      ltVetaOtv = null;
-    }
-    ltVybrana = null;
-    ltKresliFiltre();
-    ltRender(true);
-  }
-
-  // Klik mimo vety zatvorí otvorenú ponuku.
-  document.addEventListener('click', (e) => {
-    if (!LT_VETA || !ltVetaOtv) return;
-    // Prvok, na ktorý sa kliklo, mohlo prekreslenie už odstrániť - vtedy nejde o klik mimo.
-    if (!e.target.isConnected || e.target.closest('#lt-filters')) return;
-    ltVetaOtv = null; ltKresliFiltre(); ltRender(false);
-  });
-
   function ltKresliFiltre() {
-    if (LT_VETA) { ltKresliVetu(); return; }
     const skupiny = ltSkupiny();
     const karta = s => `
       <div class="lt-group ${s.cls || ''}">
@@ -6594,7 +6436,6 @@ Chcete zvýšiť komfort pri používaní m</p></article>
       </div>`;
   }
   function ltKlikFilter(e) {
-    if (LT_VETA) { ltVetaKlik(e); return; }
     const akcia = e.target.closest('[data-akcia]');
     if (akcia) {
       if (akcia.dataset.akcia === 'presny') { ltdPrepni(); return; }
@@ -6876,7 +6717,6 @@ Chcete zvýšiť komfort pri používaní m</p></article>
       </div>`;
     }).join('') : `<div class="lt-empty"><b>Nič nenašlo</b>Na túto kombináciu teraz nič nelieta.
         Skús vyšší rozpočet, iný mesiac alebo pridaj ďalšie letisko.</div>`;
-    if (LT_VETA && window.ltVetaSuhrn) window.ltVetaSuhrn(zoz);
     ltKresliMapu(prisposobMapu);
   };
 
