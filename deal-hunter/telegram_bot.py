@@ -299,6 +299,9 @@ def _apply_decision(db, callback: dict) -> bool:
                 # vie, čo pribudlo od jeho poslednej kontroly.
                 from google.cloud import firestore as _fs
                 zmena["zverejnene"] = _fs.SERVER_TIMESTAMP
+                # "Pridané pred..." sa počíta od schválenia, nie od odoslania
+                # dealu na schválenie.
+                zmena["timestamp"] = _fs.SERVER_TIMESTAMP
             doc_ref.update(zmena)
             answer = "Schválené ✅" if status == "approved" else "Zamietnuté ❌"
             logger.info("Deal %s -> %s", deal_id, status)

@@ -1427,9 +1427,11 @@
   async function setDealStatus(id, status, title) {
     // Pri zverejnení si poznačíme čas - podľa neho vie strážca dealov,
     // čo pribudlo od jeho poslednej kontroly, a nemusí čítať celú
-    // kolekciu.
+    // kolekciu. Čas dealu sa pri schválení nastaví na teraz, aby sa
+    // "Pridané pred..." počítalo od zverejnenia, nie od odoslania na
+    // schválenie.
     await updateDoc(doc(db, "deals", id),
-      status === 'approved' ? { status, zverejnene: serverTimestamp() } : { status });
+      status === 'approved' ? { status, timestamp: serverTimestamp(), zverejnene: serverTimestamp() } : { status });
     await logChange(id, status, title || null);
   }
 
