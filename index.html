@@ -7379,7 +7379,7 @@ Ak vyvíjate vlastný projekt, aplikáciu alebo podnikáte v oblasti AI, toto by
         <span class="fp-name"><b>${escapeHtml(it.label)}</b><span class="fp-pack">${bal}</span></span>
         <span class="fp-best">
           <span class="fp-price">${price(naj.price)}</span>
-          <span class="fp-chain">${escapeHtml(naj.vendor)}</span>
+          <span class="fp-chain">${escapeHtml(naj.vendor)}${naj.onPromo ? ' · akcia' : ''}</span>
         </span>
         <span class="fp-others">${ostatne}</span>
         <span class="fp-trend"><b style="color:${sp.color}">${sp.trend}</b><span>${sp.note}</span></span>
@@ -7398,7 +7398,7 @@ Ak vyvíjate vlastný projekt, aplikáciu alebo podnikáte v oblasti AI, toto by
       <div class="fd-list-h">
         <h2>Zoznam potravín</h2>
         <span class="fd-src">Ceny k ${escapeHtml(datum)} · Zdroj: CenySlovensko.sk – Ministerstvo financií SR.
-          Dostupnosť produktov sa môže v jednotlivých predajniach líšiť. HenKukaj.sk nezaručuje ich skladovú dostupnosť.</span>
+          Uvedená je najnižšia cena, akú reťazec nahlásil v ktorejkoľvek predajni, preto ju nemusíš nájsť v každej. Akciové ceny a dostupnosť sa v predajniach líšia a môžu byť vypredané. HenKukaj.sk nezaručuje skladovú dostupnosť.</span>
       </div>
       ${body || `<div class="empty" style="font-size:.85rem;padding:18px 6px;">Nič sa nenašlo.</div>`}
     </div>`;
