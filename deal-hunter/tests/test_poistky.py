@@ -97,6 +97,20 @@ def test_ziar_obide_stare_dealy():
     assert denny_ziar.je_stary({}, hranica)
 
 
+def test_ziar_obide_expirovane_dealy():
+    import denny_ziar
+
+    # Príznak z úlohy, ktorá expirované dealy označuje.
+    assert denny_ziar.je_expirovany({"expired": True}, "2026-10-26")
+    # Úloha ešte nemusela bežať - rozhoduje dátum platnosti.
+    assert denny_ziar.je_expirovany({"validUntilISO": "2026-10-25"}, "2026-10-26")
+    # "Platí do" je vrátane, v posledný deň ešte nie je expirovaný.
+    assert not denny_ziar.je_expirovany({"validUntilISO": "2026-10-26"}, "2026-10-26")
+    assert not denny_ziar.je_expirovany({"expired": False}, "2026-10-26")
+    # Deal bez dátumu platnosti (napr. natrvalo) sa nevyraďuje.
+    assert not denny_ziar.je_expirovany({}, "2026-10-26")
+
+
 # ── adresy feedov sa nesmú dostať do verejného logu ──────────────────
 
 def test_tajna_adresa_v_logu():
