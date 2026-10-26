@@ -432,6 +432,36 @@ def run_feed_diagnostics() -> int:
     return 0
 
 
+# ── Lov z domáceho servera (NUC) ─────────────────────────────────────
+# Beží z domu (slovenská IP) a hľadá zľavy v obchodoch, ktoré cloud
+# nepustia: lekárne, hračkárstva, elektro. Zapína sa premennou
+# NUC_LOV=true. Obchody sú v nastavenia_admin/sitemap_obchody_nuc
+# (rovnaký tvar ako sitemap_obchody) a pridávajú sa k tomu, čo nájde
+# bežný agent, nenahrádzajú ho.
+NUC_LOV_DEALOV_NA_BEH = 3
+NUC_LOV_DOPLNKOVY_STROP_DNA = 6
+
+
+def _nuc_lov_zapnuty() -> bool:
+    import os
+    return os.environ.get("NUC_LOV", "").lower() == "true"
+
+
+def _pouzi_nuc_lov() -> None:
+    config.ENABLED_SCRAPERS = ["sitemap"]
+    config.MAX_DEALS_PER_RUN = NUC_LOV_DEALOV_NA_BEH
+    # Denný strop platí pre bežný agent. Dealy z NUC sa k nemu pridávajú,
+    # inak by ráno agent strop vyčerpal a NUC by nemal kam zapisovať.
+    config.MAX_DEALS_PER_DAY += NUC_LOV_DOPLNKOVY_STROP_DNA
+    try:
+        import firestore_client as _fc
+        data = _fc.get_client().document("nastavenia_admin/sitemap_obchody_nuc").get().to_dict() or {}
+        n = config.pouzi_sitemap(data)
+        logger.info("NUC lov: obchodov %d, %d dealov na beh", n, NUC_LOV_DEALOV_NA_BEH)
+    except Exception as e:
+        logger.warning("NUC lov: obchody sa nepodarilo načítať: %s", e)
+
+
 def main() -> int:
     logger.info("=== Deal Hunter — začiatok behu ===")
 
@@ -452,6 +482,9 @@ def main() -> int:
                                                 "aktualizovane": _fs.SERVER_TIMESTAMP})
     except Exception as e:
         logger.warning("Nastavenia z admina sa nepodarilo načítať, platia predvolené: %s", e)
+    nuc_lov = _nuc_lov_zapnuty()
+    if nuc_lov:
+        _pouzi_nuc_lov()
     logger.info("Zapnuté zdroje: %s", ", ".join(config.ENABLED_SCRAPERS))
 
     if config.FEED_DIAGNOSTICS:
@@ -495,21 +528,27 @@ def main() -> int:
         firestore_client.reset_agent_pending(db)
 
     # Najprv upraceme: čo už neplatí, dostane štítok EXSPIROVANÉ.
-    firestore_client.expire_past_deals(db)
+    if not nuc_lov:
+        firestore_client.expire_past_deals(db)
 
     # Ceny základných potravín z národného porovnávača (raz denne).
-    firestore_client.refresh_food_prices(db)
+    if not nuc_lov:
+        firestore_client.refresh_food_prices(db)
 
     # Akcie stiahnuté skôr, než mali skončiť - dátum ich nezachytí.
-    firestore_client.expire_dead_deals(db)
+    if not nuc_lov:
+        firestore_client.expire_dead_deals(db)
 
     # Zľavové kódy dlho po platnosti. Beží len vtedy, keď je mazanie
     # zapnuté v admin paneli - je nevratné, tak sa nezapína samo.
-    firestore_client.purge_expired_coupons(db)
+    if not nuc_lov:
+        firestore_client.purge_expired_coupons(db)
 
     # Jednorazové pomôcky na rozbeh - pri plánovaných behoch vypnuté.
-    firestore_client.boost_existing_deals(db)
-    firestore_client.boost_coupons(db)
+    if not nuc_lov:
+        firestore_client.boost_existing_deals(db)
+    if not nuc_lov:
+        firestore_client.boost_coupons(db)
 
     try:
         seen_keys, seen_urls = firestore_client.get_existing_keys(db)
