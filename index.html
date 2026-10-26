@@ -3005,6 +3005,11 @@
 .saving-line { font-size: .82rem; color: var(--green); margin-top: 4px; font-weight: 600; }
 .price-box.is-expired .price-now { color: var(--muted); }
 .price-box.is-expired .saving-line { color: var(--muted); }
+.price-hist { display: flex; align-items: center; gap: 12px; margin: 10px 0; padding: 10px 12px; background: #FBFCFE; border: 1px solid var(--line, #E6E9F0); border-radius: 12px; }
+.price-hist svg { flex: none; max-width: 40%; height: auto; }
+.price-hist .hc-txt { font-size: .8rem; color: var(--muted); line-height: 1.45; }
+.price-hist .hc-txt b { color: var(--ink); }
+.price-hist .hc-low { display: inline-block; margin-top: 2px; color: var(--green); font-weight: 700; }
 
 .detail-sig { display: flex; align-items: center; gap: 7px;
   font-size: .8rem; color: var(--muted); margin-bottom: 11px; flex-wrap: wrap; }
@@ -8441,6 +8446,36 @@ Ak vyvíjate vlastný projekt, aplikáciu alebo podnikáte v oblasti AI, toto by
     window.stopCommentsListener();
   };
 
+  // História ceny, ktorú sledujeme sami (server každý deň prečíta cenu na
+  // stránke obchodu). Ukáže sa až od 3 meraní v rôzne dni, inak by čiara
+  // z dvoch bodov nič nehovorila. Čísla sú len to, čo sme namerali.
+  function historiaCienHtml(d, cur) {
+    const body = (Array.isArray(d.priceHistory) ? d.priceHistory : [])
+      .filter(p => p && /^\d{4}-\d{2}-\d{2}$/.test(p.date || '') && typeof p.price === 'number' && p.price > 0)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (body.length < 3 || body[body.length - 1].date === body[0].date) return '';
+    const ceny = body.map(p => p.price);
+    const min = Math.min(...ceny), max = Math.max(...ceny), dnes = ceny[ceny.length - 1];
+    const W = 220, H = 44, pad = 4;
+    const rozsah = (max - min) || 1;
+    const t0 = new Date(body[0].date).getTime(), t1 = new Date(body[body.length - 1].date).getTime();
+    const bod = (p) => {
+      const x = pad + ((new Date(p.date).getTime() - t0) / ((t1 - t0) || 1)) * (W - 2 * pad);
+      const y = H - pad - ((p.price - min) / rozsah) * (H - 2 * pad);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    };
+    const od = body[0].date.split('-').reverse().map(n => parseInt(n, 10)).join('. ');
+    const najnizsia = dnes <= min + 0.004
+      ? '<span class="hc-low">najnižšia cena, akú sme sledovali</span>' : '';
+    return `<div class="price-hist">
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">
+        <polyline points="${body.map(bod).join(' ')}" fill="none" stroke="#FF7A1A" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+      <div class="hc-txt"><b>História ceny</b> · sledujeme od ${od}.<br>
+        najnižšia ${price(min, cur)} · najvyššia ${price(max, cur)} ${najnizsia}</div>
+    </div>`;
+  }
+
   function renderDealDetail(d) {
     const pct   = discount(d);
     const cat   = d.category || '';
@@ -8489,6 +8524,8 @@ Ak vyvíjate vlastný projekt, aplikáciu alebo podnikáte v oblasti AI, toto by
         </div>
         ${savingLine ? `<div class="saving-line">${savingLine}</div>` : ''}
       </div>
+
+      ${historiaCienHtml(d, cur)}
 
       <div class="detail-sig">${authorBadge(d.author)}${ageSentence(d, false)}</div>
 
