@@ -168,6 +168,9 @@ def _jsonld_produkty(html: str) -> list[dict]:
     return out
 
 
+MAX_POVODNA_NASOBOK = 2.5
+
+
 def extrahuj_ponuku(html: str) -> dict | None:
     """Z produktovej stránky vytiahne názov, cenu a pôvodnú (prečiarknutú) cenu.
     Vracia None, ak stránka nie je produkt s cenou v eurách a skladom."""
@@ -196,9 +199,12 @@ def extrahuj_ponuku(html: str) -> dict | None:
                 for el in kandidati:
                     v = parse_price(el.get_text(" ", strip=True)[:40])
                     # Prečiarknutá cena na stránke môže patriť inému produktu
-                    # (podobné, kusová cena, iná mena). Viac ako 4-násobok
-                    # ceny je takmer vždy chyba, nie zľava 75 %+.
-                    if v and v > cena and v <= cena * 4 and (povodna is None or v > povodna):
+                    # (iný variant či balenie, kusová cena, odporúčaná cena
+                    # výrobcu, iná mena). Zľava nad 60 % na jednej stránke bez
+                    # histórie ceny je takmer vždy taká chyba, nie trhák:
+                    # 4-násobok pustil "zľavu 74 %" pri hračke, ktorú inde majú
+                    # za rovnakú cenu. Preto strop na 2,5-násobok.
+                    if v and v > cena and v <= cena * MAX_POVODNA_NASOBOK and (povodna is None or v > povodna):
                         povodna = v
             return {"nazov": str(prod.get("name") or "").strip(), "cena": cena, "povodna": povodna,
                     "platnost": str(o.get("priceValidUntil") or "")[:10] or None}

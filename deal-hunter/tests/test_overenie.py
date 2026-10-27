@@ -248,3 +248,17 @@ def test_import_hada_kategoriu_z_nazvu():
 
     h = '<html><head><title>Notebook Lenovo IdeaPad 15 | Shop</title></head></html>'
     assert a._rozober(h, "https://shop.sk/n")["category"] == "Elektronika"
+
+
+def test_prehnana_povodna_cena_sa_ignoruje():
+    from scrapers.overenie import extrahuj_ponuku
+
+    def stranka(povodna):
+        return ('<html><script type="application/ld+json">{"@type":"Product","name":"X",'
+                '"offers":{"@type":"Offer","price":"5.40","priceCurrency":"EUR",'
+                '"availability":"https://schema.org/InStock"}}</script>'
+                f'<span class="old-price">{povodna} EUR</span></html>')
+
+    # 2x je zľava 50 % - prijateľné, 3,9x (zľava 74 %) je takmer iste iná cena.
+    assert extrahuj_ponuku(stranka("10,80"))["povodna"] == 10.8
+    assert extrahuj_ponuku(stranka("20,83"))["povodna"] is None
