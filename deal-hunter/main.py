@@ -144,6 +144,14 @@ def uloz_prehlad_behu(db, nuc_lov: bool, najdenych: int, po_filtri: int, zapisan
         logger.warning("Prehľad behu sa neuložil: %s", e)
 
 
+def _bez_variantu(nazov: str) -> str:
+    """Názov bez veľkosti na konci ('Tričko Black  XL' -> 'tričko black')."""
+    import re as _re
+    # Len písmenové veľkosti - čísla na konci sú často balenie (Omega 3 60 vs 180)
+    n = _re.sub(r"\s+(XXS|XS|S|M|L|XL|XXL|XXXL)(\1|\s*)*$", "", nazov.strip(), flags=_re.I)
+    return _re.sub(r"\s+", " ", n).lower()
+
+
 def market_check(candidates: list[DealCandidate]) -> list[DealCandidate]:
     """
     Nechá len kandidátov, ktorých cena je najnižšia na Slovensku (trh.py).
@@ -160,6 +168,15 @@ def market_check(candidates: list[DealCandidate]) -> list[DealCandidate]:
     zadarmo = [c for c in candidates if c.zadarmo]
     ostatne = sorted((c for c in candidates if not c.zadarmo),
                      key=lambda c: c.discount_percent, reverse=True)
+    # Varianty toho istého produktu (veľkosti, farby) porovnáme len raz -
+    # inak 40 porovnaní minie tričko v piatich veľkostiach.
+    videne, jedinecne = set(), []
+    for c in ostatne:
+        kluc = ((c.store or c.source).lower(), c.group_id or _bez_variantu(c.title))
+        if kluc not in videne:
+            videne.add(kluc)
+            jedinecne.append(c)
+    ostatne = jedinecne
     try:
         index = trh.Index.nacitaj()
     except Exception as e:

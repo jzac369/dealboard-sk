@@ -129,6 +129,10 @@ class Index:
             logger.info("Trh: index z cache, %d produktov", len(urls))
         else:
             urls = cls._stiahni()
+            if len(urls) < 1000:
+                # Porovnávač nás nepustil (napr. zo servera v zahraničí). Prázdny
+                # index neukladáme - inak by sa týždeň nepouživala kontrola vôbec.
+                raise RuntimeError(f"index trhu má len {len(urls)} produktov - porovnávač je nedostupný")
             CACHE.parent.mkdir(parents=True, exist_ok=True)
             with gzip.open(CACHE, "wt", encoding="utf-8") as f:
                 json.dump(urls, f)
