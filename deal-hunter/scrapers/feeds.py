@@ -193,6 +193,24 @@ class FeedsScraper(BaseScraper):
         """
         zdroj = feed_url.split("/")[2] if feed_url.count("/") >= 2 else "feed"
 
+        # Položky za 0 € sú v e-shopoch vzorky alebo darčeky k objednávke.
+        # Berieme len tie, ktoré to majú v názve či popise - inak môže byť
+        # 0 € len chýbajúca cena. Ide o freebie, nie o deal, preto mimo
+        # sledovania cien aj mimo stropu na lacné položky.
+        zadarmo = []
+        for c in candidates:
+            if c.deal_price == 0 and re.search(r"vzork|zadarmo|zdarma|darček|darcek|gratis|tester",
+                                                 f"{c.title} {c.description}", re.I):
+                c.zadarmo = True
+                c.explicit_discount_percent = 100
+                c.title = f"{c.title} – zadarmo k objednávke"[:180]
+                c.description = (f"{c.store or 'Obchod'} pridáva {c.title.split(' – ')[0]} zadarmo k objednávke. "
+                                 f"Samostatne sa zvyčajne objednať nedá - podmienky nájdeš v obchode.")
+                zadarmo.append(c)
+        if zadarmo:
+            logger.info("%s: %d položiek zadarmo k objednávke (vzorky, darčeky)", zdroj, len(zadarmo))
+        candidates = [c for c in candidates if not c.zadarmo]
+
         # Lacné položky von ešte pred sledovaním cien - to beží PRED
         # is_sane, takže bez tohto by sa do vedierok dostala každá
         # pätnásťcentová skrutka.
@@ -221,7 +239,7 @@ class FeedsScraper(BaseScraper):
         if so_zlavou:
             logger.info("%s: uvádza zľavy — v akcii %d z %d, sledovanie netreba",
                         zdroj, len(so_zlavou), len(candidates))
-            return so_zlavou
+            return so_zlavou + zadarmo
 
         if len(candidates) > config.FEED_WATCH_MAX:
             logger.info("%s: zľavy neuvádza — sledujem %d najdrahších z %d",
@@ -231,7 +249,7 @@ class FeedsScraper(BaseScraper):
         else:
             logger.info("%s: zľavy neuvádza — sledujem všetkých %d",
                         zdroj, len(candidates))
-        return candidates
+        return candidates + zadarmo
 
     def _parse_google_item(self, item: ET.Element) -> Optional[DealCandidate]:
         title = _first(item, f"{_G_NS}title", "title")

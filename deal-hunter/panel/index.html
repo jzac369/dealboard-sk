@@ -88,6 +88,20 @@ details summary{cursor:pointer;color:var(--mut);font-size:12.5px}
       <h2 style="margin-top:16px">Obchody pre lov zo servera</h2>
       <div id="obchody"></div>
     </section>
+
+    <section class="card">
+      <h2>Freebies zo slovenských stránok</h2>
+      <div class="sub" id="braveInfo" style="margin-bottom:8px"></div>
+      <div class="sub" style="margin-bottom:8px">Stránky značiek a obchodov, kde sa objavujú vzorky zadarmo alebo darčeky k nákupu. Agent ich denne skontroluje a ponuku overí zo stránky. Typ „vzorka" hľadá produkt zadarmo, typ „darček" vetu typu „darček zadarmo k nákupu nad 50 €".</div>
+      <table id="fsTab"></table>
+      <div class="row" style="margin-top:8px">
+        <input type="text" id="fsUrl" placeholder="https://..." style="width:340px">
+        <input type="text" id="fsNazov" placeholder="Názov (napr. Pampers vzorky)" style="width:200px">
+        <select id="fsTyp" style="background:#0f141c;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px"><option value="vzorka">vzorka</option><option value="darcek">darček k nákupu</option></select>
+        <button class="btn" id="fsPridaj">Pridať</button>
+      </div>
+      <div class="row" style="margin-top:8px"><input type="password" id="pin3" placeholder="PIN" inputmode="numeric"><button class="btn pri" id="fsUloz">Uložiť zoznam</button><span class="msg" id="msg3" style="margin:0"></span></div>
+    </section>
   </div>
 </div>
 
@@ -114,7 +128,7 @@ const TRH = [
   ['trhTolerancia', 'Tolerancia nad najnižšou cenou', '0.01 = 1 %'],
   ['trhMaxKontrol', 'Koľko kandidátov porovnať za beh', 'každé porovnanie = 1 stránka porovnávača'],
 ];
-const ZDROJE_POPIS = {feeds:'Affiliate feedy (Dognet, eHUB)', shop_feeds:'Feedy obchodov', zlacnene:'Zlacnene.sk (letáky)', sitemap:'Prehľadávanie obchodov (sitemap)', freebies:'Freebies (hry zadarmo: Epic, Steam, GOG)'};
+const ZDROJE_POPIS = {feeds:'Affiliate feedy (Dognet, eHUB)', shop_feeds:'Feedy obchodov', zlacnene:'Zlacnene.sk (letáky)', sitemap:'Prehľadávanie obchodov (sitemap)', freebies:'Freebies (hry zadarmo: Epic, Steam, GOG)', freebies_sk:'Freebies SK (vzorky, darčeky, Brave)'};
 const val = k => (S.nastavenia[k] ?? S.predvolene[k]);
 
 function pole([k, nazov, pozn]){
@@ -132,6 +146,7 @@ function kresli(){
   ].map(([t, v, s]) => `<div><div class="sub">${esc(t)}</div><div class="big">${esc(v)}</div>${s ? `<div class="sub">${esc(s)}</div>` : ''}</div>`).join('');
 
   kresliRozhodnutia();
+  kresliFS();
   $('nast').innerHTML = POLIA.map(pole).join('');
   $('trh').innerHTML = `<label class="f"><span>Trhová kontrola zapnutá<small>bez nej sa navrhujú dealy podľa zľavy obchodníka</small></span><input type="checkbox" id="trhKontrola" ${val('trhKontrola') === false ? '' : 'checked'}></label>` + TRH.map(pole).join('');
   const zap = val('zdroje') || [];
@@ -150,6 +165,17 @@ function kresli(){
 
   $('zalohy').innerHTML = S.zalohy.length ? '<table><tr><th>Deň</th><th>Veľkosť</th></tr>' + S.zalohy.map(z => `<tr><td>${esc(z.den)}</td><td>${z.mb} MB</td></tr>`).join('') + '</table>' : '<div class="sub">žiadne zálohy</div>';
   $('obchody').innerHTML = S.obchody.length ? '<table><tr><th>Obchod</th><th>Stránok</th><th></th></tr>' + S.obchody.map(o => `<tr><td>${esc(o.domena)}</td><td>${esc(o.strana || 40)}</td><td>${o.zap ? '<span class="ok">zap.</span>' : '<span class="sub">vyp.</span>'}</td></tr>`).join('') + '</table>' : '<div class="sub">žiadne</div>';
+}
+
+let FS = null;
+function kresliFS(){
+  if (FS === null) FS = (S.freebiesStranky || []).map(x => ({...x}));
+  $('braveInfo').innerHTML = S.braveKluc ? '<span class="ok">Vyhľadávanie cez Brave je zapnuté.</span>'
+    : 'Vyhľadávanie cez Brave na tomto serveri nie je nastavené (agent v GitHube ho používa, ak je v GitHub Secrets BRAVE_API_KEY).';
+  $('fsTab').innerHTML = FS.length ? '<tr><th>Stránka</th><th>Typ</th><th>Zap.</th><th></th></tr>' + FS.map((s, i) =>
+    `<tr><td>${esc(s.nazov || '')} <span class="sub">${esc(s.url)}</span></td><td>${s.typ === 'darcek' ? 'darček' : 'vzorka'}</td>
+     <td><input type="checkbox" data-fs-zap="${i}" ${s.zap === false ? '' : 'checked'}></td><td><button class="btn" data-fs-del="${i}">×</button></td></tr>`).join('')
+    : '<tr><td class="sub">Zoznam je prázdny. Pridaj stránku nižšie.</td></tr>';
 }
 
 function kresliRozhodnutia(){
@@ -190,6 +216,28 @@ document.addEventListener('click', async e => {
     setTimeout(nacitaj, 1500);
   }
 });
+
+document.addEventListener('change', e => {
+  const z = e.target.closest('[data-fs-zap]');
+  if (z) FS[+z.dataset.fsZap].zap = z.checked;
+});
+document.addEventListener('click', e => {
+  const d = e.target.closest('[data-fs-del]');
+  if (d) { FS.splice(+d.dataset.fsDel, 1); kresliFS(); }
+});
+$('fsPridaj').onclick = () => {
+  const url = $('fsUrl').value.trim();
+  if (!/^https:\/\//.test(url)) { $('msg3').innerHTML = '<span class="bad">Adresa musí začínať https://</span>'; return; }
+  FS.push({url, nazov: $('fsNazov').value.trim(), typ: $('fsTyp').value, zap: true});
+  $('fsUrl').value = ''; $('fsNazov').value = ''; kresliFS();
+};
+$('fsUloz').onclick = async () => {
+  const pin = $('pin3').value;
+  if (!pin) { $('msg3').innerHTML = '<span class="bad">Zadaj PIN.</span>'; return; }
+  const r = await post('api/freebies_stranky', {pin, stranky: FS});
+  $('msg3').innerHTML = `<span class="${r.ok ? 'ok' : 'bad'}">${esc(r.sprava)}</span>`;
+  if (r.ok) { FS = null; nacitaj(); }
+};
 
 $('ulozit').onclick = async () => {
   const pin = $('pin1').value;

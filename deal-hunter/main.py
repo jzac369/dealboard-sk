@@ -65,9 +65,12 @@ def is_sane(candidate: DealCandidate) -> bool:
 
     if candidate.zadarmo:
         # Freebie: zľava ani cena nedávajú zmysel, ostatné kontroly platia.
+        # Slová o vzorkách sú vo vylúčených kvôli dealom (vzorka za 2 € nie je
+        # deal), pri freebies sú to presne veci, ktoré hľadáme.
         nazov = candidate.title.lower()
+        vylucene = [s for s in config.EXCLUDED_TITLE_WORDS if not s.startswith(("vzork", "sample"))]
         return bool(candidate.title.strip() and candidate.url and not candidate.is_already_expired
-                    and not any(s in nazov for s in config.EXCLUDED_TITLE_WORDS))
+                    and not any(s in nazov for s in vylucene))
 
     if discount < config.MIN_DISCOUNT_PERCENT:
         return False

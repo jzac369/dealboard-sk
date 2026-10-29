@@ -137,6 +137,7 @@ def stav() -> dict:
     rozvrh = (d.document("settings/schedule").get().to_dict() or {}).get("jobs", {})
     behy = {k: (d.document(f"admin_info/{k}").get().to_dict() or {}) for k in ("agent_beh", "lov_server_beh")}
     obchody = (d.document("nastavenia_admin/sitemap_obchody_nuc").get().to_dict() or {}).get("obchody", [])
+    freebies_stranky = (d.document("nastavenia_admin/freebies_stranky").get().to_dict() or {}).get("stranky", [])
     from google.cloud.firestore_v1.base_query import FieldFilter
     cakajuce = len(list(d.collection(config.DEALS_COLLECTION)
                         .where(filter=FieldFilter("status", "==", "pending")).select([]).stream()))
@@ -148,6 +149,7 @@ def stav() -> dict:
                      "sitemapy": o.get("sitemapy", [])} for o in obchody],
         "ulohy": {k: {"popis": v[0], "cas": v[3], "bezi": bezi(k), "log": chvost(v[2])} for k, v in ULOHY.items()},
         "zalohy": zalohy(), "cas": datetime.now().isoformat(),
+        "freebiesStranky": freebies_stranky, "braveKluc": bool(os.environ.get("BRAVE_API_KEY")),
     })
 
 
@@ -213,6 +215,19 @@ def uloz_obchody(obchody: list) -> list[str]:
     return chyby
 
 
+def uloz_freebies_stranky(stranky: list) -> list[str]:
+    chyby, cisty = [], []
+    for s in stranky or []:
+        url = str(s.get("url") or "").strip()
+        if not url.startswith("https://"):
+            chyby.append(f"{url or '?'}: adresa musí začínať https://"); continue
+        typ = "darcek" if s.get("typ") == "darcek" else "vzorka"
+        cisty.append({"url": url[:500], "nazov": str(s.get("nazov") or "")[:80], "typ": typ, "zap": bool(s.get("zap", True))})
+    if not chyby:
+        db().document("nastavenia_admin/freebies_stranky").set({"stranky": cisty[:100]})
+    return chyby
+
+
 def spusti(uloha: str) -> tuple[bool, str]:
     if uloha not in ULOHY:
         return False, "neznáma úloha"
@@ -270,6 +285,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.poslat({"ok": True, "sprava": f"uložené ({len(zmeny)} hodnôt)"})
             if p == "/api/obchody":
                 chyby = uloz_obchody(body.get("obchody"))
+                return self.poslat({"ok": not chyby, "sprava": "; ".join(chyby) or "uložené"}, 400 if chyby else 200)
+            if p == "/api/freebies_stranky":
+                chyby = uloz_freebies_stranky(body.get("stranky"))
                 return self.poslat({"ok": not chyby, "sprava": "; ".join(chyby) or "uložené"}, 400 if chyby else 200)
             if p == "/api/spustit":
                 ok, sprava = spusti(str(body.get("uloha", "")))
