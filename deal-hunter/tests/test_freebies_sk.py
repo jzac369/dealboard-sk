@@ -12,10 +12,10 @@ from scrapers.freebies_sk import darcek_zo_stranky  # noqa: E402
 
 def test_darcek_k_nakupu_zo_stranky():
     html = ('<html><head><meta property="og:image" content="https://x/i.jpg"></head><body>'
-            '<div>DARČEK ZADARMO V HODNOTE 10 € A VIAC K NÁKUPU NAD 50 €</div><p>Proteíny</p></body></html>')
+            '<div>DARČEK ZADARMO V HODNOTE 10 € A VIAC K NÁKUPU NAD 50 €</div><p>populárne vyhľadávania kreatín</p></body></html>')
     c = darcek_zo_stranky("https://gymbeam.sk/", html)
     assert c is not None and c.zadarmo
-    assert "k nákupu nad 50 €" in c.title.lower()
+    assert c.title.lower().endswith("k nákupu nad 50 €")
     assert "nejde o produkt úplne zadarmo" in c.description.lower()
 
 

@@ -47,7 +47,8 @@ MAX_STRANOK = 25
 # Veta o darčeku k nákupu, napr. "DARČEK ZADARMO V HODNOTE 10 € A VIAC K NÁKUPU NAD 50 €".
 _DARCEK = re.compile(
     r"((?:darček|darcek|darčeky)[^.!\n]{0,80}?zadarmo[^.!\n]{0,80}?(?:k (?:nákupu|nakupu|objednávke|objednavke))"
-    r"[^.!\n]{0,40})", re.I)
+    # Veta končí podmienkou ("nad 50 €"); ďalší text na stránke už k nej nepatrí.
+    r"(?:\s+nad\s+\d+(?:[.,]\d+)?\s*(?:€|eur))?)", re.I)
 
 
 def brave_hladaj(dotaz: str, kluc: str) -> list[str]:
