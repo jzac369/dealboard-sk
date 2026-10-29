@@ -123,6 +123,64 @@ def deduplicate(
     return unique
 
 
+# Rozhodnutia trhovej kontroly z tohto behu - ukladajú sa pre panel na
+# serveri, aby bolo vidno, prečo kandidát (ne)prešiel.
+ROZHODNUTIA: list[dict] = []
+
+
+def uloz_prehlad_behu(db, nuc_lov: bool, najdenych: int, po_filtri: int, zapisanych: int) -> None:
+    """Krátky prehľad behu pre panel (admin_info/agent_beh alebo lov_server_beh)."""
+    from google.cloud import firestore as _fs
+    try:
+        db.document("admin_info/lov_server_beh" if nuc_lov else "admin_info/agent_beh").set({
+            "kedy": _fs.SERVER_TIMESTAMP, "zdroje": list(config.ENABLED_SCRAPERS),
+            "najdenych": najdenych, "poFiltri": po_filtri, "zapisanych": zapisanych,
+            "trhKontrola": config.TRH_KONTROLA, "rozhodnutia": ROZHODNUTIA[:60],
+        })
+    except Exception as e:
+        logger.warning("Prehľad behu sa neuložil: %s", e)
+
+
+def market_check(candidates: list[DealCandidate]) -> list[DealCandidate]:
+    """
+    Nechá len kandidátov, ktorých cena je najnižšia na Slovensku (trh.py).
+
+    Freebies prechádzajú bez porovnania - zadarmo je vždy najlacnejšie.
+    Porovnávame najviac TRH_MAX_KONTROL najsľubnejších (podľa zľavy), lebo
+    každé porovnanie je jedna stránka porovnávača. Kandidát, ktorého na trhu
+    nenájdeme, neprejde: radšej menej dealov, ale overených.
+    """
+    if not config.TRH_KONTROLA:
+        return candidates
+    import trh
+
+    zadarmo = [c for c in candidates if c.zadarmo]
+    ostatne = sorted((c for c in candidates if not c.zadarmo),
+                     key=lambda c: c.discount_percent, reverse=True)
+    try:
+        index = trh.Index.nacitaj()
+    except Exception as e:
+        logger.error("Trh: index sa nepodarilo načítať (%s) - bez kontroly nenavrhujem nič okrem freebies", e)
+        return zadarmo
+    prešli = []
+    for c in ostatne[: config.TRH_MAX_KONTROL]:
+        try:
+            vysledok = trh.over(c, index)
+        except Exception as e:
+            logger.warning("Trh: kontrola '%s' zlyhala: %s", c.title[:40], e)
+            vysledok = None
+            trh.POSLEDNY_DOVOD = f"chyba kontroly: {e}"
+        ROZHODNUTIA.append({"nazov": c.title[:90], "obchod": c.store or c.source,
+                            "cena": round(c.deal_price, 2), "zlava": round(c.discount_percent),
+                            "presiel": bool(vysledok), "dovod": trh.POSLEDNY_DOVOD[:120]})
+        if vysledok:
+            c.trh = vysledok
+            prešli.append(c)
+    logger.info("Trhová kontrola: porovnaných %d, najlacnejších na trhu %d, freebies %d",
+                min(len(ostatne), config.TRH_MAX_KONTROL), len(prešli), len(zadarmo))
+    return zadarmo + prešli
+
+
 def select_best(candidates: list[DealCandidate], limit: int,
                 dnes_obchody: dict[str, int] | None = None) -> list[DealCandidate]:
     """
@@ -504,7 +562,7 @@ def main() -> int:
 
     if config.DRY_RUN:
         logger.info("DRY_RUN — do Firestore sa nezapisuje.")
-        unique = deduplicate(sane, set(), set())
+        unique = market_check(deduplicate(sane, set(), set()))
         selected = select_best(unique, config.MAX_DEALS_PER_RUN)
         selected = drop_dead_links(selected)
         log_preview(selected)
@@ -562,6 +620,7 @@ def main() -> int:
 
     unique = deduplicate(sane, seen_keys, seen_urls)
     logger.info("Po deduplikácii: %d", len(unique))
+    unique = market_check(unique)
 
     dnes_obchody = firestore_client.obchody_dnes(db)
     if dnes_obchody:
@@ -580,6 +639,7 @@ def main() -> int:
     log_preview(selected)
 
     if not selected:
+        uloz_prehlad_behu(db, nuc_lov, len(raw), len(sane), 0)
         logger.info("=== Koniec. Nič nové na pridanie. ===")
         return 0
 
@@ -594,6 +654,7 @@ def main() -> int:
 
     written = firestore_client.write_pending_deals(db, documents)
     notify_telegram(written)
+    uloz_prehlad_behu(db, nuc_lov, len(raw), len(sane), len(written))
 
     logger.info("=== Koniec. Zapísaných %d návrhov, čakajú na schválenie. ===", len(written))
     return 0

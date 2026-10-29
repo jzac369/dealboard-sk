@@ -248,6 +248,16 @@ FIX_URLS = os.environ.get("FIX_URLS", "false").lower() == "true"
 # Nezapisovať do Firestore, len vypísať, čo by sa zapísalo.
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
+# Trhová kontrola (trh.py): navrhnúť len deal, ktorého cena je najnižšia na
+# Slovensku. Zapnutá predvolene - je to základný princíp HenKukaj.
+TRH_KONTROLA = os.environ.get("TRH_KONTROLA", "true").lower() == "true"
+# Koľko najsľubnejších kandidátov za beh porovnať s trhom (každý = 1 stránka).
+TRH_MAX_KONTROL = _env_int("TRH_MAX_KONTROL", 40)
+# Koľko obchodov musí produkt na trhu mať, aby sa dalo hovoriť o najnižšej cene.
+TRH_MIN_OBCHODOV = _env_int("TRH_MIN_OBCHODOV", 3)
+# O koľko (podiel) smie byť naša cena nad najnižšou na trhu (0.01 = 1 %).
+TRH_TOLERANCIA = _env_float("TRH_TOLERANCIA", 0.01)
+
 
 # ── Nastavenia z admin zóny (settings/agent) ──────────────────────────
 # Hodnoty vyššie sú predvolené. Admin ich vie prepísať bez zásahu do
@@ -268,6 +278,9 @@ _CISLA = {
     "maxNaKategoriu": ("MAX_PER_CATEGORY", 1, 50),
     "podielObmedzenych": ("CAPPED_CATEGORY_SHARE", 0, 1),
     "feedMinPokles": ("FEED_MIN_DROP_PERCENT", 0, 95),
+    "trhMinObchodov": ("TRH_MIN_OBCHODOV", 1, 20),
+    "trhTolerancia": ("TRH_TOLERANCIA", 0, 0.2),
+    "trhMaxKontrol": ("TRH_MAX_KONTROL", 1, 200),
 }
 _ZOZNAMY = {
     "obmedzeneKategorie": "CAPPED_CATEGORIES",
@@ -296,6 +309,9 @@ def pouzi_nastavenia(data: dict) -> list[str]:
         if isinstance(v, list) and all(isinstance(x, str) for x in v):
             g[premenna] = [x.strip() for x in v if x.strip()][:50]
             zmenene.append(f"{premenna}={g[premenna]}")
+    if isinstance(data.get("trhKontrola"), bool):
+        g["TRH_KONTROLA"] = data["trhKontrola"]
+        zmenene.append(f"TRH_KONTROLA={g['TRH_KONTROLA']}")
     zdroje = data.get("zdroje")
     if isinstance(zdroje, list) and zdroje:
         g["ENABLED_SCRAPERS"] = [str(x) for x in zdroje]

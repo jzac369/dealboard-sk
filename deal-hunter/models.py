@@ -223,6 +223,9 @@ class DealCandidate:
     currency: str = "€"
     # Produkt/vzorka/služba úplne zadarmo (freebie) - ide mimo pravidiel o zľave a cene.
     zadarmo: bool = False
+    # Výsledok trhovej kontroly (trh.py): najnižšia cena na Slovensku,
+    # počet obchodov, dátum porovnania. Bez nej sa deal nenavrhuje.
+    trh: Optional[dict] = None
     found_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -351,6 +354,7 @@ class DealCandidate:
             "dedupeKey": self.dedupe_key,
             "productKey": self.product_key,
             "foundAt": self.found_at,
+            **({"trh": self.trh} if self.trh else {}),
             "validUntil": self.valid_until,
             # ISO tvar sa dá porovnávať aj dotazovať - podľa neho beží
             # automatická exspirácia.

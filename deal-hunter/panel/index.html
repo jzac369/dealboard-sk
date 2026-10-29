@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HenKukaj agent</title>
+<style>
+:root{--bg:#0b0f14;--card:#121821;--line:#243041;--ink:#e6edf5;--mut:#8b9bb0;--ok:#3fb950;--bad:#f85149;--warn:#d29922;--acc:#ff7a1a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,"Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:14px}
+h1{font-size:18px;margin:0 0 4px}
+.sub{color:var(--mut);font-size:12.5px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;margin-top:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;grid-column:span 12;min-width:0}
+.s6{grid-column:span 6}.s4{grid-column:span 4}.s8{grid-column:span 8}
+@media(max-width:900px){.s6,.s4,.s8{grid-column:span 12}}
+h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 10px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.big{font-size:26px;font-weight:700}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.kpi div{background:#0f141c;border:1px solid var(--line);border-radius:10px;padding:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:12px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.tag{display:inline-block;border-radius:99px;padding:1px 8px;font-size:11.5px;font-weight:700}
+.tag.ok{background:rgba(63,185,80,.15)}.tag.bad{background:rgba(248,81,73,.13)}
+label.f{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+label.f span{flex:1}
+label.f small{display:block;color:var(--mut);font-size:11.5px}
+input[type=number],input[type=text],input[type=password]{background:#0f141c;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;width:120px}
+input[type=text].w{width:100%}
+.btn{background:#1b2533;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#111;font-weight:700}
+.btn:disabled{opacity:.5;cursor:default}
+pre{background:#0f141c;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11.5px;max-height:190px;overflow:auto;white-space:pre-wrap;margin:6px 0 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.msg{min-height:18px;font-size:12.5px;margin-top:6px}
+.chips label{display:inline-flex;gap:5px;align-items:center;margin:0 12px 6px 0}
+details summary{cursor:pointer;color:var(--mut);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>HenKukaj – agent na hľadanie dealov</h1>
+  <div class="sub" id="cas">Načítavam…</div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Prehľad</h2>
+      <div class="kpi" id="kpi"></div>
+    </section>
+
+    <section class="card">
+      <h2>Posledný beh: trhová kontrola <span class="sub" id="behInfo"></span></h2>
+      <div class="sub" style="margin-bottom:8px">Deal sa navrhne len vtedy, keď je jeho cena najnižšia na Slovensku (porovnávač Pricemania.sk). Tu je vidno, čo prešlo a prečo ostatné nie.</div>
+      <div class="row" style="margin-bottom:8px"><button class="btn" data-beh="agent_beh">Hlavný agent (GitHub)</button><button class="btn" data-beh="lov_server_beh">Lov zo servera</button></div>
+      <div id="rozhodnutia"></div>
+    </section>
+
+    <section class="card s6">
+      <h2>Nastavenia agenta</h2>
+      <div class="sub">Ukladajú sa do databázy (settings/agent) – platia pre agenta v GitHube, lov zo servera aj admin na webe.</div>
+      <div id="nast"></div>
+    </section>
+
+    <section class="card s6">
+      <h2>Trhová kontrola a zdroje</h2>
+      <div id="trh"></div>
+      <h2 style="margin-top:16px">Zdroje dealov</h2>
+      <div class="chips" id="zdroje"></div>
+      <h2 style="margin-top:16px">Vylúčené slová a kategórie</h2>
+      <label class="f" style="display:block"><span>Vylúčené slová v názve <small>oddelené čiarkou</small></span><input type="text" class="w" id="vylucenaSlova"></label>
+      <label class="f" style="display:block"><span>Zakázané kategórie <small>oddelené čiarkou, napr. Jedlo &amp; Nápoje</small></span><input type="text" class="w" id="blokovaneKategorie"></label>
+      <div class="row" style="margin-top:12px"><input type="password" id="pin1" placeholder="PIN" inputmode="numeric"><button class="btn pri" id="ulozit">Uložiť nastavenia</button></div>
+      <div class="msg" id="msg1"></div>
+    </section>
+
+    <section class="card s8">
+      <h2>Úlohy servera</h2>
+      <div id="ulohy"></div>
+      <div class="row" style="margin-top:8px"><input type="password" id="pin2" placeholder="PIN na spustenie" inputmode="numeric"><span class="msg" id="msg2" style="margin:0"></span></div>
+    </section>
+
+    <section class="card s4">
+      <h2>Zálohy databázy</h2>
+      <div id="zalohy"></div>
+      <h2 style="margin-top:16px">Obchody pre lov zo servera</h2>
+      <div id="obchody"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const kedy = iso => { if (!iso) return '–'; const d = new Date(iso); return d.toLocaleString('sk-SK', {day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit'}); };
+let S = null, behKluc = 'agent_beh';
+
+// Popisy nastavení v ľudskej reči. Kľúče sú rovnaké ako v databáze.
+const POLIA = [
+  ['maxNaBeh', 'Dealov na jeden beh', 'koľko návrhov najviac pošle jeden beh'],
+  ['maxNaDen', 'Dealov za deň', 'denný strop pre agenta'],
+  ['maxNaObchod', 'Max. z jedného obchodu', 'v jednom behu'],
+  ['maxNaKategoriu', 'Max. z jednej kategórie', 'v jednom behu'],
+  ['minZlava', 'Minimálna zľava (%)', 'kandidát s menšou zľavou sa ani neporovnáva'],
+  ['maxZlava', 'Maximálna zľava (%)', 'vyššia býva chyba v cene'],
+  ['minCena', 'Minimálna cena (€)', 'lacnejšie drobnosti sa vynechajú'],
+  ['znovaPoDnochZverejnene', 'Znova navrhnúť zverejnený po (dňoch)', ''],
+  ['znovaPoDnochZamietnute', 'Znova navrhnúť zamietnutý po (dňoch)', ''],
+];
+const TRH = [
+  ['trhMinObchodov', 'Min. počet obchodov na trhu', 'menej obchodov = nedá sa tvrdiť, že je to najlacnejšie'],
+  ['trhTolerancia', 'Tolerancia nad najnižšou cenou', '0.01 = 1 %'],
+  ['trhMaxKontrol', 'Koľko kandidátov porovnať za beh', 'každé porovnanie = 1 stránka porovnávača'],
+];
+const ZDROJE_POPIS = {feeds:'Affiliate feedy (Dognet, eHUB)', shop_feeds:'Feedy obchodov', zlacnene:'Zlacnene.sk (letáky)', sitemap:'Prehľadávanie obchodov (sitemap)'};
+const val = k => (S.nastavenia[k] ?? S.predvolene[k]);
+
+function pole([k, nazov, pozn]){
+  return `<label class="f"><span>${esc(nazov)}${pozn ? `<small>${esc(pozn)}</small>` : ''}</span><input type="number" step="any" data-k="${k}" value="${esc(val(k))}"></label>`;
+}
+
+function kresli(){
+  $('cas').textContent = 'Aktualizované ' + kedy(S.cas) + (S.nastavenia.upravene ? ' · nastavenia naposledy zmenil ' + (S.nastavenia.upravil || '?') + ' ' + kedy(S.nastavenia.upravene) : '');
+  const a = S.behy.agent_beh || {}, l = S.behy.lov_server_beh || {};
+  $('kpi').innerHTML = [
+    ['Čaká na schválenie', S.cakajuce],
+    ['Hlavný agent', a.kedy ? `${a.zapisanych ?? 0} návrhov` : '–', a.kedy ? kedy(a.kedy) : 'zatiaľ bez prehľadu'],
+    ['Lov zo servera', l.kedy ? `${l.zapisanych ?? 0} návrhov` : '–', l.kedy ? kedy(l.kedy) : 'zatiaľ bez prehľadu'],
+    ['Trhová kontrola', val('trhKontrola') === false ? 'VYPNUTÁ' : 'zapnutá', `min. ${val('trhMinObchodov')} obchody`],
+  ].map(([t, v, s]) => `<div><div class="sub">${esc(t)}</div><div class="big">${esc(v)}</div>${s ? `<div class="sub">${esc(s)}</div>` : ''}</div>`).join('');
+
+  kresliRozhodnutia();
+  $('nast').innerHTML = POLIA.map(pole).join('');
+  $('trh').innerHTML = `<label class="f"><span>Trhová kontrola zapnutá<small>bez nej sa navrhujú dealy podľa zľavy obchodníka</small></span><input type="checkbox" id="trhKontrola" ${val('trhKontrola') === false ? '' : 'checked'}></label>` + TRH.map(pole).join('');
+  const zap = val('zdroje') || [];
+  $('zdroje').innerHTML = S.zdrojeMozne.map(z => `<label><input type="checkbox" data-zdroj="${z}" ${zap.includes(z) ? 'checked' : ''}> ${esc(ZDROJE_POPIS[z] || z)}</label>`).join('');
+  $('vylucenaSlova').value = (val('vylucenaSlova') || []).join(', ');
+  $('blokovaneKategorie').value = (val('blokovaneKategorie') || []).join(', ');
+
+  $('ulohy').innerHTML = Object.entries(S.ulohy).map(([k, u]) => `
+    <div style="border-bottom:1px solid var(--line);padding:8px 0">
+      <div class="row" style="justify-content:space-between">
+        <div><b>${esc(u.popis)}</b> <span class="sub">· ${esc(u.cas)} · log ${kedy(u.log.zmenene)}</span> ${u.bezi ? '<span class="tag ok">beží</span>' : ''}</div>
+        <button class="btn" data-spust="${k}" ${u.bezi ? 'disabled' : ''}>Spustiť teraz</button>
+      </div>
+      <details><summary>posledný log</summary><pre>${esc(u.log.riadky.join('\n')) || 'zatiaľ prázdny'}</pre></details>
+    </div>`).join('');
+
+  $('zalohy').innerHTML = S.zalohy.length ? '<table><tr><th>Deň</th><th>Veľkosť</th></tr>' + S.zalohy.map(z => `<tr><td>${esc(z.den)}</td><td>${z.mb} MB</td></tr>`).join('') + '</table>' : '<div class="sub">žiadne zálohy</div>';
+  $('obchody').innerHTML = S.obchody.length ? '<table><tr><th>Obchod</th><th>Stránok</th><th></th></tr>' + S.obchody.map(o => `<tr><td>${esc(o.domena)}</td><td>${esc(o.strana || 40)}</td><td>${o.zap ? '<span class="ok">zap.</span>' : '<span class="sub">vyp.</span>'}</td></tr>`).join('') + '</table>' : '<div class="sub">žiadne</div>';
+}
+
+function kresliRozhodnutia(){
+  document.querySelectorAll('[data-beh]').forEach(b => b.classList.toggle('pri', b.dataset.beh === behKluc));
+  const b = S.behy[behKluc] || {};
+  $('behInfo').textContent = b.kedy ? `${kedy(b.kedy)} · nájdených ${b.najdenych ?? '?'}, po filtri ${b.poFiltri ?? '?'}, zapísaných ${b.zapisanych ?? 0}` : '';
+  const r = b.rozhodnutia || [];
+  if (!b.kedy) { $('rozhodnutia').innerHTML = '<div class="sub">Tento beh ešte neprebehol s novou verziou agenta.</div>'; return; }
+  if (!r.length) { $('rozhodnutia').innerHTML = '<div class="sub">V tomto behu sa neporovnával žiadny kandidát' + (b.trhKontrola === false ? ' (kontrola bola vypnutá).' : '.') + '</div>'; return; }
+  $('rozhodnutia').innerHTML = '<table><tr><th>Výsledok</th><th>Produkt</th><th>Obchod</th><th>Cena</th><th>Dôvod</th></tr>' +
+    r.map(x => `<tr><td>${x.presiel ? '<span class="tag ok">navrhnuté</span>' : '<span class="tag bad">vyradené</span>'}</td><td>${esc(x.nazov)}</td><td>${esc(x.obchod)}</td><td>${Number(x.cena).toFixed(2)} €</td><td class="sub">${esc(x.dovod)}</td></tr>`).join('') + '</table>';
+}
+
+async function nacitaj(){
+  try {
+    const r = await fetch('api/stav', {cache:'no-store'});
+    const d = await r.json();
+    if (d.chyba) throw new Error(d.chyba);
+    S = d; kresli();
+  } catch (e) { $('cas').innerHTML = '<span class="bad">Panel sa nepodarilo načítať: ' + esc(e.message) + '</span>'; }
+}
+
+async function post(url, data){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+  return r.json();
+}
+
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-beh]');
+  if (b) { behKluc = b.dataset.beh; kresliRozhodnutia(); return; }
+  const s = e.target.closest('[data-spust]');
+  if (s) {
+    const pin = $('pin2').value;
+    if (!pin) { $('msg2').innerHTML = '<span class="bad">Zadaj PIN.</span>'; return; }
+    s.disabled = true;
+    const r = await post('api/spustit', {pin, uloha: s.dataset.spust});
+    $('msg2').innerHTML = `<span class="${r.ok ? 'ok' : 'bad'}">${esc(r.sprava)}</span>`;
+    setTimeout(nacitaj, 1500);
+  }
+});
+
+$('ulozit').onclick = async () => {
+  const pin = $('pin1').value;
+  if (!pin) { $('msg1').innerHTML = '<span class="bad">Zadaj PIN.</span>'; return; }
+  const n = {};
+  document.querySelectorAll('input[data-k]').forEach(i => { if (i.value !== '') n[i.dataset.k] = Number(i.value); });
+  n.trhKontrola = $('trhKontrola').checked;
+  n.zdroje = [...document.querySelectorAll('[data-zdroj]:checked')].map(i => i.dataset.zdroj);
+  n.vylucenaSlova = $('vylucenaSlova').value;
+  n.blokovaneKategorie = $('blokovaneKategorie').value;
+  $('ulozit').disabled = true;
+  const r = await post('api/nastavenia', {pin, nastavenia: n});
+  $('ulozit').disabled = false;
+  $('msg1').innerHTML = `<span class="${r.ok ? 'ok' : 'bad'}">${esc(r.sprava)}</span>`;
+  if (r.ok) nacitaj();
+};
+
+nacitaj();
+setInterval(nacitaj, 60000);
+</script>
+</body>
+</html>
