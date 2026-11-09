@@ -32,6 +32,12 @@ logger = logging.getLogger(__name__)
 
 MAX_URL_NA_SITEMAP = 60000
 
+# Koľko stiahnutí za sebou musí zlyhať (napr. obchod dá na každú stránku
+# HTTP 403), aby sme usúdili, že nás blokuje, a prestali márne skúšať
+# zvyšok vzorky. Nižšie číslo by mohlo zbytočne vzdať obchod, ktorý mal
+# len chvíľkový výpadok siete.
+BLOKOVANY_PO_ZA_SEBOU = 5
+
 
 def parsuj_sitemapu(obsah: bytes) -> tuple[list[str], list[str]]:
     """Vráti (odkazy na stránky, odkazy na ďalšie sitemapy). Zvláda aj .gz."""
@@ -87,20 +93,33 @@ class SitemapHuntScraper(BaseScraper):
         pocet = int(obchod.get("strana") or config.SITEMAP_STRANA_NA_OBCHOD)
         vzorka = vyber_vzorku(urls, pocet)
         najdene: list[DealCandidate] = []
-        for url in vzorka:
+        zlyhani_za_sebou = 0
+        i = -1
+        for i, url in enumerate(vzorka):
+            c = None
             try:
                 html = http_client.get(url, check_robots=True)
                 c = over_stranku(url, html, "deal", "") if html else None
             except Exception as e:
                 logger.warning("sitemap: %s: %s", url[:70], e)
-                continue
+                html = None
+            # Stiahnutie zlyhalo (napr. HTTP 403) - inak než "stránka nemá
+            # zľavu" (to je c is None, ale html nie je None).
+            zlyhani_za_sebou = zlyhani_za_sebou + 1 if html is None else 0
+            if zlyhani_za_sebou >= BLOKOVANY_PO_ZA_SEBOU:
+                logger.warning(
+                    "sitemap %s: posledných %d stiahnutí zlyhalo za sebou - obchod nás asi blokuje, "
+                    "vzdávam zvyšok vzorky (%d z %d stránok vynechaných)",
+                    domena, zlyhani_za_sebou, len(vzorka) - i - 1, len(vzorka))
+                break
             if c:
                 najdene.append(c)
-        logger.info("sitemap %s: %d stránok z %d, so zľavou %d", domena, len(vzorka), len(urls), len(najdene))
+        pokusov = i + 1   # skutočne stiahnuté stránky (menej ako vzorka, ak sme obchod vzdali skôr)
+        logger.info("sitemap %s: %d stránok z %d, so zľavou %d", domena, pokusov, len(urls), len(najdene))
         # Obchod, ktorý má "v akcii" väčšinu sortimentu, má prečiarknuté ceny
         # trvalo - rovnaké pravidlo ako pri feedoch (FEED_MAX_SALE_SHARE).
-        if len(vzorka) >= 10 and len(najdene) / len(vzorka) > config.FEED_MAX_SALE_SHARE:
+        if pokusov >= 10 and len(najdene) / pokusov > config.FEED_MAX_SALE_SHARE:
             logger.warning("sitemap %s: v akcii %d %% vzorky - prečiarknutým cenám neverím, zahadzujem",
-                           domena, round(len(najdene) / len(vzorka) * 100))
+                           domena, round(len(najdene) / pokusov * 100))
             return []
         return najdene
