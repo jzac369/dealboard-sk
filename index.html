@@ -3840,8 +3840,11 @@ body.food-page { background: #FAF8F5; }
   .fp-row { padding: 14px 6px; }
   .fp-trend, .fp-spark { display: none; }
   .fp-others { padding-left: 0; }
-  .fp-name { width: auto; flex: 1 1 auto; min-width: 0; }
-  .fp-best { width: auto; flex: none; margin-left: auto; }
+  /* Základ 0, nie auto: pri "auto" dlhý názov zväčšil svoju šírku na celý
+     text a cena s "+" spadli na ďalší riadok. Takto sa názov zalomí vo
+     vlastnom stĺpci a cena aj "+" zostanú vpravo vedľa neho. */
+  .fp-name { width: auto; flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+  .fp-best { width: auto; flex: none; margin-left: auto; white-space: nowrap; }
   .fp-others { flex: 1 1 100%; flex-wrap: wrap; overflow: visible; order: 3; }
   .fp-add { order: 2; }
 
